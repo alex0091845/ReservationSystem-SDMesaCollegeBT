@@ -1,0 +1,319 @@
+/* Dynamic Styling for Width <= 1200px */
+
+@media (max-width: 1200px) {
+    .wrapper {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        align-items: start;
+        gap: 20px;
+    }
+
+    .left-column {
+        display: contents;
+        width: 100%;
+    }
+
+    .calendar {
+        grid-column: 1;
+        grid-row: 1;
+        height: 320px;
+        padding: 14px;
+    }
+
+    .calendar-header {
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .calendar-title {
+        font-size: 19px;
+    }
+
+    .calendar .nav-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 16px;
+    }
+
+    .days {
+        gap: 4px;
+        margin-bottom: 8px;
+    }
+
+    .days div {
+        font-size: 11px;
+    }
+
+    .dates {
+        gap: 4px;
+    }
+
+    .date {
+        border-radius: 7px;
+        font-size: 12px;
+    }
+
+    .upcoming-events {
+        display: flex;
+        flex-direction: column;
+        align-self: stretch;
+        grid-column: 2;
+        grid-row: 1;
+        height: 320px;
+        padding: 16px;
+    }
+
+    .upcoming-events h3 {
+        margin-bottom: 12px;
+        font-size: 20px;
+    }
+
+    .upcoming-events-list {
+        flex: 1;
+        gap: 8px;
+    }
+
+    .upcoming-event-card {
+        padding: 10px 10px 10px 9px;
+        border-radius: 10px;
+    }
+
+    .upcoming-event-title {
+        font-size: 13px;
+    }
+
+    .upcoming-event-date,
+    .upcoming-event-time,
+    .upcoming-empty {
+        font-size: 12px;
+    }
+
+    .side-panel {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .week-view {
+        padding: 18px;
+    }
+
+    .week-view-header {
+        margin-bottom: 16px;
+    }
+
+    .week-view-title {
+        font-size: 21px;
+    }
+
+    .week-view .nav-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 18px;
+    }
+
+    .week-event {
+        padding: 7px 6px;
+        font-size: 11px;
+    }
+}
+
+/* Dynamic Styling for Width <= 900px */
+
+@media (max-width: 900px) {
+    .week-grid {
+        overflow-x: hidden;
+    }
+
+    .week-header,
+    .week-row {
+        grid-template-columns: 60px repeat(7, minmax(0, 1fr));
+    }
+
+    .week-day-name {
+        font-size: 12px;
+    }
+
+    .week-day-number {
+        font-size: 16px;
+    }
+
+    .week-time-label {
+        font-size: 12px;
+    }
+
+    .week-event {
+        padding: 6px 5px;
+        font-size: 11px;
+    }
+}
+
+/* Dynamic Styling for Width <= 720px */
+
+@media (max-width: 720px) {
+    .wrapper {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .left-column {
+        display: flex;
+        width: 100%;
+    }
+
+    .calendar,
+    .upcoming-events,
+    .side-panel {
+        width: 100%;
+    }
+
+    .calendar {
+        height: auto;
+        padding: 16px;
+    }
+
+    .calendar-header {
+        margin-bottom: 12px;
+    }
+
+    .calendar-title {
+        font-size: 20px;
+    }
+
+    .calendar .nav-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+
+    .days {
+        gap: 5px;
+        margin-bottom: 9px;
+    }
+
+    .days div {
+        font-size: 11px;
+    }
+
+    .dates {
+        gap: 5px;
+    }
+
+    .date {
+        min-height: 34px;
+        font-size: 12px;
+    }
+
+    .upcoming-events {
+        height: auto;
+        padding: 18px;
+    }
+
+    .upcoming-events h3 {
+        font-size: 20px;
+    }
+
+    .upcoming-event-title {
+        font-size: 13px;
+    }
+
+    .upcoming-event-date,
+    .upcoming-event-time {
+        font-size: 12px;
+    }
+
+    .week-view {
+        padding: 18px;
+    }
+
+    .week-view-title {
+        font-size: 20px;
+    }
+
+    .week-view .nav-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 16px;
+    }
+
+    .week-grid {
+        overflow-x: auto;
+    }
+
+    .week-header,
+    .week-row {
+        grid-template-columns: 70px repeat(7, minmax(90px, 1fr));
+    }
+
+    .week-event {
+        padding: 8px 6px;
+        font-size: 12px;
+    }
+}
+
+/* Dynamic Styles for Small Screens */
+
+@media (max-width: 320px) {
+    body {
+        padding: 10px;
+    }
+
+    .calendar {
+        padding: 14px;
+    }
+
+    .days,
+    .dates {
+        gap: 4px;
+    }
+
+    .days {
+        margin-bottom: 10px;
+    }
+
+    .days div {
+        font-size: 11px;
+    }
+
+    .date {
+        min-height: 30px;
+        border-radius: 8px;
+        font-size: 12px;
+    }
+
+    .calendar-title,
+    .week-view-title {
+        font-size: 18px;
+    }
+
+    .nav-btn {
+        width: 30px;
+        height: 30px;
+        font-size: 15px;
+    }
+
+    .upcoming-events {
+        padding: 14px;
+    }
+
+    .upcoming-events h3 {
+        font-size: 18px;
+    }
+
+    .upcoming-event-title {
+        font-size: 12px;
+    }
+
+    .upcoming-event-date,
+    .upcoming-event-time {
+        font-size: 11px;
+    }
+
+    .week-view {
+        padding: 14px;
+    }
+
+    .week-event {
+        padding: 7px 5px;
+        font-size: 11px;
+    }
+}

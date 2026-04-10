@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mock up calendar</title>
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+
+<body>
+    <!-- Navbar including Login Button -->
+    <header class="navbar">
+        <div class="nav-left">
+            <h1 class="nav-title">Reservation System</h1>
+        </div>
+        <div class="nav-right">
+            <button class="login-btn" id="loginBtn">Faculty Login</button>
+        </div>
+    </header>
+    <!-- Widget Wrapper -->
+    <div class="wrapper">
+        <div class="left-column">
+            <!-- Month-View Calendar -->
+            <div class="calendar">
+                <div class="calendar-header">
+                    <button class="nav-btn" id="prevMonthBtn">&#8592;</button>
+                    <h2 class="calendar-title" id="calendarTitle">Calendar</h2>
+                    <button class="nav-btn" id="nextMonthBtn">&#8594;</button>
+                </div>
+
+                <div class="days">
+                    <div>Sun</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                </div>
+
+                <div class="dates" id="dates"></div>
+            </div>
+            <!-- Upcoming Events Widget -->
+            <div class="upcoming-events">
+                <h3>Upcoming Events</h3>
+                <div class="upcoming-events-list" id="upcomingEventsList"></div>
+            </div>
+        </div>
+        <!-- Large Column Panel for Week-View Widget -->
+        <div class="side-panel">
+            <!-- Week-View Widget -->
+            <div class="week-view">
+                <div class="week-view-header">
+                    <button class="nav-btn" id="prevWeekBtn">&#8592;</button>
+                    <h3 class="week-view-title" id="weekViewTitle">Week View</h3>
+                    <button class="nav-btn" id="nextWeekBtn">&#8594;</button>
+                </div>
+
+                <div class="week-grid" id="weekViewWrapper"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Page Layout -->
+    <div class="modal-overlay" id="eventModalOverlay" aria-hidden="true">
+
+        <!-- Header for event title and department -->
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalEventTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="modalEventTitle">Event Title</h2>
+                    <div class="modal-event-department" id="modalEventDepartment">Department</div>
+                </div>
+                <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close event">&times;</button>
+            </div>
+
+            <!-- Event Details -->
+            <div class="modal-content">
+                <div class="modal-field">
+                    <div class="modal-label">Instructor</div>
+                    <div class="modal-value" id="modalInstructor">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Date</div>
+                    <div class="modal-value" id="modalDate">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Time</div>
+                    <div class="modal-value" id="modalTime">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Description</div>
+                    <div class="modal-value" id="modalDescription">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

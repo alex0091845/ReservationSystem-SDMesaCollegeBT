@@ -1,0 +1,54 @@
+/* Upcoming Events */
+
+.upcoming-events h3 {
+    margin: 0 0 14px;
+    font-size: 22px;
+    line-height: 1.2;
+}
+
+.upcoming-events-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.upcoming-event-card {
+    border: 1px solid #e5e7eb;
+    border-left-width: 6px;
+    border-radius: 12px;
+    padding: 12px 12px 12px 10px;
+    background: #fafafa;
+    cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        background-color 0.18s ease;
+}
+
+.upcoming-event-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.upcoming-event-title {
+    margin-bottom: 5px;
+    color: #111827;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.upcoming-event-date,
+.upcoming-event-time {
+    color: #dadada;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.upcoming-empty {
+    padding: 4px 0;
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.5;
+}
