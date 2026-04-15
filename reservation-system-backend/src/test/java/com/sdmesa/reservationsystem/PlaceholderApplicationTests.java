@@ -1,4 +1,4 @@
-package com.reservationsystem.placeholder;
+package com.sdmesa.reservationsystem;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

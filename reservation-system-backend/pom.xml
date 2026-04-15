@@ -8,7 +8,7 @@
 		<version>4.0.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.reservationsystem</groupId>
+	<groupId>com.sdmesa.reservationsystem</groupId>
 	<artifactId>reservation-system-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>
