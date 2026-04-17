@@ -18,10 +18,10 @@ CREATE TABLE users (
 CREATE TABLE reservations (
   reservation_id SERIAL PRIMARY KEY,
   user_id INT NOT NULL,
-  check_in_date DATE NOT NULL,
-  check_out_date DATE NOT NULL,
+  start TIMESTAMPTZ NOT NULL,
+  "end" TIMESTAMPTZ NOT NULL,
   event_type TEXT,
   description TEXT,
   FOREIGN KEY (user_id) REFERENCES users(user_id),
-  CHECK(check_out_date > check_in_date)
+  CHECK ("end" > start)
 );
