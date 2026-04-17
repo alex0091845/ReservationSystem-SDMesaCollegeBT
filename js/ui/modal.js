@@ -1,5 +1,11 @@
 import { formatReadableDate, getEventDateTime } from "../utils/dateUtils.js";
 
+const reservationModalOverlay = document.getElementById("reservationModalOverlay");
+const openReservationModalBtn = document.getElementById("openReservationModalBtn");
+const reservationModalCloseBtn = document.getElementById("reservationModalCloseBtn");
+const reservationCancelBtn = document.getElementById("reservationCancelBtn");
+const reservationForm = document.getElementById("reservationForm");
+
 export function createModalController(elements) {
     const {
         eventModalOverlay,
@@ -36,3 +42,42 @@ export function createModalController(elements) {
         closeEventModal
     };
 }
+
+function openReservationModal() {
+    reservationModalOverlay.classList.add("active");
+    reservationModalOverlay.setAttribute("aria-hidden", "false");
+}
+
+function closeReservationModal() {
+    reservationModalOverlay.classList.remove("active");
+    reservationModalOverlay.setAttribute("aria-hidden", "true");
+    reservationForm.reset();
+}
+
+if (openReservationModalBtn) {
+    openReservationModalBtn.addEventListener("click", openReservationModal);
+}
+
+reservationModalCloseBtn.addEventListener("click", closeReservationModal);
+reservationCancelBtn.addEventListener("click", closeReservationModal);
+
+// Allows exiting modal with click
+reservationModalOverlay.addEventListener("click", (event) => {
+    if (event.target === reservationModalOverlay) {
+        closeReservationModal();
+    }
+});
+
+// Allows exiting modal with escape key
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && reservationModalOverlay.classList.contains("active")) {
+        closeReservationModal();
+    }
+});
+
+// Sends data back after form is completed
+reservationForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    // FILL THIS OUT
+    closeReservationModal();
+});

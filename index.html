@@ -15,6 +15,7 @@
             <h1 class="nav-title">Reservation System</h1>
         </div>
         <div class="nav-right">
+            <button class="login-btn" id="openReservationModalBtn">Create Reservation</button>
             <button class="login-btn" id="loginBtn">Faculty Login</button>
         </div>
     </header>
@@ -101,6 +102,58 @@
     </div>
 
     <script type="module" src="js/main.js"></script>
+    <div class="modal-overlay" id="reservationModalOverlay" aria-hidden="true">
+        <div class="modal reservation-modal" role="dialog" aria-modal="true" aria-labelledby="reservationModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="reservationModalTitle">Create Reservation</h2>
+                    <div class="modal-event-department">Reserve a study room event</div>
+                </div>
+                <button class="modal-close-btn" id="reservationModalCloseBtn"
+                    aria-label="Close reservation form">&times;</button>
+            </div>
+    
+            <form class="reservation-form" id="reservationForm">
+                <div class="reservation-grid">
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationTitle">Event Title</label>
+                        <input class="reservation-input" id="reservationTitle" name="title" type="text" required>
+                    </div>
+    
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationDepartment">Department</label>
+                        <input class="reservation-input" id="reservationDepartment" name="department" type="text" required>
+                    </div>
+    
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationInstructor">Instructor / Organizer</label>
+                        <input class="reservation-input" id="reservationInstructor" name="instructor" type="text" required>
+                    </div>
+    
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationStart">Start</label>
+                        <input class="reservation-input" id="reservationStart" name="start" type="datetime-local" required>
+                    </div>
+                    
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationEnd">End</label>
+                        <input class="reservation-input" id="reservationEnd" name="end" type="datetime-local" required>
+                    </div>
+    
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="reservationDescription">Description</label>
+                        <textarea class="reservation-input reservation-textarea" id="reservationDescription"
+                            name="description" rows="4" required></textarea>
+                    </div>
+                </div>
+    
+                <div class="reservation-actions">
+                    <button type="button" class="reservation-secondary-btn" id="reservationCancelBtn">Cancel</button>
+                    <button type="submit" class="reservation-primary-btn">Create Reservation</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
 
 </html>
