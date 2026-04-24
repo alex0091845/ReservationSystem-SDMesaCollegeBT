@@ -126,8 +126,20 @@
                     </div>
     
                     <div class="modal-field">
-                        <label class="modal-label" for="reservationInstructor">Instructor / Organizer</label>
-                        <input class="reservation-input" id="reservationInstructor" name="instructor" type="text" required>
+                        <label class="modal-label" for="reservationOrganizer">Organizer</label>
+                        <input class="reservation-input" id="reservationOrganizer" name="Organizer" type="text" required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationType">Event Type</label>
+                        <select class="reservation-input reservation-select" id="reservationType" name="type" required>
+                            <option value="" disabled selected>Select event type</option>
+                            <option value="Study">Study</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Work">Work</option>
+                            <option value="Office Hours">Office Hours</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
     
                     <div class="modal-field">
@@ -138,6 +150,32 @@
                     <div class="modal-field">
                         <label class="modal-label" for="reservationEnd">End</label>
                         <input class="reservation-input" id="reservationEnd" name="end" type="datetime-local" required>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <div class="modal-label">Event Access</div>
+                    
+                        <div class="visibility-toggle" role="radiogroup" aria-label="Event access">
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="open" checked>
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Open to everyone</span>
+                                    <span class="visibility-description">
+                                        Anyone can view and attend this event
+                                    </span>
+                                </span>
+                            </label>
+                    
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="private">
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Private</span>
+                                    <span class="visibility-description">
+                                        Only select participants can attend
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
     
                     <div class="modal-field reservation-full">
