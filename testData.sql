@@ -38,5 +38,5 @@ SELECT
   'User event'
 FROM users WHERE email = 'testUser123@gmail.com';
 
-INSERT INTO rooms (room_number, capacity, floor)
+INSERT INTO rooms (room_number, current_people, floor)
 VALUES (101, 4, 2);
