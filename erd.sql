@@ -29,6 +29,6 @@ CREATE TABLE reservations (
 CREATE TABLE rooms(
   room_id SERIAL PRIMARY KEY,
   room_number INT NOT NULL,
-  capacity INT NOT NULL,
+  current_people INT NOT NULL,
   floor INT NOT NULL,
 );
