@@ -1,0 +1,80 @@
+/* Shared Panels */
+
+.calendar,
+.upcoming-events,
+.week-view {
+    width: 100%;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.calendar {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    height: 380px;
+    padding: 18px;
+    overflow: hidden;
+}
+
+.upcoming-events {
+    padding: 20px;
+}
+
+.week-view {
+    padding: 22px;
+}
+
+/* Shared Widget Headers/Navigation */
+
+.calendar-header,
+.week-view-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.calendar-title,
+.week-view-title {
+    flex: 1;
+    margin: 0;
+    font-weight: bold;
+    text-align: center;
+    line-height: 1.2;
+}
+
+.calendar-title {
+    font-size: 22px;
+}
+
+.week-view-title {
+    font-size: 24px;
+}
+
+.nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: none;
+    border-radius: 9px;
+    background: #e5e7eb;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.nav-btn:hover {
+    background: #d1d5db;
+    transform: scale(1.05);
+}
+
+.nav-btn:active {
+    transform: scale(0.96);
+}

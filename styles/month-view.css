@@ -1,0 +1,96 @@
+/* Month-View */
+
+.days,
+.dates {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    width: 100%;
+    text-align: center;
+}
+
+.days {
+    gap: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 2px;
+}
+
+.days div {
+    color: #555;
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1.1;
+}
+
+.dates {
+    flex: 1;
+    height: 100%;
+    gap: 6px;
+    align-content: stretch;
+    grid-auto-rows: 1fr;
+}
+
+.date {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    height: 100%;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.15;
+    cursor: pointer;
+    user-select: none;
+    transform: scale(1);
+    transition:
+        transform 0.22s ease,
+        background-color 0.25s ease,
+        color 0.25s ease,
+        box-shadow 0.25s ease,
+        filter 0.25s ease;
+}
+
+.date:hover {
+    transform: scale(1.04);
+    filter: brightness(0.98);
+}
+
+.date.selected {
+    background: #1d4ed8 !important;
+    color: #fff;
+    transform: scale(1.04);
+    box-shadow: 0 6px 14px rgba(29, 78, 216, 0.2);
+}
+
+.date.other-month {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* Month density levels */
+
+.level-0 {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.level-1 {
+    background: hsl(140, 20%, 85%);
+    color: #064e3b;
+}
+
+.level-2 {
+    background: hsl(140, 20%, 72%);
+    color: #064e3b;
+}
+
+.level-3 {
+    background: hsl(140, 20%, 59%);
+    color: #064e3b;
+}
+
+.level-4 {
+    background: hsl(140, 20%, 46%);
+    color: #fff;
+}
