@@ -25,3 +25,10 @@ CREATE TABLE reservations (
   FOREIGN KEY (user_id) REFERENCES users(user_id),
   CHECK ("end" > start)
 );
+
+CREATE TABLE rooms(
+  room_id SERIAL PRIMARY KEY,
+  room_number INT NOT NULL,
+  capacity INT NOT NULL,
+  floor INT NOT NULL,
+);
