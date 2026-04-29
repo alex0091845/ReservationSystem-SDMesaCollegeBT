@@ -1,0 +1,31 @@
+/* Navbar and Login Button */
+
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    height: 60px;
+    padding: 0 20px;
+    background-color: #1e293b;
+    color: #fff;
+}
+
+.nav-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.login-btn {
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    background-color: #3b82f6;
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.login-btn:hover {
+    background-color: #2563eb;
+}

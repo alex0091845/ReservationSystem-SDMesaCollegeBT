@@ -1,0 +1,34 @@
+CREATE TABLE user_roles (
+  role_id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE,
+  description TEXT
+);
+
+CREATE TABLE users ( 
+  user_id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  first_name TEXT,
+  last_name TEXT,
+  phone TEXT,
+  role_id INT NOT NULL,
+  FOREIGN KEY (role_id) REFERENCES user_roles(role_id)
+);
+
+CREATE TABLE reservations (
+  reservation_id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL,
+  start TIMESTAMPTZ NOT NULL,
+  "end" TIMESTAMPTZ NOT NULL,
+  event_type TEXT,
+  description TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(user_id),
+  CHECK ("end" > start)
+);
+
+CREATE TABLE rooms(
+  room_id SERIAL PRIMARY KEY,
+  room_number INT NOT NULL,
+  current_people INT NOT NULL,
+  floor INT NOT NULL,
+);
