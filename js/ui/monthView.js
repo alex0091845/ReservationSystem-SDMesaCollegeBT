@@ -6,6 +6,7 @@ export function renderCalendar({
     currentYear,
     currentMonth,
     selectedDate,
+    reservedEvents,
     onSelectDate
 }) {
     // Clears render
@@ -33,7 +34,7 @@ export function renderCalendar({
         const dateDiv = document.createElement("div");
 
         // Selects color of the day based on event density
-        dateDiv.classList.add("date", getDensityClass(currentYear, currentMonth, day));
+        dateDiv.classList.add("date", getDensityClass(reservedEvents, currentYear, currentMonth, day));
         dateDiv.textContent = day;
 
         // Changes selected date on click

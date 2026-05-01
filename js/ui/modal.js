@@ -11,7 +11,7 @@ export function createModalController(elements) {
         eventModalOverlay,
         modalEventTitle,
         modalEventDepartment,
-        modalInstructor,
+        modalOrganizer,
         modalDate,
         modalTime,
         modalDescription
@@ -23,7 +23,7 @@ export function createModalController(elements) {
 
         modalEventTitle.textContent = eventData.title;
         modalEventDepartment.textContent = eventData.department;
-        modalInstructor.textContent = eventData.instructor;
+        modalOrganizer.textContent = eventData.organizer;
         modalDate.textContent = formatReadableDate(eventDate);
         modalTime.textContent = `${eventData.start} - ${eventData.end}`;
         modalDescription.textContent = eventData.description;
@@ -63,7 +63,9 @@ reservationCancelBtn.addEventListener("click", closeReservationModal);
 
 // Allows exiting modal with click
 reservationModalOverlay.addEventListener("click", (event) => {
-    if (event.target === reservationModalOverlay) {
+    const clickedInsideModal = event.target.closest(".reservation-modal");
+
+    if (!clickedInsideModal) {
         closeReservationModal();
     }
 });

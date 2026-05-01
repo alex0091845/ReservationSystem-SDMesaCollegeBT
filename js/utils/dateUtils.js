@@ -1,4 +1,4 @@
-import { reservedEvents } from "../data/events.js";
+// import { reservedEvents } from "../data/events.js";
 
 export const hourNames = [
     "8:00 AM",
@@ -31,17 +31,19 @@ export function formatDateKey(year, month, day) {
 }
 
 // Gets array of events for the given date, if none returns empty array
-export function getEventsForDay(year, month, day) {
+export function getEventsForDay(reservedEvents, year, month, day) {
     return reservedEvents[formatDateKey(year, month, day)] || [];
 }
 
 // Returns level 0-4 based on how many events scheduled for given date
-export function getDensityClass(year, month, day) {
-    const count = getEventsForDay(year, month, day).length;
+export function getDensityClass(reservedEvents, year, month, day) {
+    const count = getEventsForDay(reservedEvents, year, month, day).length;
+
     if (count === 0) return "level-0";
     if (count === 1) return "level-1";
     if (count === 2) return "level-2";
     if (count === 3) return "level-3";
+
     return "level-4";
 }
 

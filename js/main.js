@@ -18,12 +18,32 @@ const elements = {
     modalCloseBtn: document.getElementById("modalCloseBtn"),
     modalEventTitle: document.getElementById("modalEventTitle"),
     modalEventDepartment: document.getElementById("modalEventDepartment"),
-    modalInstructor: document.getElementById("modalInstructor"),
+    modalOrganizer: document.getElementById("modalOrganizer"),
     modalDate: document.getElementById("modalDate"),
     modalTime: document.getElementById("modalTime"),
     modalDescription: document.getElementById("modalDescription"),
     loginBtn: document.getElementById("loginBtn")
 };
+
+// New event loading system
+let reservedEvents = {};
+
+async function loadEvents() {
+    try {
+        const response = await fetch("./data/events.json");
+
+        if (!response.ok) {
+            throw new Error("Could not load events.json");
+        }
+
+        reservedEvents = await response.json();
+        init();
+    } catch (error) {
+        console.error("Error loading events:", error);
+    }
+}
+
+loadEvents();
 
 // Initializes selected date to today's date
 const today = new Date();
@@ -88,6 +108,7 @@ function renderAll() {
         currentYear: state.currentYear,
         currentMonth: state.currentMonth,
         selectedDate: state.selectedDate,
+        reservedEvents,
         onSelectDate: setSelectedDate
     });
 
@@ -95,6 +116,7 @@ function renderAll() {
         weekViewWrapper: elements.weekViewWrapper,
         weekViewTitle: elements.weekViewTitle,
         selectedDate: state.selectedDate,
+        reservedEvents,
         onSelectDate: setSelectedDate,
         openEventModal
     });
@@ -102,6 +124,7 @@ function renderAll() {
     renderUpcomingEvents(
         elements.upcomingEventsList,
         today,
+        reservedEvents,
         openEventModal
     );
 }
@@ -141,5 +164,3 @@ function init() {
     bindEvents();
     renderAll();
 }
-
-init();

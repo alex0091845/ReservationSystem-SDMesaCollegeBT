@@ -1,7 +1,7 @@
-import { reservedEvents } from "../data/events.js";
+// import { reservedEvents } from "../data/events.js";
 import { formatReadableDate, getEventDateTime } from "../utils/dateUtils.js";
 
-export function renderUpcomingEvents(container, today, openEventModal) {
+export function renderUpcomingEvents(container, today, reservedEvents, openEventModal) {
     // Clears render
     container.innerHTML = "";
 

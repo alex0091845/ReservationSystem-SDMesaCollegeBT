@@ -12,6 +12,7 @@ export function renderWeekView({
     weekViewWrapper,
     weekViewTitle,
     selectedDate,
+    reservedEvents,
     onSelectDate,
     openEventModal
 }) {
@@ -127,6 +128,7 @@ export function renderWeekView({
 
             /* Pulls events from this day. Needs to be replaced with calls to backend*/
             const events = getEventsForDay(
+                reservedEvents,
                 dateObj.getFullYear(),
                 dateObj.getMonth(),
                 dateObj.getDate()
