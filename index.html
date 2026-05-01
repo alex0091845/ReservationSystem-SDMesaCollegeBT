@@ -1,24 +1,201 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prototype Login Page</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mock up calendar</title>
+    <link rel="stylesheet" href="styles/main.css">
 </head>
+
 <body>
-  <div class="login-container">
-    <h1>Login</h1>
+    <!-- Navbar including Login Button -->
+    <header class="navbar">
+        <div class="nav-left">
+            <h1 class="nav-title">Reservation System</h1>
+        </div>
+        <div class="nav-right">
+            <button class="login-btn" id="openReservationModalBtn">Create Reservation</button>
+            <button class="login-btn" id="loginBtn">Faculty Login</button>
+        </div>
+    </header>
+    <!-- Widget Wrapper -->
+    <div class="wrapper">
+        <div class="left-column">
+            <!-- Month-View Calendar -->
+            <div class="calendar">
+                <div class="calendar-header">
+                    <button class="nav-btn" id="prevMonthBtn">&#8592;</button>
+                    <h2 class="calendar-title" id="calendarTitle">Calendar</h2>
+                    <button class="nav-btn" id="nextMonthBtn">&#8594;</button>
+                </div>
 
-    <label for="email">Email</label>
-    <input type="text" id="email" placeholder="Enter your email" />
+                <div class="days">
+                    <div>Sun</div>
+                    <div>Mon</div>
+                    <div>Tue</div>
+                    <div>Wed</div>
+                    <div>Thu</div>
+                    <div>Fri</div>
+                    <div>Sat</div>
+                </div>
 
-    <label for="password">Password</label>
-    <input type="password" id="password" placeholder="Enter your password" />
+                <div class="dates" id="dates"></div>
+            </div>
+            <!-- Upcoming Events Widget -->
+            <div class="upcoming-events">
+                <h3>Upcoming Events</h3>
+                <div class="upcoming-events-list" id="upcomingEventsList"></div>
+            </div>
+        </div>
+        <!-- Large Column Panel for Week-View Widget -->
+        <div class="side-panel">
+            <!-- Week-View Widget -->
+            <div class="week-view">
+                <div class="week-view-header">
+                    <button class="nav-btn" id="prevWeekBtn">&#8592;</button>
+                    <h3 class="week-view-title" id="weekViewTitle">Week View</h3>
+                    <button class="nav-btn" id="nextWeekBtn">&#8594;</button>
+                </div>
 
-    <button id="loginBtn">Login</button>
+                <div class="week-grid" id="weekViewWrapper"></div>
+            </div>
+        </div>
+    </div>
 
-    <p id="message"></p>
-  </div>
+    <!-- Modal Page Layout -->
+    <div class="modal-overlay" id="eventModalOverlay" aria-hidden="true">
+
+        <!-- Header for event title and department -->
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalEventTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="modalEventTitle">Event Title</h2>
+                    <div class="modal-event-department" id="modalEventDepartment">Department</div>
+                </div>
+                <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close event">&times;</button>
+            </div>
+
+            <!-- Event Details -->
+            <div class="modal-content">
+                <div class="modal-field">
+                    <div class="modal-label">Instructor</div>
+                    <div class="modal-value" id="modalInstructor">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Date</div>
+                    <div class="modal-value" id="modalDate">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Time</div>
+                    <div class="modal-value" id="modalTime">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Description</div>
+                    <div class="modal-value" id="modalDescription">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+    <div class="modal-overlay" id="reservationModalOverlay" aria-hidden="true">
+        <div class="modal reservation-modal" role="dialog" aria-modal="true" aria-labelledby="reservationModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="reservationModalTitle">Create Reservation</h2>
+                    <div class="modal-event-department">Reserve a study room event</div>
+                </div>
+                <button class="modal-close-btn" id="reservationModalCloseBtn"
+                    aria-label="Close reservation form">&times;</button>
+            </div>
+
+            <form class="reservation-form" id="reservationForm">
+                <div class="reservation-grid">
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationTitle">Event Title</label>
+                        <input class="reservation-input" id="reservationTitle" name="title" type="text" required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationType">Event Type</label>
+                        <select class="reservation-input reservation-select" id="reservationType" name="type" required>
+                            <option value="" disabled selected>Select event type</option>
+                            <option value="Study">Study</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Work">Work</option>
+                            <option value="Office Hours">Office Hours</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="reservationDescription">Description</label>
+                        <textarea class="reservation-input reservation-textarea" id="reservationDescription"
+                            name="description" rows="4" required></textarea>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <div class="modal-label">Event Access</div>
+
+                        <div class="visibility-toggle" role="radiogroup" aria-label="Event access">
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="open" checked>
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Open to everyone</span>
+                                    <span class="visibility-description">
+                                        Anyone can view and attend this event
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="private">
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Private</span>
+                                    <span class="visibility-description">
+                                        Only select participants can attend
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationStart">Start</label>
+                        <input class="reservation-input" id="reservationStart" name="start" type="datetime-local"
+                            required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationEnd">End</label>
+                        <input class="reservation-input" id="reservationEnd" name="end" type="datetime-local" required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationDepartment">Department</label>
+                        <input class="reservation-input" id="reservationDepartment" name="department" type="text"
+                            required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationOrganizer">Organizer</label>
+                        <input class="reservation-input" id="reservationOrganizer" name="Organizer" type="text"
+                            required>
+                    </div>
+
+                </div>
+
+                <div class="reservation-actions">
+                    <button type="button" class="reservation-secondary-btn" id="reservationCancelBtn">Cancel</button>
+                    <button type="submit" class="reservation-primary-btn">Create Reservation</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </body>
+
 </html>
