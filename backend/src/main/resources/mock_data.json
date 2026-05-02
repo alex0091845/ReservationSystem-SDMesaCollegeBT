@@ -1,0 +1,17 @@
+{
+    "user_roles": [
+        {"role_id": 0, "name": "admin", "description": "Full access"},
+        {"role_id": 1, "name": "user", "description": "Regular user"}
+    ],
+    "users": [
+      {"user_id": 12345, "email": "coolemail@email.com", "password_hash": "100101", "first_name": "John", "last_name": "Doe", "phone": "(858) 100-1000", "role_id": 0},
+      {"user_id": 54321, "email": "uncoolemail@email.com", "password_hash": "011010", "first_name": "Jane", "last_name": "Doo", "phone": "(858) 858-8585", "role_id": 1}
+    ],
+    "reservations": [
+        {"reservation_id": 1, "start": "2026-06-01 10:00:00-07", "end": "2026-06-01 12:00:00-07", "event_type": "meeting", "description": "Cool people meeting"},
+        {"reservation_id": 2, "start": "2026-06-02 10:00:00-07", "end": "2026-06-02 12:00:00-07", "event_type": "gathering", "description": "Uncool people meeting"}
+    ],
+    "rooms": [
+        {"room_id": 98765, "room_number": 101, "current_people": 4, "floor": 2}
+    ]
+}
