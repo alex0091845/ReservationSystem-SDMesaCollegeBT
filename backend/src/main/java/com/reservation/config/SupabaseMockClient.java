@@ -12,7 +12,7 @@ import java.nio.charset.StandardCharsets;
 //NOTE: @Primary tells springboot to use this as the SupabaseClient class over SupabaseOriginalClient
 @Component
 @Primary
-public class SupabaseMockClient {
+public class SupabaseMockClient implements SupabaseClient{
 
     private final ResourceLoader resourceLoader;
 
