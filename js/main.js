@@ -1,3 +1,4 @@
+import { sortReservedEvents } from "./utils/dateUtils.js";
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView } from "./ui/weekView.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
@@ -22,11 +23,13 @@ const elements = {
     modalDate: document.getElementById("modalDate"),
     modalTime: document.getElementById("modalTime"),
     modalDescription: document.getElementById("modalDescription"),
+    modalEventType: document.getElementById("modalEventType"),
+    modalIsPublic: document.getElementById("modalIsPublic"),
     loginBtn: document.getElementById("loginBtn")
 };
 
 // New event loading system
-let reservedEvents = {};
+let reservedEvents = [];
 
 async function loadEvents() {
     try {
@@ -37,6 +40,9 @@ async function loadEvents() {
         }
 
         reservedEvents = await response.json();
+
+        sortReservedEvents(reservedEvents);
+
         init();
     } catch (error) {
         console.error("Error loading events:", error);

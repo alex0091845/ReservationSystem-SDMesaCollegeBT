@@ -14,11 +14,13 @@ export function createModalController(elements) {
         modalOrganizer,
         modalDate,
         modalTime,
-        modalDescription
+        modalDescription,
+        modalEventType,
+        modalIsPublic
     } = elements;
 
     // Display pop-up window with event info
-    function openEventModal(eventData, dateKey) {
+    function openEventModal(eventData, dateKey = eventData.date) {
         const eventDate = getEventDateTime(dateKey, eventData.start);
 
         modalEventTitle.textContent = eventData.title;
@@ -27,6 +29,8 @@ export function createModalController(elements) {
         modalDate.textContent = formatReadableDate(eventDate);
         modalTime.textContent = `${eventData.start} - ${eventData.end}`;
         modalDescription.textContent = eventData.description;
+        modalEventType.textContent = eventData.event_type;
+        modalIsPublic.textContent = eventData.is_public ? "Public" : "Private";
 
         eventModalOverlay.classList.add("active");
         eventModalOverlay.setAttribute("aria-hidden", "false");

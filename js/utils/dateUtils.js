@@ -32,7 +32,8 @@ export function formatDateKey(year, month, day) {
 
 // Gets array of events for the given date, if none returns empty array
 export function getEventsForDay(reservedEvents, year, month, day) {
-    return reservedEvents[formatDateKey(year, month, day)] || [];
+    const dateKey = formatDateKey(year, month, day);
+    return reservedEvents.filter(event => event.date === dateKey);
 }
 
 // Returns level 0-4 based on how many events scheduled for given date
@@ -110,4 +111,34 @@ export function formatShortDateRange(startDate, endDate) {
 
     // Returns date in the form "March 25, 2026 - March 25, 2027"
     return `${monthNames[startDate.getMonth()]} ${startDate.getDate()}, ${startDate.getFullYear()} – ${monthNames[endDate.getMonth()]} ${endDate.getDate()}, ${endDate.getFullYear()}`;
+}
+
+// Sort events and store them in reservedEvents
+export function sortReservedEvents(reservedEvents) {
+    reservedEvents.sort((a, b) => {
+        const firstDate = getEventDateTime(a.date, a.start);
+        const secondDate = getEventDateTime(b.date, b.start);
+
+        return firstDate - secondDate;
+    });
+}
+
+// Displays color based on event type (event type is also displayed in text in the modal window), previously color was defined as a data field
+export function getEventColorClass(eventType) {
+    switch (eventType?.toLowerCase()) {
+        case "study":
+            return "green";
+
+        case "meeting":
+            return "blue";
+
+        case "work":
+            return "orange";
+
+        case "office hours":
+            return "purple";
+
+        default:
+            return "red";
+    }
 }

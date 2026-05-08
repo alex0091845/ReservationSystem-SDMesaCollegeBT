@@ -1,5 +1,6 @@
 import {
     convertHourLabelTo24,
+    getEventColorClass,
     formatDateKey,
     formatShortDateRange,
     getEventsForDay,
@@ -147,7 +148,10 @@ export function renderWeekView({
                 // Creates clickable button for modal
                 const eventEl = document.createElement("button");
                 eventEl.type = "button";
-                eventEl.classList.add("week-event", event.color);
+                eventEl.classList.add(
+                    "week-event",
+                    getEventColorClass(event.event_type)
+                );
                 eventEl.textContent = event.title;
 
                 // Parses event time data

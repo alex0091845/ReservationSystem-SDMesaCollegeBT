@@ -1,5 +1,9 @@
 // import { reservedEvents } from "../data/events.js";
-import { formatReadableDate, getEventDateTime } from "../utils/dateUtils.js";
+import {
+    formatReadableDate,
+    getEventColorClass,
+    getEventDateTime
+} from "../utils/dateUtils.js";
 
 export function renderUpcomingEvents(container, today, reservedEvents, openEventModal) {
     // Clears render
@@ -7,10 +11,10 @@ export function renderUpcomingEvents(container, today, reservedEvents, openEvent
 
     // Stores events
     const allEvents = reservedEvents.map(event => ({
-    ...event,
-    dateKey: event.date,
-    dateTime: getEventDateTime(event.date, event.start)
-}));
+        ...event,
+        dateKey: event.date,
+        dateTime: getEventDateTime(event.date, event.start)
+    }));
 
     // Sorts events first to last
     allEvents.sort((a, b) => a.dateTime - b.dateTime);
@@ -31,7 +35,10 @@ export function renderUpcomingEvents(container, today, reservedEvents, openEvent
         card.type = "button";
 
         /* Uses the event's color field to stylize the card. Needs to be replaced. Potentially use a color for each department or event type*/
-        card.className = `upcoming-event-card ${event.color}`;
+        card.className = `
+            upcoming-event-card
+            ${getEventColorClass(event.type)}
+        `;
 
         // Formats card text
         card.innerHTML = `
