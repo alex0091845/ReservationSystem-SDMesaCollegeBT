@@ -70,12 +70,16 @@
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalEventTitle">
             <div class="modal-topbar">
                 <div class="modal-title-group">
-                    <h2 class="modal-event-title" id="modalEventTitle">Event Title</h2>
+                    <div class="modal-title-row">
+                        <h2 class="modal-event-title" id="modalEventTitle">Event Title</h2>
+                        <span class="modal-public-badge" id="modalIsPublic">Public</span>
+                    </div>
+
                     <div class="modal-event-department" id="modalEventDepartment">Department</div>
                 </div>
-                <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close event">&times;</button>
-            </div>
 
+                <button class="modal-close-btn" id="modalCloseBtn" aria-label="Close event details">&times;</button>
+            </div>
             <!-- Event Details -->
             <div class="modal-content modal-two-column">
 
