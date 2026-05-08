@@ -1,13 +1,42 @@
-{
-    "2026-05-02": [
-        {
-            "title": "team meeting",
-            "organizer": "Professor Alex Chow",
-            "department": "Computer and Information Sciences",
-            "start": "09:00",
-            "end": "10:30",
-            "color": "blue",
-            "description": "fdsjfjsdlkfjsdjlfksdjkf"
-        }
-    ]
-}
+[
+    {
+        "date": "2026-05-02",
+        "title": "team meeting",
+        "organizer": "Professor Alex Chow",
+        "department": "Computer and Information Sciences",
+        "start": "09:00",
+        "end": "10:30",
+        "description": "fdsjfjsdlkfjsdjlfksdjkf",
+        "type": "study"
+    },
+    {
+        "date": "2026-05-03",
+        "title": "team meeting2",
+        "organizer": "Professor Alex Chow",
+        "department": "Computer and Information Sciences",
+        "start": "09:00",
+        "end": "10:30",
+        "description": "fdsjfjsdlkfjsdjlfksdjkf",
+        "type": "work"
+    },
+    {
+        "date": "2026-05-01",
+        "title": "team meeting3",
+        "organizer": "Professor Alex Chow",
+        "department": "Computer and Information Sciences",
+        "start": "09:00",
+        "end": "10:30",
+        "description": "fdsjfjsdlkfjsdjlfksdjkf",
+        "type": "meeting"
+    },
+    {
+        "date": "2026-05-02",
+        "title": "team meeting4",
+        "organizer": "Professor Alex Chow",
+        "department": "Computer and Information Sciences",
+        "start": "09:00",
+        "end": "10:30",
+        "description": "fdsjfjsdlkfjsdjlfksdjkf",
+        "type": "office hours"
+    }
+]

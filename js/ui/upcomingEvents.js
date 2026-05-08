@@ -6,18 +6,11 @@ export function renderUpcomingEvents(container, today, reservedEvents, openEvent
     container.innerHTML = "";
 
     // Stores events
-    const allEvents = [];
-
-    // Adds dateTime field to each event entry
-    Object.entries(reservedEvents).forEach(([dateKey, events]) => {
-        events.forEach(event => {
-            allEvents.push({
-                ...event,
-                dateKey,
-                dateTime: getEventDateTime(dateKey, event.start)
-            });
-        });
-    });
+    const allEvents = reservedEvents.map(event => ({
+    ...event,
+    dateKey: event.date,
+    dateTime: getEventDateTime(event.date, event.start)
+}));
 
     // Sorts events first to last
     allEvents.sort((a, b) => a.dateTime - b.dateTime);
