@@ -1,0 +1,130 @@
+{
+    "user_roles": [
+        {
+            "role_id": 0,
+            "name": "admin",
+            "description": "Full access"
+        },
+        {
+            "role_id": 1,
+            "name": "user",
+            "description": "Regular user"
+        }
+    ],
+    "users": [
+        {
+            "user_id": 12345,
+            "email": "coolemail@email.com",
+            "password_hash": "100101",
+            "first_name": "John",
+            "last_name": "Doe",
+            "phone": "(858) 100-1000",
+            "role_id": 0
+        },
+        {
+            "user_id": 54321,
+            "email": "uncoolemail@email.com",
+            "password_hash": "011010",
+            "first_name": "Jane",
+            "last_name": "Doo",
+            "phone": "(858) 858-8585",
+            "role_id": 1
+        }
+    ],
+    "reservations": [
+        {
+            "reservation_id": 1,
+            "start": "2026-06-01 10:00:00-07",
+            "end": "2026-06-01 12:00:00-07",
+            "event_type": "meeting",
+            "description": "Cool people meeting"
+        },
+        {
+            "reservation_id": 2,
+            "start": "2026-06-02 10:00:00-07",
+            "end": "2026-06-02 12:00:00-07",
+            "event_type": "gathering",
+            "description": "Uncool people meeting"
+        }
+    ],
+    "rooms": [
+        {
+            "room_id": 98765,
+            "room_number": 101,
+            "current_people": 4,
+            "floor": 2
+        }
+    ],
+    "attendees": [
+        {
+            "id": 1,
+            "full_name": "Bob Dill",
+            "student_email": "ownerUser123@gmail.com",
+            "checked_in": "2026-06-01T10:05:00Z",
+            "sdccd_id": 1234567,
+            "event_id": 101,
+            "events": {
+                "id": 101,
+                "title": "Admin meeting",
+                "description": "Discussion on system access",
+                "start": "2026-06-01T10:00:00-07:00",
+                "end": "2026-06-01T12:00:00-07:00",
+                "event_type": "meeting",
+                "event_types": {
+                    "event_type": "meeting",
+                    "description": "People meeting."
+                },
+                "is_public": true,
+                "department": "IT Operations",
+                "user_id": 500,
+                "users": {
+                    "id": 500,
+                    "email": "admin_host@gmail.com",
+                    "first_name": "System",
+                    "last_name": "Admin",
+                    "role_id": 1,
+                    "role_name": "admin",
+                    "user_roles": {
+                        "name": "admin",
+                        "description": "Administrator"
+                    }
+                }
+            }
+        },
+        {
+            "id": 2,
+            "full_name": "Dan Foo",
+            "student_email": "testUser123@gmail.com",
+            "checked_in": null,
+            "sdccd_id": 7654321,
+            "event_id": 102,
+            "events": {
+                "id": 102,
+                "title": "User event",
+                "description": "Regular community gathering",
+                "start": "2026-06-02T14:00:00-07:00",
+                "end": "2026-06-02T16:00:00-07:00",
+                "event_type": "event",
+                "event_types": {
+                    "event_type": "event",
+                    "description": "An event :)"
+                },
+                "is_public": true,
+                "department": "Student Life",
+                "user_id": 501,
+                "users": {
+                    "id": 501,
+                    "email": "coord_user@gmail.com",
+                    "first_name": "Staff",
+                    "last_name": "Member",
+                    "role_id": 2,
+                    "role_name": "user",
+                    "user_roles": {
+                        "name": "user",
+                        "description": "Regular user"
+                    }
+                }
+            }
+        }
+    ]
+}
