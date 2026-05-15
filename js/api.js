@@ -2,24 +2,32 @@ const BASE_URL = "http://18.223.249.15:8080/api";
 
 // cookie-cutter request helper called by all data functions
 async function request(endpoint, method = "GET", data = null) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
     const options = {
         method,
         headers: {
             "Content-Type": "application/json"
-        }
+        },
+        signal: controller.signal
     };
 
     if (data && method !== "GET") {
         options.body = JSON.stringify(data);
     }
 
-    const response = await fetch(`${BASE_URL}${endpoint}`, options);
+    try {
+        const response = await fetch(`${BASE_URL}${endpoint}`, options);
 
-    if (!response.ok) {
-        throw new Error(`Request failed: ${method} ${endpoint}`);
+        if (!response.ok) {
+            throw new Error(`Request failed: ${method} ${endpoint}`);
+        }
+
+        return response.json();
+    } finally {
+        clearTimeout(timeoutId);
     }
-
-    return response.json();
 }
 
 export function getEvents() {
