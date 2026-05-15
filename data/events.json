@@ -1,67 +1,13 @@
 [
     {
-        "reservation_id": "sdlkjflkdksjflsd",
-        "date": "2026-05-02",
-        "title": "team meeting4",
-        "description": "The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog.",
+        "id": 1,
+        "host_user_id": 5,
+        "start_time": "2026-05-02T09:00:00Z",
+        "end_time": "2026-05-02T10:30:00Z",
         "event_type": "Study",
-        "is_public": true,
-        "start": "09:00",
-        "end": "10:30",
-        "user_id": "jsdfjlsdkfs",
-        "organizer": "Professor Alex Chow",
-        "department": "Computer and Information Sciences"
-    },
-    {
-        "reservation_id": "sdlkjflkdksjflsd",
-        "date": "2026-05-02",
-        "title": "team meeting4",
-        "description": "fdsjfjsdlkfjsdjlfksdjkf",
-        "event_type": "Meeting",
-        "is_public": true,
-        "start": "15:00",
-        "end": "16:30",
-        "user_id": "jsdfjlsdkfs",
-        "organizer": "Professor Alex Chow",
-        "department": "Computer and Information Sciences"
-    },
-    {
-        "reservation_id": "sdlkjflkdksjflsd",
-        "date": "2026-05-02",
-        "title": "team meeting4",
-        "description": "fdsjfjsdlkfjsdjlfksdjkf",
-        "event_type": "Office Hours",
-        "is_public": true,
-        "start": "11:00",
-        "end": "12:00",
-        "user_id": "jsdfjlsdkfs",
-        "organizer": "Professor Alex Chow",
-        "department": "Computer and Information Sciences"
-    },
-    {
-        "reservation_id": "sdlkjflkdksjflsd",
-        "date": "2026-05-02",
-        "title": "team meeting4",
-        "description": "fdsjfjsdlkfjsdjlfksdjkf",
-        "event_type": "Work",
-        "is_public": false,
-        "start": "13:00",
-        "end": "14:00",
-        "user_id": "jsdfjlsdkfs",
-        "organizer": "Professor Alex Chow",
-        "department": "Computer and Information Sciences"
-    },
-    {
-        "reservation_id": "sdlkjflkdksjflsd",
-        "date": "2026-05-02",
-        "title": "team meeting4",
-        "description": "fdsjfjsdlkfjsdjlfksdjkf",
-        "event_type": "Other",
-        "is_public": false,
-        "start": "17:00",
-        "end": "18:00",
-        "user_id": "jsdfjlsdkfs",
-        "organizer": "Professor Alex Chow",
-        "department": "Computer and Information Sciences"
+        "description": "...",
+        "title": "team meeting",
+        "department": "Computer Science",
+        "is_public": true
     }
 ]

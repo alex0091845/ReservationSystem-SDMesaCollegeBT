@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard</title>
+
+    <link rel="stylesheet" href="styles/main.css" />
+</head>
+
+<body>
+    <div class="login-container">
+        <h1>Admin Dashboard</h1>
+
+        <p>Create faculty users, manage reservations, other stuff. Need to fill this page</p>
+
+        <button id="logoutBtn">Logout</button>
+    </div>
+
+    <script>
+        const isAdminLoggedIn =
+            sessionStorage.getItem("adminLoggedIn") === "true";
+
+        if (!isAdminLoggedIn) {
+            window.location.href = "login.html";
+        }
+
+        document
+            .getElementById("logoutBtn")
+            .addEventListener("click", () => {
+                sessionStorage.removeItem("adminLoggedIn");
+                sessionStorage.removeItem("facultyLoggedIn");
+
+                window.location.href = "login.html";
+            });
+    </script>
+</body>
+
+</html>

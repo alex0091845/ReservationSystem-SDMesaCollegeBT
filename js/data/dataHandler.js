@@ -1,1 +1,0 @@
-//This file needs to parse the incooming json data and pull the dates out to the front to create a dicitonary of entries where the keys are the dates of reservations while the values are lists of key value pairs. We need to be able to sort the dictionary by the date keys.

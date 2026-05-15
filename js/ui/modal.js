@@ -1,4 +1,5 @@
-import { formatReadableDate, getEventDateTime } from "../utils/dateUtils.js";
+import { createEvent } from "../api.js";
+import { formatReadableDate } from "../utils/dateUtils.js";
 
 const reservationModalOverlay = document.getElementById("reservationModalOverlay");
 const openReservationModalBtn = document.getElementById("openReservationModalBtn");
@@ -19,23 +20,43 @@ export function createModalController(elements) {
         modalIsPublic
     } = elements;
 
-    // Display pop-up window with event info
-    function openEventModal(eventData, dateKey = eventData.date) {
-        const eventDate = getEventDateTime(dateKey, eventData.start);
+    // Opens event details modal
+    function openEventModal(eventData) {
+        const startDate = new Date(eventData.start_time);
+        const endDate = new Date(eventData.end_time);
 
         modalEventTitle.textContent = eventData.title;
         modalEventDepartment.textContent = eventData.department;
-        modalOrganizer.textContent = eventData.organizer;
-        modalDate.textContent = formatReadableDate(eventDate);
-        modalTime.textContent = `${eventData.start} - ${eventData.end}`;
+        modalOrganizer.textContent =
+            eventData.organizer ||
+            eventData.host_name ||
+            "Not provided";
+
+        modalDate.textContent = formatReadableDate(startDate);
+
+        modalTime.textContent = `
+            ${startDate.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit"
+        })}
+            -
+            ${endDate.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit"
+        })}
+        `;
+
         modalDescription.textContent = eventData.description;
         modalEventType.textContent = eventData.event_type;
-        modalIsPublic.textContent = eventData.is_public ? "Public" : "Private";
+
+        modalIsPublic.textContent =
+            eventData.is_public ? "Public" : "Private";
 
         eventModalOverlay.classList.add("active");
         eventModalOverlay.setAttribute("aria-hidden", "false");
     }
 
+    // Closes event details modal
     function closeEventModal() {
         eventModalOverlay.classList.remove("active");
         eventModalOverlay.setAttribute("aria-hidden", "true");
@@ -47,43 +68,90 @@ export function createModalController(elements) {
     };
 }
 
+// Opens reservation creation modal
 function openReservationModal() {
     reservationModalOverlay.classList.add("active");
     reservationModalOverlay.setAttribute("aria-hidden", "false");
 }
 
+// Closes reservation creation modal
 function closeReservationModal() {
     reservationModalOverlay.classList.remove("active");
     reservationModalOverlay.setAttribute("aria-hidden", "true");
+
     reservationForm.reset();
 }
 
+// Open modal button
 if (openReservationModalBtn) {
-    openReservationModalBtn.addEventListener("click", openReservationModal);
+    openReservationModalBtn.addEventListener(
+        "click",
+        openReservationModal
+    );
 }
 
-reservationModalCloseBtn.addEventListener("click", closeReservationModal);
-reservationCancelBtn.addEventListener("click", closeReservationModal);
+// Close modal buttons
+reservationModalCloseBtn.addEventListener(
+    "click",
+    closeReservationModal
+);
 
-// Allows exiting modal with click
+reservationCancelBtn.addEventListener(
+    "click",
+    closeReservationModal
+);
+
+// Close modal when clicking overlay
 reservationModalOverlay.addEventListener("click", (event) => {
-    const clickedInsideModal = event.target.closest(".reservation-modal");
+    const clickedInsideModal =
+        event.target.closest(".reservation-modal");
 
     if (!clickedInsideModal) {
         closeReservationModal();
     }
 });
 
-// Allows exiting modal with escape key
+// Close modal with escape key
 document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && reservationModalOverlay.classList.contains("active")) {
+    const modalIsOpen =
+        reservationModalOverlay.classList.contains("active");
+
+    if (event.key === "Escape" && modalIsOpen) {
         closeReservationModal();
     }
 });
 
-// Sends data back after form is completed
-reservationForm.addEventListener("submit", (event) => {
+// Submit reservation form
+reservationForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    // FILL THIS OUT
-    closeReservationModal();
+
+    const formData = new FormData(reservationForm);
+
+    const startValue = formData.get("start");
+    const endValue = formData.get("end");
+
+    const start_time = new Date(startValue).toISOString();
+    const end_time = new Date(endValue).toISOString();
+
+    const eventData = {
+        host_user_id: 1, // could pull from the organizer field or more likely will be done automatically
+        start_time,
+        end_time,
+        event_type: formData.get("type"),
+        description: formData.get("description"),
+        title: formData.get("title"),
+        department: formData.get("department"),
+        is_public: formData.get("access") === "open"
+    };
+
+    try {
+        await createEvent(eventData);
+
+        closeReservationModal();
+
+        // Temporary refresh until state-based refresh is added
+        window.location.reload();
+    } catch (error) {
+        console.error("Error creating reservation:", error);
+    }
 });

@@ -29,3 +29,9 @@
 .login-btn:hover {
     background-color: #2563eb;
 }
+
+/* Makes the create reservation button invisible before login validation: interactivity is already disabled, this is just for visual continuity */
+.login-btn:disabled {
+    opacity: 0;
+    cursor: not-allowed;
+}

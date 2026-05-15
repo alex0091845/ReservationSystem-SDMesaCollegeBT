@@ -5,7 +5,6 @@ import {
     formatShortDateRange,
     getEventsForDay,
     hourNames,
-    parseTime,
     weekdayNames
 } from "../utils/dateUtils.js";
 
@@ -17,43 +16,55 @@ export function renderWeekView({
     onSelectDate,
     openEventModal
 }) {
-    // Clears render
+    // Clears previous render
     weekViewWrapper.innerHTML = "";
 
     const selectedYear = selectedDate.getFullYear();
     const selectedMonth = selectedDate.getMonth();
     const selectedDay = selectedDate.getDate();
 
-    // Finds Sunday of that week
+    // Finds Sunday of current week
     const weekStart = new Date(selectedDate);
-    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+    weekStart.setDate(
+        selectedDate.getDate() - selectedDate.getDay()
+    );
 
-    // Assigns dates to each day of the week
+    // Generates all 7 dates for current week
     const weekDates = [];
+
     for (let i = 0; i < 7; i++) {
-        const d = new Date(weekStart);
-        d.setDate(weekStart.getDate() + i);
-        weekDates.push(d);
+        const date = new Date(weekStart);
+
+        date.setDate(weekStart.getDate() + i);
+
+        weekDates.push(date);
     }
 
-    // Generates week date range
+    // Updates week view title
     const weekEnd = weekDates[6];
-    weekViewTitle.textContent = formatShortDateRange(weekDates[0], weekEnd);
 
-    // Header
+    weekViewTitle.textContent = formatShortDateRange(
+        weekDates[0],
+        weekEnd
+    );
+
     const header = document.createElement("div");
+
     header.classList.add("week-header");
 
-    // Top left blank cell in grid
+    // Empty top-left corner
     const corner = document.createElement("div");
+
     corner.classList.add("week-corner");
+
     header.appendChild(corner);
 
+    // Creates day labels
     weekDates.forEach(dateObj => {
         const headerCell = document.createElement("div");
+
         headerCell.classList.add("week-day-header");
 
-        // Highlights selected date
         const isSelected =
             dateObj.getFullYear() === selectedYear &&
             dateObj.getMonth() === selectedMonth &&
@@ -63,19 +74,25 @@ export function renderWeekView({
             headerCell.classList.add("current-day-column");
         }
 
-        // Adds day of week and dates to top row cells of grid
         headerCell.innerHTML = `
-            <div class="week-day-name">${weekdayNames[dateObj.getDay()]}</div>
-            <div class="week-day-number">${dateObj.getDate()}</div>
+            <div class="week-day-name">
+                ${weekdayNames[dateObj.getDay()]}
+            </div>
+
+            <div class="week-day-number">
+                ${dateObj.getDate()}
+            </div>
         `;
 
-        // Makes header cells clickable
+        // Makes day header clickable
         headerCell.addEventListener("click", () => {
-            onSelectDate(new Date(
-                dateObj.getFullYear(),
-                dateObj.getMonth(),
-                dateObj.getDate()
-            ));
+            onSelectDate(
+                new Date(
+                    dateObj.getFullYear(),
+                    dateObj.getMonth(),
+                    dateObj.getDate()
+                )
+            );
         });
 
         header.appendChild(headerCell);
@@ -83,23 +100,30 @@ export function renderWeekView({
 
     weekViewWrapper.appendChild(header);
 
-    // Creates a row for each hour from 8AM to 8PM
+    // Hour Labels
     hourNames.forEach((hourLabel, rowIndex) => {
         const row = document.createElement("div");
+
         row.classList.add("week-row");
 
-        // Earlier rows should sit above later rows so tall events remain clickable
-        row.style.zIndex = String(hourNames.length - rowIndex);
+        // Keeps earlier rows above later rows
+        row.style.zIndex = String(
+            hourNames.length - rowIndex
+        );
 
-        // Adds the hour label to the left column
+        // Static Labels
         const timeLabel = document.createElement("div");
+
         timeLabel.classList.add("week-time-label");
+
         timeLabel.textContent = hourLabel;
+
         row.appendChild(timeLabel);
 
-        // Adds a cell for each day of the week
+        // Creating blocks for each day
         weekDates.forEach(dateObj => {
             const cell = document.createElement("div");
+
             cell.classList.add("week-cell");
 
             const currentDateKey = formatDateKey(
@@ -108,16 +132,18 @@ export function renderWeekView({
                 dateObj.getDate()
             );
 
-            // Allows dates to be selected by clicking any hour cell within its column
+            // Allows clicking any cell to select day
             cell.addEventListener("click", () => {
-                onSelectDate(new Date(
-                    dateObj.getFullYear(),
-                    dateObj.getMonth(),
-                    dateObj.getDate()
-                ));
+                onSelectDate(
+                    new Date(
+                        dateObj.getFullYear(),
+                        dateObj.getMonth(),
+                        dateObj.getDate()
+                    )
+                );
             });
 
-            // Highlights selected date column
+            // Highlights selected column
             const isSelected =
                 dateObj.getFullYear() === selectedYear &&
                 dateObj.getMonth() === selectedMonth &&
@@ -127,7 +153,7 @@ export function renderWeekView({
                 cell.classList.add("current-day-column");
             }
 
-            /* Pulls events from this day. Needs to be replaced with calls to backend*/
+            // Gets events for this day
             const events = getEventsForDay(
                 reservedEvents,
                 dateObj.getFullYear(),
@@ -135,45 +161,76 @@ export function renderWeekView({
                 dateObj.getDate()
             );
 
-            const cellHour = convertHourLabelTo24(hourLabel);
+            const cellHour =
+                convertHourLabelTo24(hourLabel);
 
-            // Filters events to find ones starting in current hour row
+            // Finds events beginning during this hour
             const matchingEvents = events.filter(event => {
-                const start = parseTime(event.start);
-                return start.hour === cellHour;
+                const startDate = new Date(event.start_time);
+
+                return startDate.getHours() === cellHour;
             });
 
-            // Displays relevant events
+            // Calculating blocks for each event
             matchingEvents.forEach(event => {
-                // Creates clickable button for modal
-                const eventEl = document.createElement("button");
+                const eventEl =
+                    document.createElement("button");
+
                 eventEl.type = "button";
+
                 eventEl.classList.add(
                     "week-event",
                     getEventColorClass(event.event_type)
                 );
+
                 eventEl.textContent = event.title;
 
-                // Parses event time data
-                const start = parseTime(event.start);
-                const end = parseTime(event.end);
-                const startMinutes = start.hour * 60 + start.minute;
-                const endMinutes = end.hour * 60 + end.minute;
-                const rowStartMinutes = cellHour * 60;
+                // Parses timestamps
+                const startDate = new Date(event.start_time);
+                const endDate = new Date(event.end_time);
 
+                const startMinutes =
+                    (startDate.getHours() * 60) +
+                    startDate.getMinutes();
+
+                const endMinutes =
+                    (endDate.getHours() * 60) +
+                    endDate.getMinutes();
+
+                const rowStartMinutes =
+                    cellHour * 60;
+
+                // Cell positioning math
                 const HOUR_ROW_HEIGHT = 68;
-                const pxPerMinute = HOUR_ROW_HEIGHT / 60;
-                // Calculates padding to start event block in hour row
-                const topOffset = (startMinutes - rowStartMinutes) * pxPerMinute;
-                const blockHeight = (endMinutes - startMinutes) * pxPerMinute;
-                eventEl.style.top = `${topOffset}px`;
-                eventEl.style.height = `${blockHeight}px`;
 
-                // Opens modal for clicked event
-                eventEl.addEventListener("click", clickEvent => {
-                    clickEvent.stopPropagation();
-                    openEventModal(event, currentDateKey);
-                });
+                const pxPerMinute =
+                    HOUR_ROW_HEIGHT / 60;
+
+                // Vertical offset within hour row
+                const topOffset =
+                    (startMinutes - rowStartMinutes) *
+                    pxPerMinute;
+
+                // Height based on duration
+                const blockHeight =
+                    (endMinutes - startMinutes) *
+                    pxPerMinute;
+
+                eventEl.style.top =
+                    `${topOffset}px`;
+
+                eventEl.style.height =
+                    `${blockHeight}px`;
+
+                // Interactivity
+                eventEl.addEventListener(
+                    "click",
+                    clickEvent => {
+                        clickEvent.stopPropagation();
+
+                        openEventModal(event);
+                    }
+                );
 
                 cell.appendChild(eventEl);
             });

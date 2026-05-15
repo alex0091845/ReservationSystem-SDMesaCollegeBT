@@ -1,54 +1,77 @@
-// import { reservedEvents } from "../data/events.js";
 import {
     formatReadableDate,
-    getEventColorClass,
-    getEventDateTime
+    getEventColorClass
 } from "../utils/dateUtils.js";
 
-export function renderUpcomingEvents(container, today, reservedEvents, openEventModal) {
-    // Clears render
+export function renderUpcomingEvents(
+    container,
+    today,
+    reservedEvents,
+    openEventModal
+) {
+    // Clears current render
     container.innerHTML = "";
 
-    // Stores events
-    const allEvents = reservedEvents.map(event => ({
-        ...event,
-        dateKey: event.date,
-        dateTime: getEventDateTime(event.date, event.start)
-    }));
+    // Sorts events chronologically using backend timestamps
+    const sortedEvents = [...reservedEvents].sort((a, b) => {
+        return new Date(a.start_time) - new Date(b.start_time);
+    });
 
-    // Sorts events first to last
-    allEvents.sort((a, b) => a.dateTime - b.dateTime);
-
-    // Pulls 3 soonest events after today
-    const upcoming = allEvents
-        .filter(event => event.dateTime >= today)
+    // Finds the next 3 upcoming events
+    const upcoming = sortedEvents
+        .filter(event => new Date(event.start_time) >= today)
         .slice(0, 3);
 
+    // Empty state
     if (upcoming.length === 0) {
-        container.innerHTML = `<div class="upcoming-empty">No upcoming events scheduled.</div>`;
+        container.innerHTML = `
+            <div class="upcoming-empty">
+                No upcoming events scheduled.
+            </div>
+        `;
         return;
     }
 
-    // Creates a card to display the 3 soonest events
+    // Creates event cards
     upcoming.forEach(event => {
         const card = document.createElement("button");
+
         card.type = "button";
 
-        /* Uses the event's color field to stylize the card. Needs to be replaced. Potentially use a color for each department or event type*/
         card.className = `
             upcoming-event-card
-            ${getEventColorClass(event.type)}
+            ${getEventColorClass(event.event_type)}
         `;
 
-        // Formats card text
+        const startDate = new Date(event.start_time);
+        const endDate = new Date(event.end_time);
+
+        const formattedStartTime = startDate.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit"
+        });
+
+        const formattedEndTime = endDate.toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit"
+        });
+
         card.innerHTML = `
-            <div class="upcoming-event-title">${event.title}</div>
-            <div class="upcoming-event-date">${formatReadableDate(event.dateTime)}</div>
-            <div class="upcoming-event-time">${event.start} - ${event.end}</div>
+            <div class="upcoming-event-title">
+                ${event.title}
+            </div>
+
+            <div class="upcoming-event-date">
+                ${formatReadableDate(startDate)}
+            </div>
+
+            <div class="upcoming-event-time">
+                ${formattedStartTime} - ${formattedEndTime}
+            </div>
         `;
 
         card.addEventListener("click", () => {
-            openEventModal(event, event.dateKey);
+            openEventModal(event);
         });
 
         container.appendChild(card);

@@ -1,3 +1,4 @@
+import { getEvents } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView } from "./ui/weekView.js";
@@ -19,66 +20,91 @@ const elements = {
     modalCloseBtn: document.getElementById("modalCloseBtn"),
     modalEventTitle: document.getElementById("modalEventTitle"),
     modalEventDepartment: document.getElementById("modalEventDepartment"),
-    modalOrganizer: document.getElementById("modalOrganizer"),
     modalDate: document.getElementById("modalDate"),
     modalTime: document.getElementById("modalTime"),
     modalDescription: document.getElementById("modalDescription"),
     modalEventType: document.getElementById("modalEventType"),
     modalIsPublic: document.getElementById("modalIsPublic"),
+    modalOrganizer: document.getElementById("modalOrganizer"),
+    openReservationModalBtn: document.getElementById("openReservationModalBtn"),
     loginBtn: document.getElementById("loginBtn")
 };
+
+const isFacultyLoggedIn =
+    sessionStorage.getItem("facultyLoggedIn") === "true";
+
+if (elements.openReservationModalBtn) {
+    elements.openReservationModalBtn.disabled = !isFacultyLoggedIn;
+    elements.openReservationModalBtn.title = isFacultyLoggedIn
+        ? ""
+        : "Faculty login required";
+}
 
 // New event loading system
 let reservedEvents = [];
 
 async function loadEvents() {
     try {
-        const response = await fetch("./data/events.json");
-
-        if (!response.ok) {
-            throw new Error("Could not load events.json");
-        }
-
-        reservedEvents = await response.json();
+        reservedEvents = await getEvents();
 
         sortReservedEvents(reservedEvents);
-
-        init();
     } catch (error) {
         console.error("Error loading events:", error);
+
+        reservedEvents = [];
     }
+
+    init();
 }
 
 loadEvents();
 
 // Initializes selected date to today's date
 const today = new Date();
+
 const state = {
-    selectedDate: new Date(today.getFullYear(), today.getMonth(), today.getDate()),
+    selectedDate: new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate()
+    ),
+
     currentYear: today.getFullYear(),
     currentMonth: today.getMonth()
 };
 
 // Pulls open and close functions from modal file
-const { openEventModal, closeEventModal } = createModalController(elements);
+const {
+    openEventModal,
+    closeEventModal
+} = createModalController(elements);
 
 // Syncs calendar widget date with week-view widget date
 function syncCalendarToSelectedDate() {
-    state.currentYear = state.selectedDate.getFullYear();
-    state.currentMonth = state.selectedDate.getMonth();
+    state.currentYear =
+        state.selectedDate.getFullYear();
+
+    state.currentMonth =
+        state.selectedDate.getMonth();
 }
 
 // Changes selected date and updates calendar widget
 function setSelectedDate(date) {
     state.selectedDate = date;
+
     syncCalendarToSelectedDate();
+
     renderAll();
 }
 
 // Changes selected date by given offset: useful for moving forward or back 1 week
 function moveSelectedDateByDays(dayOffset) {
     const updated = new Date(state.selectedDate);
-    updated.setDate(updated.getDate() + dayOffset);
+
+    updated.setDate(
+        updated.getDate() + dayOffset
+    );
+
     setSelectedDate(updated);
 }
 
@@ -99,9 +125,22 @@ function changeMonth(monthOffset) {
     }
 
     // Finds number of days in new month and restricts output to last valid day
-    const daysInMonth = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
-    const safeDay = Math.min(state.selectedDate.getDate(), daysInMonth);
-    state.selectedDate = new Date(state.currentYear, state.currentMonth, safeDay);
+    const daysInMonth = new Date(
+        state.currentYear,
+        state.currentMonth + 1,
+        0
+    ).getDate();
+
+    const safeDay = Math.min(
+        state.selectedDate.getDate(),
+        daysInMonth
+    );
+
+    state.selectedDate = new Date(
+        state.currentYear,
+        state.currentMonth,
+        safeDay
+    );
 
     renderAll();
 }
@@ -137,36 +176,68 @@ function renderAll() {
 
 // Starts event listeners for button and modal interactivity
 function bindEvents() {
-    elements.prevMonthBtn.addEventListener("click", () => changeMonth(-1));
-    elements.nextMonthBtn.addEventListener("click", () => changeMonth(1));
-    elements.prevWeekBtn.addEventListener("click", () => moveSelectedDateByDays(-7));
-    elements.nextWeekBtn.addEventListener("click", () => moveSelectedDateByDays(7));
+    elements.prevMonthBtn.addEventListener(
+        "click",
+        () => changeMonth(-1)
+    );
 
-    elements.modalCloseBtn.addEventListener("click", closeEventModal);
+    elements.nextMonthBtn.addEventListener(
+        "click",
+        () => changeMonth(1)
+    );
+
+    elements.prevWeekBtn.addEventListener(
+        "click",
+        () => moveSelectedDateByDays(-7)
+    );
+
+    elements.nextWeekBtn.addEventListener(
+        "click",
+        () => moveSelectedDateByDays(7)
+    );
+
+    elements.modalCloseBtn.addEventListener(
+        "click",
+        closeEventModal
+    );
 
     // Allows event modal to be closed by clicking background
-    elements.eventModalOverlay.addEventListener("click", event => {
-        if (event.target === elements.eventModalOverlay) {
-            closeEventModal();
+    elements.eventModalOverlay.addEventListener(
+        "click",
+        event => {
+            if (event.target === elements.eventModalOverlay) {
+                closeEventModal();
+            }
         }
-    });
+    );
 
     // Allows event modal to be closed with escape key
-    document.addEventListener("keydown", event => {
-        if (event.key === "Escape" && elements.eventModalOverlay.classList.contains("active")) {
-            closeEventModal();
+    document.addEventListener(
+        "keydown",
+        event => {
+            if (
+                event.key === "Escape" &&
+                elements.eventModalOverlay.classList.contains("active")
+            ) {
+                closeEventModal();
+            }
         }
-    });
+    );
 
     if (elements.loginBtn) {
-        elements.loginBtn.addEventListener("click", () => {
-            window.location.href = "login.html";
-        });
+        elements.loginBtn.addEventListener(
+            "click",
+            () => {
+                window.location.href = "login.html";
+            }
+        );
     }
 }
 
 function init() {
     syncCalendarToSelectedDate();
+
     bindEvents();
+
     renderAll();
 }

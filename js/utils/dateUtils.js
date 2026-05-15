@@ -27,18 +27,33 @@ export const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 export function formatDateKey(year, month, day) {
     const m = String(month + 1).padStart(2, "0");
     const d = String(day).padStart(2, "0");
+
     return `${year}-${m}-${d}`;
 }
 
 // Gets array of events for the given date, if none returns empty array
 export function getEventsForDay(reservedEvents, year, month, day) {
     const dateKey = formatDateKey(year, month, day);
-    return reservedEvents.filter(event => event.date === dateKey);
+
+    return reservedEvents.filter(event => {
+        const eventDate = new Date(event.start_time);
+
+        return formatDateKey(
+            eventDate.getFullYear(),
+            eventDate.getMonth(),
+            eventDate.getDate()
+        ) === dateKey;
+    });
 }
 
 // Returns level 0-4 based on how many events scheduled for given date
 export function getDensityClass(reservedEvents, year, month, day) {
-    const count = getEventsForDay(reservedEvents, year, month, day).length;
+    const count = getEventsForDay(
+        reservedEvents,
+        year,
+        month,
+        day
+    ).length;
 
     if (count === 0) return "level-0";
     if (count === 1) return "level-1";
@@ -56,6 +71,7 @@ export function parseTime(timeString) {
         !timeString.toLowerCase().includes("pm")
     ) {
         const [hour, minute] = timeString.split(":").map(Number);
+
         return { hour, minute };
     }
 
@@ -77,15 +93,9 @@ export function convertHourLabelTo24(label) {
 export function getDurationInMinutes(startTime, endTime) {
     const start = parseTime(startTime);
     const end = parseTime(endTime);
-    return ((end.hour * 60) + end.minute) - ((start.hour * 60) + start.minute);
-}
 
-// Returns processed event date that allows for easy sorting
-export function getEventDateTime(dateKey, timeString) {
-    const [year, month, day] = dateKey.split("-").map(Number);
-    const parsed = parseTime(timeString);
-    // JS uses 0-based month indexing: Jan. is 0, Feb. is 1,...
-    return new Date(year, month - 1, day, parsed.hour, parsed.minute);
+    return ((end.hour * 60) + end.minute) -
+        ((start.hour * 60) + start.minute);
 }
 
 // Returns a user-friendly form of given date in the form "Wed, March 25, 2026"
@@ -95,9 +105,12 @@ export function formatReadableDate(dateObj) {
 
 // Returns a user-friendly form of given date range
 export function formatShortDateRange(startDate, endDate) {
-    const sameMonth = startDate.getMonth() === endDate.getMonth() &&
+    const sameMonth =
+        startDate.getMonth() === endDate.getMonth() &&
         startDate.getFullYear() === endDate.getFullYear();
-    const sameYear = startDate.getFullYear() === endDate.getFullYear();
+
+    const sameYear =
+        startDate.getFullYear() === endDate.getFullYear();
 
     // Returns date in the form "March 25-26, 2026"
     if (sameMonth) {
@@ -116,10 +129,10 @@ export function formatShortDateRange(startDate, endDate) {
 // Sort events and store them in reservedEvents
 export function sortReservedEvents(reservedEvents) {
     reservedEvents.sort((a, b) => {
-        const firstDate = getEventDateTime(a.date, a.start);
-        const secondDate = getEventDateTime(b.date, b.start);
-
-        return firstDate - secondDate;
+        return (
+            new Date(a.start_time) -
+            new Date(b.start_time)
+        );
     });
 }
 
