@@ -1,0 +1,4 @@
+.create-user-container {
+    display: flex;
+    flex-direction: column;
+}

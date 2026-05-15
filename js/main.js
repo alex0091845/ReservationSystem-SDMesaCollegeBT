@@ -25,7 +25,7 @@ const elements = {
     modalDescription: document.getElementById("modalDescription"),
     modalEventType: document.getElementById("modalEventType"),
     modalIsPublic: document.getElementById("modalIsPublic"),
-    modalOrganizer: document.getElementById("modalOrganizer"),
+    modalHost: document.getElementById("modalHost"),
     openReservationModalBtn: document.getElementById("openReservationModalBtn"),
     loginBtn: document.getElementById("loginBtn")
 };
@@ -232,6 +232,9 @@ function bindEvents() {
             }
         );
     }
+
+
+    
 }
 
 function init() {

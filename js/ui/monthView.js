@@ -32,7 +32,7 @@ export function renderCalendar({
     // Renders days of the selected month
     for (let day = 1; day <= daysInMonth; day++) {
         const dateDiv = document.createElement("div");
-
+        
         // Selects color of the day based on event density
         dateDiv.classList.add("date", getDensityClass(reservedEvents, currentYear, currentMonth, day));
         dateDiv.textContent = day;

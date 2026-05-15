@@ -12,7 +12,7 @@ export function createModalController(elements) {
         eventModalOverlay,
         modalEventTitle,
         modalEventDepartment,
-        modalOrganizer,
+        modalHost,
         modalDate,
         modalTime,
         modalDescription,
@@ -25,12 +25,11 @@ export function createModalController(elements) {
         const startDate = new Date(eventData.start_time);
         const endDate = new Date(eventData.end_time);
 
+        console.log(eventData);
         modalEventTitle.textContent = eventData.title;
         modalEventDepartment.textContent = eventData.department;
-        modalOrganizer.textContent =
-            eventData.organizer ||
-            eventData.host_name ||
-            "Not provided";
+        modalHost.textContent =
+            eventData.host_user.first_name + " " + eventData.host_user.last_name;
 
         modalDate.textContent = formatReadableDate(startDate);
 
@@ -134,7 +133,7 @@ reservationForm.addEventListener("submit", async (event) => {
     const end_time = new Date(endValue).toISOString();
 
     const eventData = {
-        host_user_id: 1, // could pull from the organizer field or more likely will be done automatically
+        host_user_id: 1, // TODO: NEEDS TO BE PULLED AUTOMATICALLY FROM SIGNED IN USER
         start_time,
         end_time,
         event_type: formData.get("type"),
