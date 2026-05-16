@@ -1,10 +1,12 @@
 package com.reservation.config;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-
-import java.net.URI;
-import java.net.http.*;
 
 //@Component is an annotation of spring that at start up creates an instance of this class that you can inject elsewhere
 @Component
@@ -25,7 +27,7 @@ public class SupabaseClient {
     public String get(String endpoint) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
+                .uri(URI.create(supabaseUrl + "/functions/v1/" + endpoint))
                 .header("apikey", apiKey)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")

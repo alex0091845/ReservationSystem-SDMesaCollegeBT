@@ -23,9 +23,9 @@ public class AttendeeController {
 
     @GetMapping
     public ResponseEntity<String> getAll() {
-        return ResponseEntity.ok(supabase.get("attendee?select=*,events(title)"));
+        return ResponseEntity.ok(supabase.get("database-access"));
     }
-
+    
     @GetMapping("/{id}")
     public ResponseEntity<String> getById(@PathVariable long id) {
         return ResponseEntity.ok(supabase.get("attendee?id=eq." + id + "&select=*,events(title)"));
