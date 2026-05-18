@@ -10,17 +10,42 @@
 </head>
 
 <body>
-    <div class="login-container">
-        <h1>Admin Dashboard</h1>
+    <!-- Navbar including Login Button -->
+    <header class="navbar">
+        <div class="nav-left">
+            <h1 class="nav-title">Reservation System</h1>
+        </div>
+        <div class="nav-right">
+            <button class="login-btn admin-btn" id="openReservationModalBtn">Create Reservation</button>
+            <button class="login-btn admin-btn" id="logoutBtn">Sign Out</button>
+        </div>
+    </header>
 
-        <p>Create faculty users, give users roles, maybe manage reservations, other stuff. Need to fill this page.</p>
+    <div class="modal-content modal-two-column">
+        <!-- Left Column -->
+        <div class="modal-left-column">
 
-        <button id="logoutBtn">Logout</button>
+            <h1>Admin Dashboard</h1>
 
-        <button id="createUserBtn">Create User</button>
+            <p>Create faculty users, give users roles, maybe manage reservations, other stuff. Need to fill this page. Allan suggests a scrollable list of faculty users where elements can be clicked which opens an "Edit User Modal", with another "Create User" button which opens the same modal but for creating new users.</p>
 
-        <script type="module" src="js/main.js"></script>
+            <button class="login-btn" id="logoutBtn">Logout</button>
+
+            <button class="login-btn" id="createUserBtn">Create User</button>
+        </div>
+
+
+        <!-- Right Column -->
+        <div class="modal-right-column">
+            <div class="upcoming-events">
+                <h3>Upcoming Events</h3>
+                <div class="upcoming-events-list" id="upcomingEventsList"></div>
+            </div>
+        </div>
     </div>
+
+
+    <script type="module" src="js/main.js"></script>
 
     <script>
         const isAdminLoggedIn =
