@@ -1,14 +1,16 @@
+import { getUsers } from "./api.js";
+
 const loginBtn = document.getElementById("loginBtn");
 
 const email = document.getElementById("email");
 const password = document.getElementById("password");
 
-const loginFields = document.querySelectorAll('.login-field');
+const loginFields = document.querySelectorAll(".login-field");
 
 const message = document.getElementById("message");
 
-loginBtn.addEventListener("click", function () {
-  const username = email.value.trim();
+async function handleLogin() {
+  const username = email.value.trim().toLowerCase();
   const userPassword = password.value.trim();
 
   if (username === "" || userPassword === "") {
@@ -18,100 +20,86 @@ loginBtn.addEventListener("click", function () {
     return;
   }
 
-  // Admin login redirects to admin page
-  if (
-    username === "admin" &&
-    userPassword === "admin"
-  ) {
-    sessionStorage.setItem(
-      "adminLoggedIn",
-      "true"
-    );
+  try {
+    const users = await getUsers();
+    const matchedUser = users.find(user => {
+      return (
+        user.email.toLowerCase() === username &&
+        user.password_hash === userPassword
+      );
+    });
+
+    if (!matchedUser) {
+      message.textContent =
+        "Invalid email or password.";
+
+      return;
+    }
 
     sessionStorage.setItem(
       "facultyLoggedIn",
       "true"
     );
 
-    message.textContent =
-      "Admin login successful!";
+    sessionStorage.setItem(
+      "currentUserId",
+      String(matchedUser.id)
+    );
 
-    setTimeout(() => {
-      window.location.href =
-        "admin.html";
-    }, 500);
+    sessionStorage.setItem(
+      "currentUserEmail",
+      matchedUser.email
+    );
 
-    return;
-  }
+    sessionStorage.setItem(
+      "currentUserRole",
+      matchedUser.role_name
+    );
 
-  // Standard login redirects to index and enables create reservation button
-  sessionStorage.setItem(
-    "facultyLoggedIn",
-    "true"
-  );
+    const isAdmin =
+      matchedUser.role_name.toLowerCase() === "admin";
 
-  message.textContent =
-    "Login successful!";
-
-  setTimeout(() => {
-    window.location.href =
-      "index.html";
-  }, 500);
-});
-
-loginFields.forEach(field => {
-  field.addEventListener("keydown", function () {
-    if (event.key === 'Enter') {
-      event.preventDefault();
-      const username = email.value.trim();
-      const userPassword = password.value.trim();
-
-      if (username === "" || userPassword === "") {
-        message.textContent =
-          "Please fill in both fields.";
-
-        return;
-      }
-
-      // Admin login redirects to admin page
-      if (
-        username === "admin" &&
-        userPassword === "admin"
-      ) {
-        sessionStorage.setItem(
-          "adminLoggedIn",
-          "true"
-        );
-
-        sessionStorage.setItem(
-          "facultyLoggedIn",
-          "true"
-        );
-
-        message.textContent =
-          "Admin login successful!";
-
-        setTimeout(() => {
-          window.location.href =
-            "admin.html";
-        }, 500);
-
-        return;
-      }
-
-      // Standard login redirects to index and enables create reservation button
+    if (isAdmin) {
       sessionStorage.setItem(
-        "facultyLoggedIn",
+        "adminLoggedIn",
         "true"
       );
 
       message.textContent =
-        "Login successful!";
+        "Admin login successful!";
 
       setTimeout(() => {
         window.location.href =
-          "index.html";
+          "admin.html";
       }, 500);
+
+      return;
+    }
+
+    sessionStorage.removeItem("adminLoggedIn");
+
+    message.textContent =
+      "Login successful!";
+
+    setTimeout(() => {
+      window.location.href =
+        "index.html";
+    }, 500);
+  } catch (error) {
+    console.error("Login failed:", error);
+
+    message.textContent =
+      "Could not log in. Please try again.";
+  }
+}
+
+loginBtn.addEventListener("click", handleLogin);
+
+loginFields.forEach(field => {
+  field.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      handleLogin();
     }
   });
 });

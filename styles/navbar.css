@@ -16,6 +16,56 @@
     font-weight: 600;
 }
 
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.nav-user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    max-width: 260px;
+    min-height: 36px;
+    border: 1px solid rgba(226, 232, 240, 0.22);
+    border-radius: 999px;
+    padding: 4px 12px 4px 5px;
+    background: rgba(15, 23, 42, 0.42);
+    color: #e5edf8;
+}
+
+.nav-user-chip[hidden] {
+    display: none;
+}
+
+.nav-user-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #dbeafe;
+    color: #1e3a8a;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.nav-user-name {
+    min-width: 0;
+    overflow: hidden;
+    color: #f8fafc;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .login-btn {
     border: none;
     border-radius: 6px;
@@ -34,4 +84,22 @@
 .login-btn:disabled {
     opacity: 0;
     cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+    .navbar {
+        height: auto;
+        min-height: 60px;
+        gap: 12px;
+        padding: 10px 14px;
+    }
+
+    .nav-right {
+        justify-content: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .nav-user-chip {
+        max-width: 180px;
+    }
 }

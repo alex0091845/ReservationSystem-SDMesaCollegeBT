@@ -1,4 +1,466 @@
-.create-user-container {
+.admin-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: 24px;
+    width: 100%;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 30px;
+}
+
+.admin-panel {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    padding: 24px;
+}
+
+.admin-right-panel {
+    min-height: 520px;
+}
+
+.admin-user-details {
+    height: 100%;
+}
+
+.admin-user-empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 336px;
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    padding: 18px;
+    color: #6b7280;
+    background: #fafafa;
+    font-size: 13px;
+    text-align: center;
+}
+
+.admin-dashboard-intro {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 24px;
+}
+
+.admin-dashboard-intro > div {
+    min-width: 0;
+}
+
+.create-user-btn {
+    flex: 0 0 auto;
+    min-height: 42px;
+    white-space: nowrap;
+}
+
+.admin-dashboard-intro h1 {
+    margin: 0 0 12px;
+    color: #111827;
+}
+
+.admin-dashboard-intro p {
+    max-width: 650px;
+    margin: 0;
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+.admin-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.admin-section-header h2 {
+    margin: 0;
+    color: #111827;
+    font-size: 22px;
+}
+
+.admin-section-header span {
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.faculty-user-controls {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(130px, 0.45fr) minmax(150px, 0.55fr);
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.faculty-user-search {
+    grid-column: auto;
+}
+
+.faculty-user-controls label {
     display: flex;
     flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.faculty-user-controls span {
+    color: #4b5563;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.faculty-user-controls input,
+.faculty-user-controls select {
+    width: 100%;
+    min-height: 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 8px 10px;
+    color: #111827;
+    background: #fff;
+    font-size: 13px;
+}
+
+.faculty-user-controls input:focus,
+.faculty-user-controls select:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    outline: none;
+}
+
+.faculty-user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.faculty-user-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 9px 10px;
+    background: #fff;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.18s ease,
+        background-color 0.18s ease;
+}
+
+.faculty-user-card:hover {
+    border-color: #bfdbfe;
+    background: #f8fafc;
+}
+
+.faculty-user-card.selected {
+    border-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: inset 4px 0 0 #2563eb;
+}
+
+.faculty-user-card.disabled {
+    background: #f3f4f6;
+    opacity: 0.78;
+}
+
+.faculty-user-card.disabled .faculty-user-name,
+.faculty-user-card.disabled .faculty-user-email {
+    color: #6b7280;
+}
+
+.faculty-user-card.disabled .faculty-user-meta span:last-child {
+    border-color: #fecaca;
+    color: #b91c1c;
+    background: #fef2f2;
+}
+
+.faculty-user-card:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.22);
+    outline-offset: 2px;
+}
+
+.faculty-user-details {
+    min-width: 0;
+}
+
+.faculty-user-name {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.faculty-user-email {
+    margin-top: 2px;
+    color: #6b7280;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.faculty-user-meta {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    max-width: 160px;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.faculty-user-meta span {
+    max-width: 150px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 3px 7px;
+    background: #f9fafb;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.faculty-user-empty {
+    border: 1px dashed #d1d5db;
+    border-radius: 6px;
+    padding: 18px 12px;
+    color: #6b7280;
+    background: #fafafa;
+    font-size: 13px;
+    text-align: center;
+}
+
+.selected-user-header {
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 16px;
+}
+
+.selected-user-header h2 {
+    margin: 0 0 6px;
+    color: #111827;
+    font-size: 20px;
+}
+
+.selected-user-header p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.selected-user-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 18px 0 24px;
+}
+
+.selected-user-actions button {
+    flex: 1;
+    min-height: 42px;
+}
+
+.selected-user-actions .disable-user-btn {
+    color: #fff;
+    background: #dc2626;
+}
+
+.selected-user-actions .enable-user-btn {
+    color: #fff;
+    background: #059669;
+}
+
+.selected-user-actions .reservation-primary-btn:hover {
+    background: #1d4ed8;
+}
+
+.selected-user-actions .disable-user-btn:hover:not(:disabled) {
+    background: #991b1b;
+    box-shadow: 0 4px 12px rgba(153, 27, 27, 0.28);
+}
+
+.selected-user-actions .enable-user-btn:hover {
+    background: #047857;
+    box-shadow: 0 4px 12px rgba(4, 120, 87, 0.24);
+}
+
+.selected-user-actions .disable-user-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+}
+
+.selected-user-reservations-title {
+    margin: 0 0 12px;
+    color: #111827;
+    font-size: 16px;
+}
+
+.selected-user-reservation-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 328px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.selected-user-reservation-card {
+    width: 100%;
+    text-align: left;
+}
+
+.selected-user-reservation-item,
+.selected-user-empty-reservations {
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fafafa;
+    padding: 10px;
+}
+
+.selected-user-empty-reservations {
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
+}
+
+.selected-user-reservation-name {
+    color: #111827;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.selected-user-reservation-meta {
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.selected-user-reservation-type {
+    margin-top: 8px;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.user-modal {
+    max-width: 680px;
+}
+
+.disable-user-modal {
+    max-width: 520px;
+}
+
+.user-form {
+    padding: 20px 22px 24px;
+}
+
+.disable-user-confirmation {
+    padding: 28px 30px 30px;
+}
+
+.disable-user-confirmation p {
+    margin: 0;
+    color: #374151;
+    line-height: 1.7;
+}
+
+.disable-user-confirmation strong {
+    color: #111827;
+}
+
+.disable-user-warning {
+    margin-top: 14px !important;
+    color: #b91c1c !important;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.disable-user-warning.success {
+    color: #047857 !important;
+}
+
+.disable-user-actions {
+    margin-top: 28px;
+}
+
+.disable-user-actions .disable-user-btn {
+    color: #fff;
+    background: #dc2626;
+}
+
+.disable-user-actions .enable-user-btn {
+    color: #fff;
+    background: #059669;
+}
+
+.disable-user-actions .disable-user-btn:hover {
+    background: #991b1b;
+}
+
+.disable-user-actions .enable-user-btn:hover {
+    background: #047857;
+}
+
+.disable-user-actions .disable-user-btn:disabled,
+.disable-user-actions .enable-user-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+}
+
+@media (max-width: 900px) {
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .faculty-user-list {
+        max-height: 420px;
+    }
+
+    .admin-user-empty-state {
+        min-height: 180px;
+    }
+}
+
+@media (max-width: 560px) {
+    .admin-dashboard-intro {
+        flex-direction: column;
+    }
+
+    .create-user-btn {
+        width: 100%;
+    }
+
+    .faculty-user-card {
+        grid-template-columns: 1fr;
+    }
+
+    .faculty-user-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .faculty-user-meta {
+        justify-content: flex-start;
+        max-width: none;
+    }
+
+    .selected-user-actions {
+        flex-direction: column;
+    }
 }

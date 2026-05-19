@@ -15,6 +15,10 @@
             <h1 class="nav-title">Reservation System</h1>
         </div>
         <div class="nav-right">
+            <div class="nav-user-chip" id="navUserIdentity" hidden>
+                <span class="nav-user-avatar" id="navUserInitials" aria-hidden="true"></span>
+                <span class="nav-user-name" id="navUserName"></span>
+            </div>
             <button class="login-btn" id="openReservationModalBtn">Create Reservation</button>
             <button class="login-btn" id="loginBtn">Faculty Login</button>
         </div>
@@ -133,7 +137,7 @@
 
             <form class="reservation-form" id="reservationForm">
                 <div class="reservation-grid">
-                    <div class="modal-field">
+                    <div class="modal-field reservation-full">
                         <label class="modal-label" for="reservationTitle">Event Title</label>
                         <input class="reservation-input" id="reservationTitle" name="title" type="text" required>
                     </div>
@@ -148,6 +152,12 @@
                             <option value="Office Hours">Office Hours</option>
                             <option value="Other">Other</option>
                         </select>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="reservationDepartment">Department</label>
+                        <input class="reservation-input" id="reservationDepartment" name="department" type="text"
+                            required>
                     </div>
 
                     <div class="modal-field reservation-full">
@@ -191,17 +201,6 @@
                     <div class="modal-field">
                         <label class="modal-label" for="reservationEnd">End</label>
                         <input class="reservation-input" id="reservationEnd" name="end" type="datetime-local" required>
-                    </div>
-
-                    <div class="modal-field">
-                        <label class="modal-label" for="reservationDepartment">Department</label>
-                        <input class="reservation-input" id="reservationDepartment" name="department" type="text"
-                            required>
-                    </div>
-
-                    <div class="modal-field">
-                        <label class="modal-label" for="reservationHost">Host</label>
-                        <input class="reservation-input" id="reservationHost" name="host" type="text">
                     </div>
 
                 </div>

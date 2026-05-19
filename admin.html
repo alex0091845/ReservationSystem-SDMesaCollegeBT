@@ -7,63 +7,249 @@
     <title>Admin Dashboard</title>
 
     <link rel="stylesheet" href="styles/main.css" />
+    <link rel="stylesheet" href="styles/admin.css" />
 </head>
 
 <body>
-    <!-- Navbar including Login Button -->
     <header class="navbar">
         <div class="nav-left">
-            <h1 class="nav-title">Reservation System</h1>
+            <h1 class="nav-title">Reservation System Admin</h1>
         </div>
+
         <div class="nav-right">
-            <button class="login-btn admin-btn" id="openReservationModalBtn">Create Reservation</button>
             <button class="login-btn admin-btn" id="logoutBtn">Sign Out</button>
         </div>
     </header>
 
-    <div class="modal-content modal-two-column">
-        <!-- Left Column -->
-        <div class="modal-left-column">
+    <main class="admin-layout">
+        <section class="admin-panel admin-left-panel">
+            <div class="admin-dashboard-intro">
+                <div>
+                    <h1>Admin Dashboard</h1>
+                    <p>Manage faculty users and administrative access for the reservation system.</p>
+                </div>
 
-            <h1>Admin Dashboard</h1>
+                <button class="reservation-primary-btn create-user-btn" id="createUserBtn">Create New User</button>
+            </div>
 
-            <p>Create faculty users, give users roles, maybe manage reservations, other stuff. Need to fill this page. Allan suggests a scrollable list of faculty users where elements can be clicked which opens an "Edit User Modal", with another "Create User" button which opens the same modal but for creating new users.</p>
+            <div class="admin-section-header">
+                <h2>Users</h2>
+                <span id="userCount">0 users</span>
+            </div>
 
-            <button class="login-btn" id="logoutBtn">Logout</button>
+            <div class="faculty-user-controls" aria-label="Faculty user controls">
+                <label class="faculty-user-search">
+                    <span>Search</span>
+                    <input id="userSearchInput" type="search" placeholder="Search by name">
+                </label>
 
-            <button class="login-btn" id="createUserBtn">Create User</button>
+                <label>
+                    <span>Filter</span>
+                    <select id="userRoleFilter">
+                        <option value="all">All roles</option>
+                        <option value="faculty">Faculty</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>Sort</span>
+                    <select id="userSortSelect">
+                        <option value="name-asc">Name A-Z</option>
+                        <option value="name-desc">Name Z-A</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="faculty-user-list" id="facultyUserList"></div>
+        </section>
+
+        <section class="admin-panel admin-right-panel">
+            <div class="admin-user-details" id="adminUserDetails"></div>
+        </section>
+    </main>
+
+    <div class="modal-overlay" id="userModalOverlay" aria-hidden="true">
+        <div class="modal user-modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="userModalTitle">Create User</h2>
+                    <div class="modal-event-department" id="userModalSubtitle">Add a new faculty user</div>
+                </div>
+
+                <button class="modal-close-btn" id="userModalCloseBtn" aria-label="Close user form">&times;</button>
+            </div>
+
+            <form class="user-form" id="userForm">
+                <input type="hidden" id="userId" name="id">
+
+                <div class="reservation-grid">
+                    <div class="modal-field">
+                        <label class="modal-label" for="userFirstName">First Name</label>
+                        <input class="reservation-input" id="userFirstName" name="first_name" type="text" required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="userLastName">Last Name</label>
+                        <input class="reservation-input" id="userLastName" name="last_name" type="text" required>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="userEmail">Email</label>
+                        <input class="reservation-input" id="userEmail" name="email" type="email" required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="userPhone">Phone</label>
+                        <input class="reservation-input" id="userPhone" name="phone" type="tel">
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="userRole">Role</label>
+                        <select class="reservation-input reservation-select" id="userRole" name="role_name" required>
+                            <option value="Faculty">Faculty</option>
+                            <option value="Admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="reservation-actions">
+                    <button type="button" class="reservation-secondary-btn" id="userCancelBtn">Cancel</button>
+                    <button type="submit" class="reservation-primary-btn" id="userSubmitBtn">Create User</button>
+                </div>
+            </form>
         </div>
+    </div>
 
+    <div class="modal-overlay" id="disableUserModalOverlay" aria-hidden="true">
+        <div class="modal disable-user-modal" role="dialog" aria-modal="true" aria-labelledby="disableUserModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="disableUserModalTitle">Disable User</h2>
+                    <div class="modal-event-department" id="disableUserModalSubtitle">Confirm account restriction</div>
+                </div>
 
-        <!-- Right Column -->
-        <div class="modal-right-column">
-            <div class="upcoming-events">
-                <h3>Upcoming Events</h3>
-                <div class="upcoming-events-list" id="upcomingEventsList"></div>
+                <button class="modal-close-btn" id="disableUserModalCloseBtn" aria-label="Close user status confirmation">&times;</button>
+            </div>
+
+            <div class="disable-user-confirmation">
+                <p>
+                    Are you sure you want to
+                    <span id="disableUserActionVerb">disable</span>
+                    <strong id="disableUserName">this user</strong>?
+                </p>
+                <p class="disable-user-warning" id="disableUserWarning">Disabled users cannot create new reservations.</p>
+
+                <div class="reservation-actions disable-user-actions">
+                    <button type="button" class="reservation-secondary-btn" id="disableUserCancelBtn">Cancel</button>
+                    <button type="button" class="reservation-secondary-btn disable-user-btn" id="disableUserConfirmBtn">
+                        Disable User
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
+    <div class="modal-overlay" id="adminReservationModalOverlay" aria-hidden="true">
+        <div class="modal reservation-modal" role="dialog" aria-modal="true" aria-labelledby="adminReservationModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="adminReservationModalTitle">Edit Reservation</h2>
+                    <div class="modal-event-department">Update reservation details</div>
+                </div>
 
-    <script type="module" src="js/main.js"></script>
+                <button class="modal-close-btn" id="adminReservationModalCloseBtn"
+                    aria-label="Close reservation form">&times;</button>
+            </div>
 
-    <script>
-        const isAdminLoggedIn =
-            sessionStorage.getItem("adminLoggedIn") === "true";
+            <form class="reservation-form" id="adminReservationForm">
+                <input type="hidden" id="adminReservationId" name="id">
+                <input type="hidden" id="adminReservationHostUserId" name="host_user_id">
 
-        if (!isAdminLoggedIn) {
-            window.location.href = "login.html";
-        }
+                <div class="reservation-grid">
+                    <div class="modal-field">
+                        <label class="modal-label" for="adminReservationTitle">Event Title</label>
+                        <input class="reservation-input" id="adminReservationTitle" name="title" type="text" required>
+                    </div>
 
-        document
-            .getElementById("logoutBtn")
-            .addEventListener("click", () => {
-                sessionStorage.removeItem("adminLoggedIn");
-                sessionStorage.removeItem("facultyLoggedIn");
+                    <div class="modal-field">
+                        <label class="modal-label" for="adminReservationType">Event Type</label>
+                        <select class="reservation-input reservation-select" id="adminReservationType" name="type" required>
+                            <option value="" disabled>Select event type</option>
+                            <option value="Study">Study</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Work">Work</option>
+                            <option value="Office Hours">Office Hours</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
 
-                window.location.href = "login.html";
-            });
-    </script>
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="adminReservationDescription">Description</label>
+                        <textarea class="reservation-input reservation-textarea" id="adminReservationDescription"
+                            name="description" rows="4" required></textarea>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <div class="modal-label">Event Access</div>
+
+                        <div class="visibility-toggle" role="radiogroup" aria-label="Event access">
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="open" checked>
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Open to everyone</span>
+                                    <span class="visibility-description">
+                                        Anyone can view and attend this event
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="private">
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Private</span>
+                                    <span class="visibility-description">
+                                        Only select participants can attend
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="adminReservationStart">Start</label>
+                        <input class="reservation-input" id="adminReservationStart" name="start" type="datetime-local"
+                            required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="adminReservationEnd">End</label>
+                        <input class="reservation-input" id="adminReservationEnd" name="end" type="datetime-local" required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="adminReservationDepartment">Department</label>
+                        <input class="reservation-input" id="adminReservationDepartment" name="department" type="text"
+                            required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="adminReservationHost">Host</label>
+                        <input class="reservation-input" id="adminReservationHost" name="host" type="text">
+                    </div>
+                </div>
+
+                <div class="reservation-actions">
+                    <button type="button" class="reservation-secondary-btn" id="adminReservationCancelBtn">Cancel</button>
+                    <button type="submit" class="reservation-primary-btn" id="adminReservationSubmitBtn">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="js/admin.js"></script>
 </body>
 
 </html>

@@ -1,4 +1,4 @@
-import { getEvents } from "./api.js";
+import { getEvents, getUsers, isUserDisabled } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView } from "./ui/weekView.js";
@@ -27,23 +27,35 @@ const elements = {
     modalIsPublic: document.getElementById("modalIsPublic"),
     modalHost: document.getElementById("modalHost"),
     openReservationModalBtn: document.getElementById("openReservationModalBtn"),
-    loginBtn: document.getElementById("loginBtn")
+    loginBtn: document.getElementById("loginBtn"),
+    navUserIdentity: document.getElementById("navUserIdentity"),
+    navUserInitials: document.getElementById("navUserInitials"),
+    navUserName: document.getElementById("navUserName")
 };
 
 const isFacultyLoggedIn =
     sessionStorage.getItem("facultyLoggedIn") === "true";
+const currentUserId = sessionStorage.getItem("currentUserId");
+const currentUserRole = sessionStorage.getItem("currentUserRole") || "";
+const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
+const currentUserDisabled = isUserDisabled(currentHostUserId);
 
 if (elements.openReservationModalBtn) {
-    elements.openReservationModalBtn.disabled = !isFacultyLoggedIn;
-    elements.openReservationModalBtn.title = isFacultyLoggedIn
-        ? ""
-        : "Faculty login required";
+    elements.openReservationModalBtn.disabled = !isFacultyLoggedIn || currentUserDisabled;
+    elements.openReservationModalBtn.title = !isFacultyLoggedIn
+        ? "Faculty login required"
+        : currentUserDisabled
+            ? "This user is disabled and cannot create reservations"
+            : "";
 }
 
 // New event loading system
 let reservedEvents = [];
+let currentUser = null;
 
 async function loadEvents() {
+    await loadCurrentUser();
+
     try {
         reservedEvents = await getEvents();
 
@@ -58,6 +70,23 @@ async function loadEvents() {
 }
 
 loadEvents();
+
+async function loadCurrentUser() {
+    if (!isFacultyLoggedIn || isCurrentSessionAdmin() || !currentUserId) {
+        return;
+    }
+
+    try {
+        const users = await getUsers();
+
+        currentUser = users.find(user => {
+            return String(user.id) === String(currentUserId);
+        }) || null;
+    } catch (error) {
+        console.error("Error loading current user:", error);
+        currentUser = null;
+    }
+}
 
 // Initializes selected date to today's date
 const today = new Date();
@@ -78,6 +107,28 @@ const {
     openEventModal,
     closeEventModal
 } = createModalController(elements);
+
+function bindBackdropClose(overlay, closeModal) {
+    let pointerStartedOnBackdrop = false;
+
+    overlay.addEventListener(
+        "pointerdown",
+        event => {
+            pointerStartedOnBackdrop = event.target === overlay;
+        }
+    );
+
+    overlay.addEventListener(
+        "click",
+        event => {
+            if (pointerStartedOnBackdrop && event.target === overlay) {
+                closeModal();
+            }
+
+            pointerStartedOnBackdrop = false;
+        }
+    );
+}
 
 // Syncs calendar widget date with week-view widget date
 function syncCalendarToSelectedDate() {
@@ -147,6 +198,8 @@ function changeMonth(monthOffset) {
 
 // Draws all the page elements
 function renderAll() {
+    renderCurrentUserIdentity();
+
     renderCalendar({
         datesContainer: elements.datesContainer,
         calendarTitle: elements.calendarTitle,
@@ -172,6 +225,61 @@ function renderAll() {
         reservedEvents,
         openEventModal
     );
+}
+
+function renderCurrentUserIdentity() {
+    if (!elements.navUserIdentity) {
+        return;
+    }
+
+    const shouldShowUser =
+        isFacultyLoggedIn &&
+        currentUser &&
+        !isAdminUser(currentUser);
+
+    elements.navUserIdentity.hidden = !shouldShowUser;
+
+    if (!shouldShowUser) {
+        return;
+    }
+
+    const userName = getUserFullName(currentUser);
+
+    elements.navUserName.textContent = userName;
+    elements.navUserInitials.textContent = getUserInitials(currentUser);
+    elements.navUserIdentity.setAttribute(
+        "aria-label",
+        `Signed in as ${userName}`
+    );
+}
+
+function getUserFullName(user) {
+    return `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Signed-in user";
+}
+
+function getUserInitials(user) {
+    const nameParts = [
+        user.first_name,
+        user.last_name
+    ].filter(Boolean);
+
+    if (nameParts.length > 0) {
+        return nameParts
+            .map(namePart => namePart.trim().charAt(0))
+            .join("")
+            .slice(0, 2)
+            .toUpperCase();
+    }
+
+    return (user.email || "U").charAt(0).toUpperCase();
+}
+
+function isCurrentSessionAdmin() {
+    return currentUserRole.toLowerCase() === "admin";
+}
+
+function isAdminUser(user) {
+    return (user.role_name || user.role || "").toLowerCase() === "admin";
 }
 
 // Starts event listeners for button and modal interactivity
@@ -202,14 +310,7 @@ function bindEvents() {
     );
 
     // Allows event modal to be closed by clicking background
-    elements.eventModalOverlay.addEventListener(
-        "click",
-        event => {
-            if (event.target === elements.eventModalOverlay) {
-                closeEventModal();
-            }
-        }
-    );
+    bindBackdropClose(elements.eventModalOverlay, closeEventModal);
 
     // Allows event modal to be closed with escape key
     document.addEventListener(
@@ -225,9 +326,22 @@ function bindEvents() {
     );
 
     if (elements.loginBtn) {
+        elements.loginBtn.textContent = isFacultyLoggedIn ? "Sign Out" : "Faculty Login";
+
         elements.loginBtn.addEventListener(
             "click",
             () => {
+                if (isFacultyLoggedIn) {
+                    sessionStorage.removeItem("adminLoggedIn");
+                    sessionStorage.removeItem("facultyLoggedIn");
+                    sessionStorage.removeItem("currentUserId");
+                    sessionStorage.removeItem("currentUserEmail");
+                    sessionStorage.removeItem("currentUserRole");
+
+                    window.location.href = "index.html";
+                    return;
+                }
+
                 window.location.href = "login.html";
             }
         );

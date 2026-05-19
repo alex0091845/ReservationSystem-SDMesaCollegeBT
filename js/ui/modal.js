@@ -1,4 +1,4 @@
-import { createEvent } from "../api.js";
+import { createEvent, isUserDisabled } from "../api.js";
 import { formatReadableDate } from "../utils/dateUtils.js";
 
 const reservationModalOverlay = document.getElementById("reservationModalOverlay");
@@ -6,6 +6,8 @@ const openReservationModalBtn = document.getElementById("openReservationModalBtn
 const reservationModalCloseBtn = document.getElementById("reservationModalCloseBtn");
 const reservationCancelBtn = document.getElementById("reservationCancelBtn");
 const reservationForm = document.getElementById("reservationForm");
+const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
+let reservationPointerStartedOnBackdrop = false;
 
 export function createModalController(elements) {
     const {
@@ -69,6 +71,10 @@ export function createModalController(elements) {
 
 // Opens reservation creation modal
 function openReservationModal() {
+    if (isUserDisabled(currentHostUserId)) {
+        return;
+    }
+
     reservationModalOverlay.classList.add("active");
     reservationModalOverlay.setAttribute("aria-hidden", "false");
 }
@@ -101,13 +107,19 @@ reservationCancelBtn.addEventListener(
 );
 
 // Close modal when clicking overlay
-reservationModalOverlay.addEventListener("click", (event) => {
-    const clickedInsideModal =
-        event.target.closest(".reservation-modal");
+reservationModalOverlay.addEventListener("pointerdown", event => {
+    reservationPointerStartedOnBackdrop = event.target === reservationModalOverlay;
+});
 
-    if (!clickedInsideModal) {
+reservationModalOverlay.addEventListener("click", (event) => {
+    if (
+        reservationPointerStartedOnBackdrop &&
+        event.target === reservationModalOverlay
+    ) {
         closeReservationModal();
     }
+
+    reservationPointerStartedOnBackdrop = false;
 });
 
 // Close modal with escape key
@@ -133,7 +145,7 @@ reservationForm.addEventListener("submit", async (event) => {
     const end_time = new Date(endValue).toISOString();
 
     const eventData = {
-        host_user_id: 1, // TODO: NEEDS TO BE PULLED AUTOMATICALLY FROM SIGNED IN USER
+        host_user_id: currentHostUserId,
         start_time,
         end_time,
         event_type: formData.get("type"),
