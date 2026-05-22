@@ -108,7 +108,7 @@ function renderUsers() {
             userCard.classList.add("selected");
         }
 
-        if (user.disabled) {
+        if (!isUserEnabled(user)) {
             userCard.classList.add("disabled");
         }
 
@@ -129,7 +129,7 @@ function renderUsers() {
         userMeta.className = "faculty-user-meta";
 
         const role = document.createElement("span");
-        role.textContent = user.disabled ? "disabled" : getUserRoleName(user);
+        role.textContent = isUserEnabled(user) ? getUserRoleName(user) : "disabled";
 
         userMeta.append(role);
         userCard.append(userDetails, userMeta);
@@ -184,10 +184,12 @@ function renderUserDetails() {
     if (!isAdminUser(selectedUser)) {
         const disableButton = document.createElement("button");
         disableButton.type = "button";
-        disableButton.className = selectedUser.disabled
-            ? "reservation-secondary-btn enable-user-btn"
-            : "reservation-secondary-btn disable-user-btn";
-        disableButton.textContent = selectedUser.disabled ? "Enable User" : "Disable User";
+        disableButton.className = isUserEnabled(selectedUser)
+            ? "reservation-secondary-btn disable-user-btn"
+            : "reservation-secondary-btn enable-user-btn";
+        disableButton.textContent = isUserEnabled(selectedUser)
+            ? "Disable User"
+            : "Enable User";
         disableButton.addEventListener("click", openUserStatusModal);
 
         actionRow.append(disableButton);
@@ -358,8 +360,11 @@ function getVisibleUsers() {
             return nameMatches && roleMatches;
         })
         .sort((firstUser, secondUser) => {
-            if (Boolean(firstUser.disabled) !== Boolean(secondUser.disabled)) {
-                return firstUser.disabled ? 1 : -1;
+            const firstUserEnabled = isUserEnabled(firstUser);
+            const secondUserEnabled = isUserEnabled(secondUser);
+
+            if (firstUserEnabled !== secondUserEnabled) {
+                return firstUserEnabled ? -1 : 1;
             }
 
             const [sortField, sortDirection] = userSortValue.split("-");
@@ -384,6 +389,10 @@ function getUserFullName(user) {
 
 function getUserRoleName(user) {
     return user.role_name || user.role || "Faculty";
+}
+
+function isUserEnabled(user) {
+    return user.enabled !== false;
 }
 
 function isAdminUser(user) {
@@ -442,7 +451,7 @@ function openUserStatusModal() {
     }
 
     userPendingStatusChange = selectedUser;
-    pendingStatusAction = selectedUser.disabled ? "enable" : "disable";
+    pendingStatusAction = isUserEnabled(selectedUser) ? "disable" : "enable";
     setUserStatusModalContent();
 
     disableUserConfirmBtn.disabled = false;
@@ -571,7 +580,8 @@ function getUpdatedHostUser(hostName, fallbackHostUser) {
         email: fallbackHostUser?.email ?? selectedUser?.email,
         first_name: firstName || fallbackHostUser?.first_name || selectedUser?.first_name || "",
         last_name: lastNameParts.join(" ") || fallbackHostUser?.last_name || selectedUser?.last_name || "",
-        role_name: fallbackHostUser?.role_name ?? getUserRoleName(selectedUser || {})
+        role_name: fallbackHostUser?.role_name ?? getUserRoleName(selectedUser || {}),
+        enabled: fallbackHostUser?.enabled ?? selectedUser?.enabled ?? true
     };
 }
 
@@ -586,13 +596,17 @@ userForm.addEventListener("submit", async event => {
 
         try {
             const createdUser = await createUser(userData);
-            users.push(createdUser);
+            users.push({
+                ...createdUser,
+                enabled: createdUser.enabled !== false
+            });
         } catch (error) {
             console.error("Could not create user on backend. Adding locally:", error);
 
             users.push({
                 ...userData,
-                id: Date.now()
+                id: Date.now(),
+                enabled: true
             });
         }
     }
@@ -702,7 +716,7 @@ async function handleConfirmUserStatusChange() {
         if (String(user.id) === String(userToUpdate.id)) {
             const updatedUser = {
                 ...user,
-                disabled: disablingUser
+                enabled: !disablingUser
             };
 
             selectedUser = updatedUser;

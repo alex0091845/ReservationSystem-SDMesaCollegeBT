@@ -32,6 +32,14 @@ function saveDisabledUserIds(userIds) {
 }
 
 export function isUserDisabled(userId) {
+    const user = getUsers().find(testUser => {
+        return String(testUser.id) === String(userId);
+    });
+
+    if (user) {
+        return user.enabled === false;
+    }
+
     return getDisabledUserIds().includes(String(userId));
 }
 
@@ -91,7 +99,8 @@ function getEventHostUser(user) {
         first_name: user.first_name,
         last_name: user.last_name,
         phone: user.phone,
-        role_name: user.role_name
+        role_name: user.role_name,
+        enabled: user.enabled !== false
     };
 }
 
@@ -102,7 +111,8 @@ function getBaseEvents() {
         "first_name": "Alex",
         "last_name": "Chow",
         "phone": "5551212",
-        "role_name": "Faculty"
+        "role_name": "Faculty",
+        "enabled": true
     };
 
 
@@ -232,7 +242,8 @@ export function getUsers() {
             first_name: "Alex",
             last_name: "Chow",
             phone: "5551212",
-            role_name: "Faculty"
+            role_name: "Faculty",
+            enabled: true
         },
         {
             id: 2,
@@ -241,7 +252,8 @@ export function getUsers() {
             first_name: "Leo",
             last_name: "Nguyen",
             phone: "5551212",
-            role_name: "Faculty"
+            role_name: "Faculty",
+            enabled: true
         },
         {
             id: 3,
@@ -250,7 +262,8 @@ export function getUsers() {
             first_name: "Jordan",
             last_name: "Ayling",
             phone: "5551212",
-            role_name: "Admin"
+            role_name: "Admin",
+            enabled: true
         },
         {
             id: 4,
@@ -259,7 +272,8 @@ export function getUsers() {
             first_name: "admin",
             last_name: "admin",
             phone: "5551212",
-            role_name: "Admin"
+            role_name: "Admin",
+            enabled: true
         },
         {
             id: 5,
@@ -268,7 +282,8 @@ export function getUsers() {
             first_name: "Allan",
             last_name: "Schougaard",
             phone: "5551212",
-            role_name: "Faculty"
+            role_name: "Faculty",
+            enabled: true
         },
         {
             id: 6,
@@ -277,7 +292,8 @@ export function getUsers() {
             first_name: "Braulio",
             last_name: "Ochoa",
             phone: "5551212",
-            role_name: "Faculty"
+            role_name: "Faculty",
+            enabled: true
         },
         {
             id: 7,
@@ -286,7 +302,8 @@ export function getUsers() {
             first_name: "Dominic",
             last_name: "Last Name",
             phone: "5551212",
-            role_name: "Faculty"
+            role_name: "Faculty",
+            enabled: true
         },
         {
             id: 8,
@@ -295,7 +312,8 @@ export function getUsers() {
             first_name: "Nathan",
             last_name: "Last Name",
             phone: "5551212",
-            role_name: "Faculty"
+            role_name: "Faculty",
+            enabled: true
         },
         {
             id: 9,
@@ -304,7 +322,8 @@ export function getUsers() {
             first_name: "Fernando",
             last_name: "R",
             phone: "5551212",
-            role_name: "Faculty"
+            role_name: "Faculty",
+            enabled: true
         }
     ];
 
@@ -312,7 +331,9 @@ export function getUsers() {
 
     return testUsers.map(user => ({
         ...user,
-        disabled: disabledUserIds.includes(String(user.id))
+        enabled: disabledUserIds.includes(String(user.id))
+            ? false
+            : user.enabled !== false
     }));
 }
 
@@ -330,10 +351,10 @@ export function disableUser(userData) {
         ]);
     }
 
-    // return request("/users", "PATCH", { ...userData, disabled: true });
+    // return request("/users", "PATCH", { ...userData, enabled: false });
     return {
         ...userData,
-        disabled: true
+        enabled: false
     };
 }
 
@@ -344,10 +365,10 @@ export function enableUser(userData) {
         disabledUserIds.filter(userId => String(userId) !== String(userData.id))
     );
 
-    // return request("/users", "PATCH", { ...userData, disabled: false });
+    // return request("/users", "PATCH", { ...userData, enabled: true });
     return {
         ...userData,
-        disabled: false
+        enabled: true
     };
 }
 // END NOT DOCUMENTED
