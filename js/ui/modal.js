@@ -6,7 +6,7 @@ const openReservationModalBtn = document.getElementById("openReservationModalBtn
 const reservationModalCloseBtn = document.getElementById("reservationModalCloseBtn");
 const reservationCancelBtn = document.getElementById("reservationCancelBtn");
 const reservationForm = document.getElementById("reservationForm");
-const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
+const currentHostUserId = localStorage.getItem("currentUserId") || 1;
 let reservationPointerStartedOnBackdrop = false;
 
 export function createModalController(elements) {
@@ -31,7 +31,7 @@ export function createModalController(elements) {
         modalEventTitle.textContent = eventData.title;
         modalEventDepartment.textContent = eventData.department;
         modalHost.textContent =
-            eventData.host_user.first_name + " " + eventData.host_user.last_name;
+            users.find(user => user.id === eventData.host_user_id).first_name + " " + users.find(user => user.id === eventData.host_user_id).last_name;
 
         modalDate.textContent = formatReadableDate(startDate);
 

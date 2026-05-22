@@ -36,22 +36,22 @@ async function handleLogin() {
       return;
     }
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       "facultyLoggedIn",
       "true"
     );
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       "currentUserId",
       String(matchedUser.id)
     );
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       "currentUserEmail",
       matchedUser.email
     );
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       "currentUserRole",
       matchedUser.role_name
     );
@@ -60,7 +60,7 @@ async function handleLogin() {
       matchedUser.role_name.toLowerCase() === "admin";
 
     if (isAdmin) {
-      sessionStorage.setItem(
+      localStorage.setItem(
         "adminLoggedIn",
         "true"
       );
@@ -76,7 +76,7 @@ async function handleLogin() {
       return;
     }
 
-    sessionStorage.removeItem("adminLoggedIn");
+    localStorage.removeItem("adminLoggedIn");
 
     message.textContent =
       "Login successful!";

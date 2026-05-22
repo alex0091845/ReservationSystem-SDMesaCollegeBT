@@ -59,7 +59,7 @@ let userRoleValue = "all";
 let userSortValue = "name-asc";
 
 const isAdminLoggedIn =
-    sessionStorage.getItem("adminLoggedIn") === "true";
+    localStorage.getItem("adminLoggedIn") === "true";
 
 if (!isAdminLoggedIn) {
     window.location.href = "login.html";
@@ -787,11 +787,11 @@ document.addEventListener("keydown", event => {
 });
 
 logoutBtn.addEventListener("click", () => {
-    sessionStorage.removeItem("adminLoggedIn");
-    sessionStorage.removeItem("facultyLoggedIn");
-    sessionStorage.removeItem("currentUserId");
-    sessionStorage.removeItem("currentUserEmail");
-    sessionStorage.removeItem("currentUserRole");
+    localStorage.removeItem("adminLoggedIn");
+    localStorage.removeItem("facultyLoggedIn");
+    localStorage.removeItem("currentUserId");
+    localStorage.removeItem("currentUserEmail");
+    localStorage.removeItem("currentUserRole");
 
     window.location.href = "index.html";
 });

@@ -36,10 +36,10 @@ const elements = {
 };
 
 const isFacultyLoggedIn =
-    sessionStorage.getItem("facultyLoggedIn") === "true";
-const currentUserId = sessionStorage.getItem("currentUserId");
-const currentUserRole = sessionStorage.getItem("currentUserRole") || "";
-const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
+    localStorage.getItem("facultyLoggedIn") === "true";
+const currentUserId = localStorage.getItem("currentUserId");
+const currentUserRole = localStorage.getItem("currentUserRole") || "";
+const currentHostUserId = localStorage.getItem("currentUserId") || 1;
 const currentUserDisabled = isUserDisabled(currentHostUserId);
 
 if (elements.openReservationModalBtn) {
@@ -336,11 +336,11 @@ function bindEvents() {
             "click",
             () => {
                 if (isFacultyLoggedIn) {
-                    sessionStorage.removeItem("adminLoggedIn");
-                    sessionStorage.removeItem("facultyLoggedIn");
-                    sessionStorage.removeItem("currentUserId");
-                    sessionStorage.removeItem("currentUserEmail");
-                    sessionStorage.removeItem("currentUserRole");
+                    localStorage.removeItem("adminLoggedIn");
+                    localStorage.removeItem("facultyLoggedIn");
+                    localStorage.removeItem("currentUserId");
+                    localStorage.removeItem("currentUserEmail");
+                    localStorage.removeItem("currentUserRole");
 
                     window.location.href = "index.html";
                     return;
