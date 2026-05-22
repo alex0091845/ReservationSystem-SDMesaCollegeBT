@@ -262,7 +262,7 @@ export function getUsers() {
             first_name: "Jordan",
             last_name: "Ayling",
             phone: "5551212",
-            role_name: "Admin",
+            role_name: "Faculty",
             enabled: true
         },
         {
