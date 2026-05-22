@@ -1,10 +1,12 @@
-import { getEvents, getUsers, isUserDisabled } from "./api.js";
+import { getAttendees, getEvents, getUsers, isUserDisabled } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView } from "./ui/weekView.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { createModalController } from "./ui/modal.js";
 
+
+console.log(getAttendees());
 // Makes all page elements accessible in one place
 const elements = {
     datesContainer: document.getElementById("dates"),
@@ -78,6 +80,8 @@ async function loadCurrentUser() {
 
     try {
         const users = await getUsers();
+
+        console.log(users);
 
         currentUser = users.find(user => {
             return String(user.id) === String(currentUserId);

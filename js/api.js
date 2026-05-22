@@ -2,6 +2,8 @@ const BASE_URL = "http://18.223.249.15:8080/api";
 const DISABLED_USER_IDS_STORAGE_KEY = "disabledUserIds";
 const EVENT_OVERRIDES_STORAGE_KEY = "eventOverrides";
 
+// REWORK ALL API FUNCTIONS AND 
+
 function getDisabledUserIds() {
     try {
         if (typeof localStorage === "undefined") {
@@ -118,7 +120,7 @@ function getBaseEvents() {
 
     return [{
         "id": 1,
-        "host_user_id": alexChow.id,
+        "host_user_id": 2,
         "host_user": alexChow,
         "start_time": new Date(),
         "end_time": new Date(),
@@ -161,11 +163,15 @@ async function request(endpoint, method = "GET", data = null) {
     }
 
     try {
-        const response = await fetch(`${BASE_URL}${endpoint}`, options);
+        const response = await fetch(`${BASE_URL}${endpoint}`, options).then(response => response.json()) // First: convert stream to JSON
+            .then(data => {
+                console.log(data);               // Second: print the body
+            })
+            .catch(error => console.error('Error:', error));
 
-        if (!response.ok) {
-            throw new Error(`Request failed: ${method} ${endpoint}`);
-        }
+        // if (!response.ok) {
+        //     throw new Error(`Request failed: ${method} ${endpoint}`);
+        // }
 
         return response.json();
     } finally {
@@ -378,5 +384,5 @@ export function createAttendee(attendeeData) {
 }
 
 export function getAttendees() {
-    return request("/attendees", "GET");
+    return request("/attendee", "GET");
 }
