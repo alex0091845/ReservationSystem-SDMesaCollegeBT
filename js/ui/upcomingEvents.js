@@ -1,7 +1,4 @@
-import {
-    formatReadableDate,
-    getEventColorClass
-} from "../utils/dateUtils.js";
+import { createEventCard } from "./eventCards.js";
 
 export function renderUpcomingEvents(
     container,
@@ -32,48 +29,12 @@ export function renderUpcomingEvents(
         return;
     }
 
-    // Creates event cards
     upcoming.forEach(event => {
-        const card = document.createElement("button");
-
-        card.type = "button";
-
-        card.className = `
-            upcoming-event-card
-            ${getEventColorClass(event.event_type)}
-        `;
-
-        const startDate = new Date(event.start_time);
-        const endDate = new Date(event.end_time);
-
-        const formattedStartTime = startDate.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit"
-        });
-
-        const formattedEndTime = endDate.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit"
-        });
-
-        card.innerHTML = `
-            <div class="upcoming-event-title">
-                ${event.title}
-            </div>
-
-            <div class="upcoming-event-date">
-                ${formatReadableDate(startDate)}
-            </div>
-
-            <div class="upcoming-event-time">
-                ${formattedStartTime} - ${formattedEndTime}
-            </div>
-        `;
-
-        card.addEventListener("click", () => {
-            openEventModal(event);
-        });
-
-        container.appendChild(card);
+        container.appendChild(
+            createEventCard({
+                event,
+                onClick: openEventModal
+            })
+        );
     });
 }

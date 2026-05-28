@@ -63,12 +63,16 @@
         padding: 16px;
     }
 
-    .upcoming-events h3 {
+    .upcoming-events h3,
+    .my-events-header h3,
+    .check-in-widget-header h3 {
         margin-bottom: 12px;
         font-size: 20px;
     }
 
-    .upcoming-events-list {
+    .upcoming-events-list,
+    .my-events-list,
+    .check-in-widget-list {
         flex: 1;
         gap: 8px;
     }
@@ -91,6 +95,29 @@
     .side-panel {
         grid-column: 1 / -1;
         grid-row: 2;
+    }
+
+    .side-panel.has-side-widget {
+        grid-column: 2;
+        grid-row: 2;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .left-column > .my-events,
+    .left-column > .check-in-widget {
+        display: flex;
+        flex-direction: column;
+        grid-column: 1;
+        grid-row: 2;
+        align-self: start;
+        height: 320px;
+        padding: 16px;
+    }
+
+    .left-column > .my-events[hidden],
+    .left-column > .check-in-widget[hidden] {
+        display: none;
     }
 
     .week-view {
@@ -121,12 +148,10 @@
 
 @media (max-width: 900px) {
     .week-grid {
+        --week-hour-row-height: 52px;
+        --week-header-height: 50px;
+        --week-time-column-width: 54px;
         overflow-x: hidden;
-    }
-
-    .week-header,
-    .week-row {
-        grid-template-columns: 60px repeat(7, minmax(0, 1fr));
     }
 
     .week-day-name {
@@ -153,6 +178,8 @@
     .wrapper {
         display: flex;
         flex-direction: column;
+        gap: 18px;
+        padding: 16px;
     }
 
     .left-column {
@@ -203,12 +230,16 @@
         font-size: 12px;
     }
 
-    .upcoming-events {
+    .upcoming-events,
+    .my-events,
+    .check-in-widget {
         height: auto;
         padding: 18px;
     }
 
-    .upcoming-events h3 {
+    .upcoming-events h3,
+    .my-events-header h3,
+    .check-in-widget-header h3 {
         font-size: 20px;
     }
 
@@ -222,31 +253,85 @@
     }
 
     .week-view {
-        padding: 18px;
+        padding: 12px;
     }
 
     .week-view-title {
-        font-size: 20px;
+        font-size: 18px;
     }
 
     .week-view .nav-btn {
-        width: 32px;
-        height: 32px;
-        font-size: 16px;
+        width: 30px;
+        height: 30px;
+        font-size: 15px;
     }
 
     .week-grid {
+        --week-hour-row-height: 44px;
+        --week-header-height: 42px;
+        --week-time-column-width: 40px;
+        --week-min-event-height: 24px;
+        --week-day-column-min: 78px;
         overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+        scrollbar-width: thin;
     }
 
-    .week-header,
-    .week-row {
-        grid-template-columns: 70px repeat(7, minmax(90px, 1fr));
+    .week-view-header {
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .week-corner {
+        min-height: var(--week-header-height);
+        position: sticky;
+        left: 0;
+        z-index: 20;
+        background: #fafafa;
+    }
+
+    .week-day-header {
+        min-height: var(--week-header-height);
+        padding: 5px 1px;
+    }
+
+    .week-day-name {
+        margin-bottom: 1px;
+        font-size: 10px;
+    }
+
+    .week-day-number {
+        font-size: 13px;
+    }
+
+    .week-time-label {
+        align-items: flex-start;
+        position: sticky;
+        left: 0;
+        z-index: 8;
+        padding: 5px 1px 0;
+        background: #fafafa;
+        font-size: 9px;
+        line-height: 1;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .week-cell {
+        padding: 2px 1px;
     }
 
     .week-event {
-        padding: 8px 6px;
-        font-size: 12px;
+        left: 1px;
+        right: 1px;
+        width: calc(100% - 2px);
+        border-radius: 5px;
+        padding: 4px 3px;
+        font-size: 10px;
+        line-height: 1.1;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
     }
 }
 
@@ -291,11 +376,15 @@
         font-size: 15px;
     }
 
-    .upcoming-events {
+    .upcoming-events,
+    .my-events,
+    .check-in-widget {
         padding: 14px;
     }
 
-    .upcoming-events h3 {
+    .upcoming-events h3,
+    .my-events-header h3,
+    .check-in-widget-header h3 {
         font-size: 18px;
     }
 
@@ -309,11 +398,28 @@
     }
 
     .week-view {
-        padding: 14px;
+        padding: 10px;
+    }
+
+    .week-grid {
+        --week-hour-row-height: 38px;
+        --week-header-height: 38px;
+        --week-time-column-width: 34px;
+        --week-min-event-height: 22px;
+        --week-day-column-min: 58px;
+    }
+
+    .week-day-name,
+    .week-time-label {
+        font-size: 8px;
+    }
+
+    .week-day-number {
+        font-size: 12px;
     }
 
     .week-event {
-        padding: 7px 5px;
-        font-size: 11px;
+        padding: 3px 2px;
+        font-size: 9px;
     }
 }

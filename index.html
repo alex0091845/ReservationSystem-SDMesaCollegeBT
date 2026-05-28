@@ -12,7 +12,7 @@
     <!-- Navbar including Login Button -->
     <header class="navbar">
         <div class="nav-left">
-            <h1 class="nav-title">Reservation System</h1>
+            <h1 class="nav-title">BT-216 Reservation System</h1>
         </div>
         <div class="nav-right">
             <div class="nav-user-chip" id="navUserIdentity" hidden>
@@ -53,7 +53,7 @@
             </div>
         </div>
         <!-- Large Column Panel for Week-View Widget -->
-        <div class="side-panel">
+        <div class="side-panel" id="sidePanel">
             <!-- Week-View Widget -->
             <div class="week-view">
                 <div class="week-view-header">
@@ -64,6 +64,23 @@
 
                 <div class="week-grid" id="weekViewWrapper"></div>
             </div>
+
+            <section class="my-events" id="myEventsWidget" hidden>
+                <div class="my-events-header">
+                    <h3>My Events</h3>
+                </div>
+                <div class="selected-user-reservation-list my-events-list" id="myEventsList"></div>
+            </section>
+
+            <section class="check-in-widget" id="checkInWidget" hidden>
+                <div class="check-in-widget-header">
+                    <div>
+                        <h3>Check-In</h3>
+                        <p id="checkInWidgetDate"></p>
+                    </div>
+                </div>
+                <div class="check-in-widget-list" id="checkInWidgetList"></div>
+            </section>
         </div>
     </div>
 
@@ -120,10 +137,164 @@
                     </div>
                 </div>
             </div>
+
+            <section class="check-in-section" id="eventCheckInSection" hidden>
+                <div class="check-in-header">
+                    <h3>Check-In</h3>
+                    <p>Record your attendance for this event.</p>
+                </div>
+
+                <form class="check-in-form" id="eventCheckInForm">
+                    <div class="reservation-grid">
+                        <div class="modal-field">
+                            <label class="modal-label" for="checkInFirstName">First Name *</label>
+                            <input class="reservation-input" id="checkInFirstName" name="first_name" type="text"
+                                autocomplete="given-name" required>
+                        </div>
+
+                        <div class="modal-field">
+                            <label class="modal-label" for="checkInLastName">Last Name *</label>
+                            <input class="reservation-input" id="checkInLastName" name="last_name" type="text"
+                                autocomplete="family-name" required>
+                        </div>
+
+                        <div class="modal-field">
+                            <label class="modal-label" for="checkInEmail">Email *</label>
+                            <input class="reservation-input" id="checkInEmail" name="email" type="email"
+                                autocomplete="email" required>
+                        </div>
+
+                        <div class="modal-field">
+                            <label class="modal-label" for="checkInSdccdId">SDCCD ID</label>
+                            <input class="reservation-input" id="checkInSdccdId" name="sdccd_id" type="number"
+                                inputmode="numeric">
+                        </div>
+                    </div>
+
+                    <div class="check-in-actions">
+                        <p class="check-in-status" id="eventCheckInStatus" role="status" aria-live="polite"></p>
+                        <button type="submit" class="reservation-primary-btn" id="eventCheckInSubmitBtn">
+                            Check In
+                        </button>
+                    </div>
+                </form>
+            </section>
         </div>
     </div>
 
     <script type="module" src="js/main.js"></script>
+    <div class="modal-overlay" id="facultyReservationModalOverlay" aria-hidden="true">
+        <div class="modal reservation-modal" role="dialog" aria-modal="true"
+            aria-labelledby="facultyReservationModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="facultyReservationModalTitle">Edit Reservation</h2>
+                    <div class="modal-event-department">Update your reservation details</div>
+                </div>
+
+                <button class="modal-close-btn" id="facultyReservationModalCloseBtn"
+                    aria-label="Close reservation form">&times;</button>
+            </div>
+
+            <form class="reservation-form" id="facultyReservationForm">
+                <input type="hidden" id="facultyReservationId" name="id">
+                <input type="hidden" id="facultyReservationHostUserId" name="host_user_id">
+
+                <div class="reservation-grid">
+                    <div class="modal-field">
+                        <label class="modal-label" for="facultyReservationTitle">Event Title</label>
+                        <input class="reservation-input" id="facultyReservationTitle" name="title" type="text" required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="facultyReservationType">Event Type</label>
+                        <select class="reservation-input reservation-select" id="facultyReservationType" name="type"
+                            required>
+                            <option value="" disabled>Select event type</option>
+                            <option value="Study">Study</option>
+                            <option value="Meeting">Meeting</option>
+                            <option value="Work">Work</option>
+                            <option value="Office Hours">Office Hours</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="facultyReservationDescription">Description</label>
+                        <textarea class="reservation-input reservation-textarea" id="facultyReservationDescription"
+                            name="description" rows="4" required></textarea>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <div class="modal-label">Event Access</div>
+
+                        <div class="visibility-toggle" role="radiogroup" aria-label="Event access">
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="open" checked>
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Open to everyone</span>
+                                    <span class="visibility-description">
+                                        Anyone can view and attend this event
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label class="visibility-option">
+                                <input type="radio" name="access" value="private">
+                                <span class="visibility-card">
+                                    <span class="visibility-title">Private</span>
+                                    <span class="visibility-description">
+                                        Only select participants can attend
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="facultyReservationStart">Start</label>
+                        <input class="reservation-input" id="facultyReservationStart" name="start" type="datetime-local"
+                            required>
+                    </div>
+
+                    <div class="modal-field">
+                        <label class="modal-label" for="facultyReservationEnd">End</label>
+                        <input class="reservation-input" id="facultyReservationEnd" name="end" type="datetime-local"
+                            required>
+                    </div>
+
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="facultyReservationDepartment">Department</label>
+                        <input class="reservation-input" id="facultyReservationDepartment" name="department" type="text"
+                            required>
+                    </div>
+                </div>
+
+                <section class="reservation-attendees-section">
+                    <div class="reservation-attendees-header">
+                        <h3 id="facultyReservationAttendeesTitle">Attendees</h3>
+                        <span class="reservation-attendees-count" id="facultyReservationAttendeesCount">
+                            0 attendees
+                        </span>
+                    </div>
+                    <div class="reservation-attendees-list" id="facultyReservationAttendeesList"
+                        aria-labelledby="facultyReservationAttendeesTitle"></div>
+                </section>
+
+                <p class="reservation-status" id="facultyReservationStatus" role="status" aria-live="polite"></p>
+
+                <div class="reservation-actions">
+                    <button type="button" class="reservation-secondary-btn" id="facultyReservationCancelBtn">
+                        Cancel
+                    </button>
+                    <button type="submit" class="reservation-primary-btn" id="facultyReservationSubmitBtn">
+                        Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="reservationModalOverlay" aria-hidden="true">
         <div class="modal reservation-modal" role="dialog" aria-modal="true" aria-labelledby="reservationModalTitle">
             <div class="modal-topbar">
@@ -204,6 +375,8 @@
                     </div>
 
                 </div>
+
+                <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
 
                 <div class="reservation-actions">
                     <button type="button" class="reservation-secondary-btn" id="reservationCancelBtn">Cancel</button>

@@ -34,6 +34,24 @@ input {
   box-sizing: border-box;
 }
 
+.show-password-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.show-password-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #0078d4;
+}
+
 button {
   width: 100%;
   padding: 10px;

@@ -16,7 +16,20 @@
     <input class="text login-field" id="email" placeholder="Enter your email" />
 
     <label for="password">Password</label>
-    <input class="password login-field" id="password" placeholder="Enter your password" />
+    <div class="password-field">
+      <input
+        class="password login-field"
+        id="password"
+        type="password"
+        placeholder="Enter your password"
+        autocomplete="current-password"
+      />
+    </div>
+
+    <label class="show-password-option" for="showPassword">
+      <input id="showPassword" type="checkbox" />
+      <span>Show password</span>
+    </label>
 
     <button id="loginBtn">Login</button>
 

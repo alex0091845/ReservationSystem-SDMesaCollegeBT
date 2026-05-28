@@ -1,16 +1,19 @@
+import { validateReservationData } from "./utils/reservationValidation.js";
+
 const BASE_URL = "http://18.223.249.15:8080/api";
 const DISABLED_USER_IDS_STORAGE_KEY = "disabledUserIds";
 const EVENT_OVERRIDES_STORAGE_KEY = "eventOverrides";
+const ATTENDEE_OVERRIDES_STORAGE_KEY = "attendeeOverrides";
 
 // REWORK ALL API FUNCTIONS AND 
 
 function getDisabledUserIds() {
     try {
-        if (typeof localStorage === "undefined") {
+        if (typeof sessionStorage === "undefined") {
             return [];
         }
 
-        const storedValue = localStorage.getItem(DISABLED_USER_IDS_STORAGE_KEY);
+        const storedValue = sessionStorage.getItem(DISABLED_USER_IDS_STORAGE_KEY);
         const parsedValue = JSON.parse(storedValue || "[]");
 
         return Array.isArray(parsedValue)
@@ -23,18 +26,18 @@ function getDisabledUserIds() {
 }
 
 function saveDisabledUserIds(userIds) {
-    if (typeof localStorage === "undefined") {
+    if (typeof sessionStorage === "undefined") {
         return;
     }
 
-    localStorage.setItem(
+    sessionStorage.setItem(
         DISABLED_USER_IDS_STORAGE_KEY,
         JSON.stringify([...new Set(userIds.map(String))])
     );
 }
 
-export function isUserDisabled(userId) {
-    const user = getUsers().find(testUser => {
+export async function isUserDisabled(userId) {
+    const user = (await getUsers()).find(testUser => {
         return String(testUser.id) === String(userId);
     });
 
@@ -47,11 +50,11 @@ export function isUserDisabled(userId) {
 
 function getEventOverrides() {
     try {
-        if (typeof localStorage === "undefined") {
+        if (typeof sessionStorage === "undefined") {
             return [];
         }
 
-        const storedValue = localStorage.getItem(EVENT_OVERRIDES_STORAGE_KEY);
+        const storedValue = sessionStorage.getItem(EVENT_OVERRIDES_STORAGE_KEY);
         const parsedValue = JSON.parse(storedValue || "[]");
 
         return Array.isArray(parsedValue) ? parsedValue : [];
@@ -62,7 +65,7 @@ function getEventOverrides() {
 }
 
 function saveEventOverride(eventData) {
-    if (typeof localStorage === "undefined") {
+    if (typeof sessionStorage === "undefined") {
         return eventData;
     }
 
@@ -72,12 +75,81 @@ function saveEventOverride(eventData) {
         eventData
     ];
 
-    localStorage.setItem(
+    sessionStorage.setItem(
         EVENT_OVERRIDES_STORAGE_KEY,
         JSON.stringify(updatedEventOverrides)
     );
 
     return eventData;
+}
+
+function getLocalAttendees() {
+    try {
+        if (typeof sessionStorage === "undefined") {
+            return [];
+        }
+
+        const storedValue = sessionStorage.getItem(ATTENDEE_OVERRIDES_STORAGE_KEY);
+        const parsedValue = JSON.parse(storedValue || "[]");
+
+        return Array.isArray(parsedValue) ? parsedValue : [];
+    } catch (error) {
+        console.error("Could not read local attendees:", error);
+        return [];
+    }
+}
+
+function saveLocalAttendee(attendeeData) {
+    if (typeof sessionStorage === "undefined") {
+        return attendeeData;
+    }
+
+    const localAttendees = getLocalAttendees();
+    const attendeeToStore = {
+        ...attendeeData,
+        id: attendeeData.id ?? getNextLocalAttendeeId(localAttendees),
+        check_in_time: attendeeData.check_in_time ?? new Date().toISOString(),
+        sdccd_id: attendeeData.sdccd_id || null
+    };
+
+    sessionStorage.setItem(
+        ATTENDEE_OVERRIDES_STORAGE_KEY,
+        JSON.stringify([
+            ...localAttendees,
+            attendeeToStore
+        ])
+    );
+
+    return attendeeToStore;
+}
+
+function getNextLocalAttendeeId(localAttendees) {
+    const maxLocalId = localAttendees.reduce((maxId, attendee) => {
+        const attendeeId = Number(attendee.id);
+
+        return Number.isNaN(attendeeId)
+            ? maxId
+            : Math.max(maxId, attendeeId);
+    }, 0);
+
+    return Math.max(Date.now(), maxLocalId + 1);
+}
+
+function mergeLocalAttendees(attendees) {
+    const localAttendees = getLocalAttendees();
+    const attendeeIds = new Set(
+        attendees
+            .map(attendee => attendee.id)
+            .filter(attendeeId => attendeeId !== undefined && attendeeId !== null)
+            .map(String)
+    );
+
+    return [
+        ...attendees,
+        ...localAttendees.filter(attendee => {
+            return !attendeeIds.has(String(attendee.id));
+        })
+    ];
 }
 
 function getNextEventId(events) {
@@ -106,24 +178,29 @@ function getEventHostUser(user) {
     };
 }
 
-function getBaseEvents() {
-    const alexChow = {
-        "id": 1,
-        "email": "alex.chow@college.edu",
-        "first_name": "Alex",
-        "last_name": "Chow",
-        "phone": "5551212",
-        "role_name": "Faculty",
-        "enabled": true
+function getEventHostById(hostUserId, users) {
+    return getEventHostUser(users.find(user => {
+        return String(user.id) === String(hostUserId);
+    }));
+}
+
+function attachHostUser(event, users) {
+    const hostUser = getEventHostById(event.host_user_id, users);
+
+    return {
+        ...event,
+        host_user: hostUser || {
+            id: event.host_user_id
+        }
     };
+}
 
-
+function getBaseEvents() {
     return [{
         "id": 1,
         "host_user_id": 2,
-        "host_user": alexChow,
-        "start_time": new Date(),
-        "end_time": new Date(),
+        "start_time": new Date("2026-05-28T10:00:00"),
+        "end_time": new Date("2026-05-28T11:00:00"),
         "event_type": "Study",
         "description": "The quick brown fox jumps over the lazy dog.",
         "title": "Team Meeting",
@@ -132,10 +209,20 @@ function getBaseEvents() {
     },
     {
         "id": 2,
-        "host_user_id": alexChow.id,
-        "host_user": alexChow,
+        "host_user_id": 1,
         "start_time": new Date("2026-05-16T10:00:00"),
         "end_time": new Date("2026-05-16T11:00:00"),
+        "event_type": "Work",
+        "description": "The quick brown fox jumps over the lazy dog.",
+        "title": "Work",
+        "department": "Computer Science",
+        "is_public": true
+        },
+    {
+        "id": 3,
+        "host_user_id": 3,
+        "start_time": new Date("2026-05-27T10:00:00"),
+        "end_time": new Date("2026-05-27T11:00:00"),
         "event_type": "Work",
         "description": "The quick brown fox jumps over the lazy dog.",
         "title": "Work",
@@ -145,43 +232,7 @@ function getBaseEvents() {
     ];
 }
 
-// cookie-cutter request helper called by all data functions
-async function request(endpoint, method = "GET", data = null) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
-
-    const options = {
-        method,
-        headers: {
-            "Content-Type": "application/json"
-        },
-        signal: controller.signal
-    };
-
-    if (data && method !== "GET") {
-        options.body = JSON.stringify(data);
-    }
-
-    try {
-        const response = await fetch(`${BASE_URL}${endpoint}`, options).then(response => response.json()) // First: convert stream to JSON
-            .then(data => {
-                console.log(data);               // Second: print the body
-            })
-            .catch(error => console.error('Error:', error));
-
-        // if (!response.ok) {
-        //     throw new Error(`Request failed: ${method} ${endpoint}`);
-        // }
-
-        return response.json();
-    } finally {
-        clearTimeout(timeoutId);
-    }
-}
-
-export function getEvents() {
-    // return request("/events", "GET");
-    const events = getBaseEvents();
+function applyLocalEventOverrides(events) {
     const eventOverrides = getEventOverrides();
     const mergedEvents = events.map(event => {
         const override = eventOverrides.find(
@@ -201,46 +252,158 @@ export function getEvents() {
     ];
 }
 
-export function createEvent(eventData) {
-    if (isUserDisabled(eventData.host_user_id)) {
-        throw new Error("Disabled users cannot create reservations.");
-    }
+function applyLocalUserStatus(users) {
+    const disabledUserIds = getDisabledUserIds();
 
-    const events = getEvents();
-    const hostUser = getEventHostUser(getUsers().find(
-        user => String(user.id) === String(eventData.host_user_id)
-    ));
+    return users.map(user => ({
+        ...user,
+        enabled: disabledUserIds.includes(String(user.id))
+            ? false
+            : user.enabled !== false
+    }));
+}
 
-    const createdEvent = {
-        ...eventData,
-        id: getNextEventId(events),
-        host_user_id: hostUser?.id ?? eventData.host_user_id,
-        host_user: hostUser || {
-            id: eventData.host_user_id
-        }
+// cookie-cutter request helper called by all data functions
+async function request(endpoint, method = "GET", data = null) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    const options = {
+        method,
+        credentials: "include",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        signal: controller.signal
     };
 
-    // return request("/events", "POST", createdEvent);
+    if (data && method !== "GET") {
+        options.body = JSON.stringify(data);
+    }
+
+    try {
+        const response = await fetch(`${BASE_URL}${endpoint}`, options);
+        const responseData = response.status === 204
+            ? null
+            : await response.json();
+
+        if (!response.ok) {
+            throw new Error(`Request failed: ${method} ${endpoint}`);
+        }
+
+        return responseData;
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+export async function getEvents() {
+    let events;
+
+    try {
+        events = await request("/events", "GET");
+
+        if (!Array.isArray(events)) {
+            throw new Error("Events response was not an array.");
+        }
+    } catch (error) {
+        console.error("Could not load events from backend. Using local events:", error);
+        events = getBaseEvents();
+    }
+
+    const users = await getUsers();
+
+    return applyLocalEventOverrides(events)
+        .map(event => attachHostUser(event, users));
+}
+
+export async function createEvent(eventData) {
+    const users = await getUsers();
+    const events = await getEvents();
+    const validation = validateReservationData({
+        reservationData: eventData,
+        existingReservations: events,
+        users
+    });
+
+    if (!validation.isValid) {
+        throw new Error(validation.message);
+    }
+
+    const hostUser = getEventHostById(eventData.host_user_id, users);
+
+    const eventForBackend = {
+        ...eventData,
+        host_user_id: hostUser?.id ?? eventData.host_user_id
+    };
+
+    try {
+        const createdEvent = await request("/events", "POST", eventForBackend);
+
+        return attachHostUser(createdEvent || eventForBackend, users);
+    } catch (error) {
+        console.error("Could not create event on backend. Saving locally:", error);
+    }
+
+    const createdEvent = attachHostUser({
+        ...eventForBackend,
+        id: getNextEventId(events)
+    }, users);
+
     return saveEventOverride(createdEvent);
 }
 
-export function deleteEvent(eventData) {
+export async function deleteEvent(eventData) {
     return request("/events", "DELETE", eventData);
 }
 
-export function updateEvent(eventData) {
-    // return request("/events", "PATCH", eventData);
+export async function updateEvent(eventData) {
+    const users = await getUsers();
+    const events = await getEvents();
+    const validation = validateReservationData({
+        reservationData: eventData,
+        existingReservations: events,
+        users,
+        requireId: true
+    });
+
+    if (!validation.isValid) {
+        throw new Error(validation.message);
+    }
+
+    try {
+        const updatedEvent = await request("/events", "PATCH", eventData);
+
+        return attachHostUser(updatedEvent || eventData, users);
+    } catch (error) {
+        console.error("Could not update event on backend. Saving locally:", error);
+    }
+
     return saveEventOverride(eventData);
 }
 
-export function createUser(userData) {
+export async function createUser(userData) {
     return request("/users", "POST", userData);
 }
 
+export async function loginUser(email, password) {
+    return request("/login", "POST", {
+        email,
+        password
+    });
+}
+
+export async function logoutUser() {
+    return request("/logout", "POST");
+}
+
+export async function getCurrentSession() {
+    return request("/session", "GET");
+}
+
 // NOT DOCUMENTED
-export function getUsers() {
-    // return request("/users", "GET");
-    const testUsers = [
+function getMockUsers() {
+    return [
         {
             id: 1,
             email: "alex@sdccd.edu",
@@ -332,24 +495,38 @@ export function getUsers() {
             enabled: true
         }
     ];
-
-    const disabledUserIds = getDisabledUserIds();
-
-    return testUsers.map(user => ({
-        ...user,
-        enabled: disabledUserIds.includes(String(user.id))
-            ? false
-            : user.enabled !== false
-    }));
 }
 
-export function updateUser(userData) {
+export async function getUsers() {
+    try {
+        const users = await request("/users", "GET");
+
+        if (!Array.isArray(users)) {
+            throw new Error("Users response was not an array.");
+        }
+
+        return applyLocalUserStatus(users);
+    } catch (error) {
+        console.error("Could not load users from backend. Using local users:", error);
+        return applyLocalUserStatus(getMockUsers());
+    }
+}
+
+export async function updateUser(userData) {
     return request("/users", "PATCH", userData);
 }
 
-export function disableUser(userData) {
-    const disabledUserIds = getDisabledUserIds();
+export async function disableUser(userData) {
+    try {
+        return request("/users", "PATCH", {
+            ...userData,
+            enabled: false
+        });
+    } catch (error) {
+        console.error("Could not disable user on backend. Saving locally:", error);
+    }
 
+    const disabledUserIds = getDisabledUserIds();
     if (!disabledUserIds.includes(String(userData.id))) {
         saveDisabledUserIds([
             ...disabledUserIds,
@@ -357,32 +534,66 @@ export function disableUser(userData) {
         ]);
     }
 
-    // return request("/users", "PATCH", { ...userData, enabled: false });
     return {
         ...userData,
         enabled: false
     };
 }
 
-export function enableUser(userData) {
+export async function enableUser(userData) {
+    try {
+        return request("/users", "PATCH", {
+            ...userData,
+            enabled: true
+        });
+    } catch (error) {
+        console.error("Could not enable user on backend. Saving locally:", error);
+    }
+
     const disabledUserIds = getDisabledUserIds();
 
     saveDisabledUserIds(
         disabledUserIds.filter(userId => String(userId) !== String(userData.id))
     );
 
-    // return request("/users", "PATCH", { ...userData, enabled: true });
     return {
         ...userData,
         enabled: true
     };
 }
-// END NOT DOCUMENTED
 
-export function createAttendee(attendeeData) {
-    return request("/attendees", "POST", attendeeData);
+export async function createAttendee(attendeeData) {
+    try {
+        return await request("/attendees", "POST", attendeeData);
+    } catch (error) {
+        console.error("Could not create attendee on backend. Saving locally:", error);
+    }
+
+    return saveLocalAttendee(attendeeData);
 }
 
-export function getAttendees() {
-    return request("/attendee", "GET");
+export async function getAttendees() {
+    try {
+        const attendees = await request("/attendees", "GET");
+
+        if (!Array.isArray(attendees)) {
+            throw new Error("Attendees response was not an array.");
+        }
+
+        return mergeLocalAttendees(attendees);
+    } catch (error) {
+        console.error("Could not load attendees from /attendees. Trying legacy route:", error);
+    }
+
+    try {
+        const attendees = await request("/attendee", "GET");
+
+        return Array.isArray(attendees)
+            ? mergeLocalAttendees(attendees)
+            : getLocalAttendees();
+    } catch (error) {
+        console.error("Could not load attendees from backend. Using local attendees:", error);
+    }
+
+    return getLocalAttendees();
 }

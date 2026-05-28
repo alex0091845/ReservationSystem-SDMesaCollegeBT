@@ -1,13 +1,19 @@
-import { createEvent, isUserDisabled } from "../api.js";
+import { createAttendee, createEvent, getEvents, getUsers, isUserDisabled } from "../api.js";
 import { formatReadableDate } from "../utils/dateUtils.js";
+import { validateReservationData } from "../utils/reservationValidation.js";
 
 const reservationModalOverlay = document.getElementById("reservationModalOverlay");
 const openReservationModalBtn = document.getElementById("openReservationModalBtn");
 const reservationModalCloseBtn = document.getElementById("reservationModalCloseBtn");
 const reservationCancelBtn = document.getElementById("reservationCancelBtn");
 const reservationForm = document.getElementById("reservationForm");
-const currentHostUserId = localStorage.getItem("currentUserId") || 1;
+const reservationSubmitBtn = reservationForm?.querySelector('button[type="submit"]');
+const reservationStatus = document.getElementById("reservationStatus");
+const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
 let reservationPointerStartedOnBackdrop = false;
+let eventModalReturnFocusElement = null;
+let reservationModalReturnFocusElement = null;
+let selectedCheckInEvent = null;
 
 export function createModalController(elements) {
     const {
@@ -19,19 +25,29 @@ export function createModalController(elements) {
         modalTime,
         modalDescription,
         modalEventType,
-        modalIsPublic
+        modalIsPublic,
+        eventCheckInSection,
+        eventCheckInForm,
+        eventCheckInSubmitBtn,
+        eventCheckInStatus
     } = elements;
 
+    bindEventCheckInForm();
+
     // Opens event details modal
-    function openEventModal(eventData) {
+    async function openEventModal(eventData) {
+        eventModalReturnFocusElement = getModalReturnFocusElement(
+            eventModalOverlay
+        );
+        selectedCheckInEvent = eventData;
+
         const startDate = new Date(eventData.start_time);
         const endDate = new Date(eventData.end_time);
+        const hostUser = await getEventHostUser(eventData);
 
-        console.log(eventData);
         modalEventTitle.textContent = eventData.title;
         modalEventDepartment.textContent = eventData.department;
-        modalHost.textContent =
-            users.find(user => user.id === eventData.host_user_id).first_name + " " + users.find(user => user.id === eventData.host_user_id).last_name;
+        modalHost.textContent = getUserFullName(hostUser);
 
         modalDate.textContent = formatReadableDate(startDate);
 
@@ -52,6 +68,7 @@ export function createModalController(elements) {
 
         modalIsPublic.textContent =
             eventData.is_public ? "Public" : "Private";
+        renderEventCheckInForm();
 
         eventModalOverlay.classList.add("active");
         eventModalOverlay.setAttribute("aria-hidden", "false");
@@ -59,21 +76,169 @@ export function createModalController(elements) {
 
     // Closes event details modal
     function closeEventModal() {
+        restoreFocusBeforeHide(
+            eventModalOverlay,
+            eventModalReturnFocusElement
+        );
+
         eventModalOverlay.classList.remove("active");
         eventModalOverlay.setAttribute("aria-hidden", "true");
+
+        eventModalReturnFocusElement = null;
+        selectedCheckInEvent = null;
+        resetEventCheckInForm();
     }
 
     return {
         openEventModal,
         closeEventModal
     };
+
+    function bindEventCheckInForm() {
+        if (!eventCheckInForm) {
+            return;
+        }
+
+        eventCheckInForm.addEventListener(
+            "submit",
+            handleEventCheckInSubmit
+        );
+    }
+
+    function renderEventCheckInForm() {
+        if (!eventCheckInSection) {
+            return;
+        }
+
+        const isFacultyLoggedIn =
+            sessionStorage.getItem("facultyLoggedIn") === "true";
+
+        eventCheckInSection.hidden = isFacultyLoggedIn;
+
+        if (isFacultyLoggedIn) {
+            resetEventCheckInForm();
+            return;
+        }
+
+        setCheckInStatus("");
+        setCheckInSubmitting(false);
+    }
+
+    async function handleEventCheckInSubmit(event) {
+        event.preventDefault();
+
+        if (!selectedCheckInEvent?.id) {
+            setCheckInStatus(
+                "Could not find this event. Please close and reopen the event details.",
+                "error"
+            );
+            return;
+        }
+
+        const formData = new FormData(eventCheckInForm);
+        const sdccdIdValue = formData.get("sdccd_id")?.trim();
+
+        const attendeeData = {
+            event_id: selectedCheckInEvent.id,
+            sdccd_id: sdccdIdValue ? Number(sdccdIdValue) : null,
+            first_name: formData.get("first_name").trim(),
+            last_name: formData.get("last_name").trim(),
+            email: formData.get("email").trim()
+        };
+
+        setCheckInSubmitting(true);
+        setCheckInStatus("");
+
+        try {
+            await createAttendee(attendeeData);
+
+            eventCheckInForm.reset();
+            setCheckInStatus(
+                "You're checked in. Thank you!",
+                "success"
+            );
+        } catch (error) {
+            console.error("Could not check in attendee:", error);
+            setCheckInStatus(
+                "Could not complete check-in. Please try again.",
+                "error"
+            );
+        } finally {
+            setCheckInSubmitting(false);
+        }
+    }
+
+    function resetEventCheckInForm() {
+        if (eventCheckInForm) {
+            eventCheckInForm.reset();
+        }
+
+        setCheckInStatus("");
+        setCheckInSubmitting(false);
+    }
+
+    function setCheckInSubmitting(isSubmitting) {
+        if (!eventCheckInSubmitBtn) {
+            return;
+        }
+
+        eventCheckInSubmitBtn.disabled = isSubmitting;
+        eventCheckInSubmitBtn.textContent = isSubmitting
+            ? "Checking In..."
+            : "Check In";
+    }
+
+    function setCheckInStatus(message, statusType = "") {
+        if (!eventCheckInStatus) {
+            return;
+        }
+
+        eventCheckInStatus.textContent = message;
+        eventCheckInStatus.classList.toggle(
+            "success",
+            statusType === "success"
+        );
+        eventCheckInStatus.classList.toggle(
+            "error",
+            statusType === "error"
+        );
+    }
+}
+
+async function getEventHostUser(eventData) {
+    if (eventData.host_user) {
+        return eventData.host_user;
+    }
+
+    try {
+        const users = await getUsers();
+
+        return users.find(user => {
+            return String(user.id) === String(eventData.host_user_id);
+        });
+    } catch (error) {
+        console.error("Could not load event host:", error);
+        return null;
+    }
+}
+
+function getUserFullName(user) {
+    if (!user) {
+        return "Unknown host";
+    }
+
+    return `${user.first_name || ""} ${user.last_name || ""}`.trim() || user.email || "Unknown host";
 }
 
 // Opens reservation creation modal
-function openReservationModal() {
-    if (isUserDisabled(currentHostUserId)) {
+async function openReservationModal() {
+    if (await isUserDisabled(currentHostUserId)) {
         return;
     }
+
+    reservationModalReturnFocusElement = getModalReturnFocusElement(
+        reservationModalOverlay
+    );
 
     reservationModalOverlay.classList.add("active");
     reservationModalOverlay.setAttribute("aria-hidden", "false");
@@ -81,10 +246,78 @@ function openReservationModal() {
 
 // Closes reservation creation modal
 function closeReservationModal() {
+    restoreFocusBeforeHide(
+        reservationModalOverlay,
+        reservationModalReturnFocusElement
+    );
+
     reservationModalOverlay.classList.remove("active");
     reservationModalOverlay.setAttribute("aria-hidden", "true");
 
     reservationForm.reset();
+    setReservationStatus("");
+    setReservationSubmitting(false);
+    reservationModalReturnFocusElement = null;
+}
+
+function setReservationStatus(message, statusType = "") {
+    if (!reservationStatus) {
+        return;
+    }
+
+    reservationStatus.textContent = message;
+    reservationStatus.classList.toggle("error", statusType === "error");
+    reservationStatus.classList.toggle("success", statusType === "success");
+}
+
+function setReservationSubmitting(isSubmitting) {
+    if (!reservationSubmitBtn) {
+        return;
+    }
+
+    reservationSubmitBtn.disabled = isSubmitting;
+    reservationSubmitBtn.textContent = isSubmitting
+        ? "Creating..."
+        : "Create Reservation";
+}
+
+function toIsoDateTimeValue(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+function getModalReturnFocusElement(overlay) {
+    const activeElement = document.activeElement;
+
+    if (!activeElement || overlay.contains(activeElement)) {
+        return null;
+    }
+
+    return activeElement;
+}
+
+function restoreFocusBeforeHide(overlay, returnFocusElement) {
+    const activeElement = document.activeElement;
+
+    if (!activeElement || !overlay.contains(activeElement)) {
+        return;
+    }
+
+    if (
+        returnFocusElement &&
+        returnFocusElement.isConnected &&
+        typeof returnFocusElement.focus === "function"
+    ) {
+        returnFocusElement.focus();
+        return;
+    }
+
+    activeElement.blur();
 }
 
 // Open modal button
@@ -136,13 +369,17 @@ document.addEventListener("keydown", (event) => {
 reservationForm.addEventListener("submit", async (event) => {
     event.preventDefault();
 
+    if (!reservationForm.reportValidity()) {
+        return;
+    }
+
     const formData = new FormData(reservationForm);
 
     const startValue = formData.get("start");
     const endValue = formData.get("end");
 
-    const start_time = new Date(startValue).toISOString();
-    const end_time = new Date(endValue).toISOString();
+    const start_time = toIsoDateTimeValue(startValue);
+    const end_time = toIsoDateTimeValue(endValue);
 
     const eventData = {
         host_user_id: currentHostUserId,
@@ -155,7 +392,25 @@ reservationForm.addEventListener("submit", async (event) => {
         is_public: formData.get("access") === "open"
     };
 
+    setReservationStatus("");
+    setReservationSubmitting(true);
+
     try {
+        const [existingReservations, users] = await Promise.all([
+            getEvents(),
+            getUsers()
+        ]);
+        const validation = validateReservationData({
+            reservationData: eventData,
+            existingReservations,
+            users
+        });
+
+        if (!validation.isValid) {
+            setReservationStatus(validation.message, "error");
+            return;
+        }
+
         await createEvent(eventData);
 
         closeReservationModal();
@@ -164,5 +419,11 @@ reservationForm.addEventListener("submit", async (event) => {
         window.location.reload();
     } catch (error) {
         console.error("Error creating reservation:", error);
+        setReservationStatus(
+            error.message || "Could not create reservation. Please try again.",
+            "error"
+        );
+    } finally {
+        setReservationSubmitting(false);
     }
 });

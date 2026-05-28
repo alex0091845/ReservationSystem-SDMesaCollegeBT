@@ -1,12 +1,12 @@
 import {
     convertHourLabelTo24,
-    getEventColorClass,
     formatDateKey,
     formatShortDateRange,
     getEventsForDay,
     hourNames,
     weekdayNames
 } from "../utils/dateUtils.js";
+import { createWeekEventCard } from "./eventCards.js";
 
 export function renderWeekView({
     weekViewWrapper,
@@ -100,6 +100,9 @@ export function renderWeekView({
 
     weekViewWrapper.appendChild(header);
 
+    const hourRowHeight = getWeekHourRowHeight(weekViewWrapper);
+    const minEventHeight = getWeekMinEventHeight(weekViewWrapper);
+
     // Hour Labels
     hourNames.forEach((hourLabel, rowIndex) => {
         const row = document.createElement("div");
@@ -173,17 +176,10 @@ export function renderWeekView({
 
             // Calculating blocks for each event
             matchingEvents.forEach(event => {
-                const eventEl =
-                    document.createElement("button");
-
-                eventEl.type = "button";
-
-                eventEl.classList.add(
-                    "week-event",
-                    getEventColorClass(event.event_type)
-                );
-
-                eventEl.textContent = event.title;
+                const eventEl = createWeekEventCard({
+                    event,
+                    onClick: openEventModal
+                });
 
                 // Parses timestamps
                 const startDate = new Date(event.start_time);
@@ -201,10 +197,8 @@ export function renderWeekView({
                     cellHour * 60;
 
                 // Cell positioning math
-                const HOUR_ROW_HEIGHT = 68;
-
                 const pxPerMinute =
-                    HOUR_ROW_HEIGHT / 60;
+                    hourRowHeight / 60;
 
                 // Vertical offset within hour row
                 const topOffset =
@@ -213,24 +207,16 @@ export function renderWeekView({
 
                 // Height based on duration
                 const blockHeight =
-                    (endMinutes - startMinutes) *
-                    pxPerMinute;
+                    Math.max(
+                        (endMinutes - startMinutes) * pxPerMinute,
+                        minEventHeight
+                    );
 
                 eventEl.style.top =
                     `${topOffset}px`;
 
                 eventEl.style.height =
                     `${blockHeight}px`;
-
-                // Interactivity
-                eventEl.addEventListener(
-                    "click",
-                    clickEvent => {
-                        clickEvent.stopPropagation();
-
-                        openEventModal(event);
-                    }
-                );
 
                 cell.appendChild(eventEl);
             });
@@ -239,5 +225,52 @@ export function renderWeekView({
         });
 
         weekViewWrapper.appendChild(row);
+    });
+
+    centerSelectedDateColumn(weekViewWrapper);
+}
+
+function getWeekHourRowHeight(weekViewWrapper) {
+    const rowHeight = parseFloat(
+        getComputedStyle(weekViewWrapper)
+            .getPropertyValue("--week-hour-row-height")
+    );
+
+    return Number.isFinite(rowHeight) ? rowHeight : 68;
+}
+
+function getWeekMinEventHeight(weekViewWrapper) {
+    const minEventHeight = parseFloat(
+        getComputedStyle(weekViewWrapper)
+            .getPropertyValue("--week-min-event-height")
+    );
+
+    return Number.isFinite(minEventHeight) ? minEventHeight : 24;
+}
+
+function centerSelectedDateColumn(weekViewWrapper) {
+    const selectedHeader = weekViewWrapper.querySelector(
+        ".week-day-header.current-day-column"
+    );
+
+    if (!selectedHeader) {
+        return;
+    }
+
+    requestAnimationFrame(() => {
+        const wrapperRect =
+            weekViewWrapper.getBoundingClientRect();
+
+        const selectedRect =
+            selectedHeader.getBoundingClientRect();
+
+        const targetScrollLeft =
+            weekViewWrapper.scrollLeft +
+            selectedRect.left -
+            wrapperRect.left +
+            (selectedRect.width / 2) -
+            (wrapperRect.width / 2);
+
+        weekViewWrapper.scrollLeft = Math.max(0, targetScrollLeft);
     });
 }

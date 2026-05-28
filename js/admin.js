@@ -1,16 +1,17 @@
 import {
     getEvents,
+    getAttendees,
     getUsers,
     createUser,
     updateUser,
     updateEvent,
     disableUser,
-    enableUser
+    enableUser,
+    logoutUser
 } from "./api.js";
-import {
-    formatReadableDate,
-    getEventColorClass
-} from "./utils/dateUtils.js";
+import { validateReservationData } from "./utils/reservationValidation.js";
+import { renderEventAttendees } from "./ui/attendees.js";
+import { createEventCard } from "./ui/eventCards.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
 const userCount = document.getElementById("userCount");
@@ -46,9 +47,13 @@ const adminReservationModalCloseBtn = document.getElementById("adminReservationM
 const adminReservationCancelBtn = document.getElementById("adminReservationCancelBtn");
 const adminReservationForm = document.getElementById("adminReservationForm");
 const adminReservationSubmitBtn = document.getElementById("adminReservationSubmitBtn");
+const adminReservationStatus = document.getElementById("adminReservationStatus");
+const adminReservationAttendeesList = document.getElementById("adminReservationAttendeesList");
+const adminReservationAttendeesCount = document.getElementById("adminReservationAttendeesCount");
 
 let users = [];
 let reservations = [];
+let attendees = [];
 let selectedUser = null;
 let selectedReservation = null;
 let userPendingStatusChange = null;
@@ -59,7 +64,7 @@ let userRoleValue = "all";
 let userSortValue = "name-asc";
 
 const isAdminLoggedIn =
-    localStorage.getItem("adminLoggedIn") === "true";
+    sessionStorage.getItem("adminLoggedIn") === "true";
 
 if (!isAdminLoggedIn) {
     window.location.href = "login.html";
@@ -78,6 +83,13 @@ async function loadDashboardData() {
     } catch (error) {
         console.error("Could not load reservations for admin dashboard:", error);
         reservations = [];
+    }
+
+    try {
+        attendees = await getAttendees();
+    } catch (error) {
+        console.error("Could not load attendees for admin dashboard:", error);
+        attendees = [];
     }
 
     renderUsers();
@@ -222,32 +234,14 @@ function renderUserDetails() {
 }
 
 function createReservationItem(reservation) {
-    const reservationItem = document.createElement("button");
-    reservationItem.type = "button";
-    reservationItem.className = `
-        upcoming-event-card
-        selected-user-reservation-card
-        ${getEventColorClass(reservation.event_type)}
-    `;
-
-    const reservationTitle = document.createElement("div");
-    reservationTitle.className = "upcoming-event-title";
-    reservationTitle.textContent = reservation.title || "Untitled reservation";
-
-    const reservationDate = document.createElement("div");
-    reservationDate.className = "upcoming-event-date";
-    reservationDate.textContent = formatReservationDate(reservation);
-
-    const reservationTime = document.createElement("div");
-    reservationTime.className = "upcoming-event-time";
-    reservationTime.textContent = formatReservationTime(reservation);
-
-    reservationItem.append(reservationTitle, reservationDate, reservationTime);
-    reservationItem.addEventListener("click", () => {
-        openReservationEditModal(reservation);
+    return createEventCard({
+        event: reservation,
+        classNames: ["selected-user-reservation-card"],
+        titleFallback: "Untitled reservation",
+        attendees,
+        showAttendeeCount: true,
+        onClick: openReservationEditModal
     });
-
-    return reservationItem;
 }
 
 function getReservationsForUser(user) {
@@ -272,73 +266,6 @@ function getReservationsForUser(user) {
             reservationHostEmail.toLowerCase() === user.email.toLowerCase()
         );
     });
-}
-
-function formatReservationRange(reservation) {
-    if (!reservation.start_time || !reservation.end_time) {
-        return "Time not set";
-    }
-
-    const startDate = new Date(reservation.start_time);
-    const endDate = new Date(reservation.end_time);
-
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-        return "Time not set";
-    }
-
-    const date = startDate.toLocaleDateString([], {
-        month: "short",
-        day: "numeric",
-        year: "numeric"
-    });
-    const startTime = startDate.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit"
-    });
-    const endTime = endDate.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit"
-    });
-
-    return `${date}, ${startTime} - ${endTime}`;
-}
-
-function formatReservationDate(reservation) {
-    if (!reservation.start_time) {
-        return "Date not set";
-    }
-
-    const startDate = new Date(reservation.start_time);
-
-    if (Number.isNaN(startDate.getTime())) {
-        return "Date not set";
-    }
-
-    return formatReadableDate(startDate);
-}
-
-function formatReservationTime(reservation) {
-    if (!reservation.start_time || !reservation.end_time) {
-        return "Time not set";
-    }
-
-    const startDate = new Date(reservation.start_time);
-    const endDate = new Date(reservation.end_time);
-
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-        return "Time not set";
-    }
-
-    const startTime = startDate.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit"
-    });
-    const endTime = endDate.toLocaleTimeString([], {
-        hour: "numeric",
-        minute: "2-digit"
-    });
-
-    return `${startTime} - ${endTime}`;
 }
 
 function isSelectedUser(user) {
@@ -516,10 +443,21 @@ function openReservationEditModal(reservation) {
         accessInput.checked = true;
     }
 
-    adminReservationSubmitBtn.textContent = "Save Changes";
-    adminReservationSubmitBtn.disabled = false;
+    renderAdminReservationAttendees(reservation);
+
+    setAdminReservationStatus("");
+    setAdminReservationSubmitting(false);
     adminReservationModalOverlay.classList.add("active");
     adminReservationModalOverlay.setAttribute("aria-hidden", "false");
+}
+
+function renderAdminReservationAttendees(reservation) {
+    renderEventAttendees({
+        container: adminReservationAttendeesList,
+        countElement: adminReservationAttendeesCount,
+        event: reservation,
+        attendees
+    });
 }
 
 function closeReservationEditModal() {
@@ -528,8 +466,8 @@ function closeReservationEditModal() {
 
     selectedReservation = null;
     adminReservationForm.reset();
-    adminReservationSubmitBtn.textContent = "Save Changes";
-    adminReservationSubmitBtn.disabled = false;
+    setAdminReservationStatus("");
+    setAdminReservationSubmitting(false);
 }
 
 function bindBackdropClose(overlay, closeModal) {
@@ -562,6 +500,37 @@ function formatDateTimeLocalValue(value) {
     const offsetDate = new Date(date.getTime() - (date.getTimezoneOffset() * 60000));
 
     return offsetDate.toISOString().slice(0, 16);
+}
+
+function setAdminReservationStatus(message, statusType = "") {
+    if (!adminReservationStatus) {
+        return;
+    }
+
+    adminReservationStatus.textContent = message;
+    adminReservationStatus.classList.toggle("error", statusType === "error");
+    adminReservationStatus.classList.toggle("success", statusType === "success");
+}
+
+function setAdminReservationSubmitting(isSubmitting) {
+    if (!adminReservationSubmitBtn) {
+        return;
+    }
+
+    adminReservationSubmitBtn.disabled = isSubmitting;
+    adminReservationSubmitBtn.textContent = isSubmitting
+        ? "Saving..."
+        : "Save Changes";
+}
+
+function toIsoDateTimeValue(value) {
+    if (!value) {
+        return "";
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 function getReservationHostName(reservation) {
@@ -648,10 +617,14 @@ adminReservationForm.addEventListener("submit", async event => {
         return;
     }
 
+    if (!adminReservationForm.reportValidity()) {
+        return;
+    }
+
     const formData = new FormData(adminReservationForm);
     const hostUserId = formData.get("host_user_id") || selectedUser?.id;
-    const startTime = new Date(formData.get("start")).toISOString();
-    const endTime = new Date(formData.get("end")).toISOString();
+    const startTime = toIsoDateTimeValue(formData.get("start"));
+    const endTime = toIsoDateTimeValue(formData.get("end"));
 
     const reservationData = {
         ...selectedReservation,
@@ -670,25 +643,44 @@ adminReservationForm.addEventListener("submit", async event => {
         is_public: formData.get("access") === "open"
     };
 
-    adminReservationSubmitBtn.disabled = true;
-    adminReservationSubmitBtn.textContent = "Saving...";
-
-    try {
-        await updateEvent(reservationData);
-    } catch (error) {
-        console.error("Could not update reservation on backend. Updating locally:", error);
-    }
-
-    reservations = reservations.map(reservation => {
-        if (String(reservation.id) === String(reservationData.id)) {
-            return reservationData;
-        }
-
-        return reservation;
+    const validation = validateReservationData({
+        reservationData,
+        existingReservations: reservations,
+        users,
+        requireId: true
     });
 
-    renderUserDetails();
-    closeReservationEditModal();
+    if (!validation.isValid) {
+        setAdminReservationStatus(validation.message, "error");
+        return;
+    }
+
+    setAdminReservationStatus("");
+    setAdminReservationSubmitting(true);
+
+    try {
+        const updatedReservation = await updateEvent(reservationData);
+        const reservationToRender = updatedReservation || reservationData;
+
+        reservations = reservations.map(reservation => {
+            if (String(reservation.id) === String(reservationToRender.id)) {
+                return reservationToRender;
+            }
+
+            return reservation;
+        });
+
+        renderUserDetails();
+        closeReservationEditModal();
+    } catch (error) {
+        console.error("Could not update reservation:", error);
+        setAdminReservationStatus(
+            error.message || "Could not save reservation. Please try again.",
+            "error"
+        );
+    } finally {
+        setAdminReservationSubmitting(false);
+    }
 });
 
 async function handleConfirmUserStatusChange() {
@@ -786,12 +778,18 @@ document.addEventListener("keydown", event => {
     }
 });
 
-logoutBtn.addEventListener("click", () => {
-    localStorage.removeItem("adminLoggedIn");
-    localStorage.removeItem("facultyLoggedIn");
-    localStorage.removeItem("currentUserId");
-    localStorage.removeItem("currentUserEmail");
-    localStorage.removeItem("currentUserRole");
+logoutBtn.addEventListener("click", async () => {
+    try {
+        await logoutUser();
+    } catch (error) {
+        console.error("Could not log out on backend:", error);
+    }
+
+    sessionStorage.removeItem("adminLoggedIn");
+    sessionStorage.removeItem("facultyLoggedIn");
+    sessionStorage.removeItem("currentUserId");
+    sessionStorage.removeItem("currentUserEmail");
+    sessionStorage.removeItem("currentUserRole");
 
     window.location.href = "index.html";
 });

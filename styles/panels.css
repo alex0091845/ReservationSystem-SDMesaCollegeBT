@@ -2,6 +2,8 @@
 
 .calendar,
 .upcoming-events,
+.my-events,
+.check-in-widget,
 .week-view {
     width: 100%;
     background: #fff;
@@ -20,6 +22,73 @@
 
 .upcoming-events {
     padding: 20px;
+}
+
+.my-events {
+    padding: 20px;
+}
+
+.check-in-widget {
+    padding: 20px;
+}
+
+.my-events[hidden],
+.check-in-widget[hidden] {
+    display: none;
+}
+
+.my-events-header,
+.check-in-widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    gap: 12px;
+}
+
+.my-events-header h3,
+.check-in-widget-header h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 22px;
+    line-height: 1.2;
+}
+
+.check-in-widget-header p {
+    margin: 4px 0 0;
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.my-events .my-events-list {
+    max-height: 240px;
+}
+
+.check-in-widget-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.check-in-widget-card {
+    width: 100%;
+    text-align: left;
+}
+
+.check-in-widget-empty {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+    background: #fafafa;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.4;
+    text-align: center;
 }
 
 .week-view {

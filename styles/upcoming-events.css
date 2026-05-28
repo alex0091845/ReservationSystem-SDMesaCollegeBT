@@ -13,11 +13,13 @@
 }
 
 .upcoming-event-card {
+    width: 100%;
     border: 1px solid #e5e7eb;
     border-left-width: 6px;
     border-radius: 12px;
     padding: 12px 12px 12px 10px;
     background: #fafafa;
+    text-align: left;
     cursor: pointer;
     transition:
         transform 0.18s ease,
@@ -44,6 +46,19 @@
     font-size: 13px;
     font-weight: 700;
     line-height: 1.35;
+}
+
+.event-card-attendee-count {
+    display: inline-flex;
+    width: fit-content;
+    margin-top: 9px;
+    border-radius: 999px;
+    padding: 4px 9px;
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
 }
 
 .upcoming-empty {
