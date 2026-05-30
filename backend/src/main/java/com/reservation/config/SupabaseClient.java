@@ -27,7 +27,7 @@ public class SupabaseClient {
     public String get(String endpoint) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(supabaseUrl + "/functions/v1/" + endpoint))
+                .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
                 .header("apikey", apiKey)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")

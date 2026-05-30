@@ -15,7 +15,7 @@ import com.reservation.config.SupabaseClient;
 
 @Profile("!mock")
 @RestController
-@RequestMapping("/api/attendee")
+@RequestMapping("/api/attendees")
 public class AttendeeController {
 
     private final SupabaseClient supabase;
@@ -23,7 +23,7 @@ public class AttendeeController {
 
     @GetMapping
     public ResponseEntity<String> getAll() {
-        return ResponseEntity.ok(supabase.get("database-access"));
+        return ResponseEntity.ok(supabase.get("attendee?select=*,events(title)"));
     }
     
     @GetMapping("/{id}")
