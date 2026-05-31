@@ -270,7 +270,7 @@ async function request(endpoint, method = "GET", data = null) {
 
     const options = {
         method,
-        credentials: "include",
+        // credentials: "include",
         headers: {
             "Content-Type": "application/json"
         },
