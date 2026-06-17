@@ -1,5 +1,6 @@
 package com.reservation.mock;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,7 +21,7 @@ public class MockReservationController extends ReservationController {
     private final ReservationRepository repository;
 
     public MockReservationController() {
-        super(null);
+        super(null, new ObjectMapper());
 
         fileService = new FileService();
         repository = new ReservationRepository(fileService);
