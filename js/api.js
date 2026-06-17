@@ -1,10 +1,28 @@
 import { validateReservationData } from "./utils/reservationValidation.js";
 
-const API_ORIGIN = window.RESERVATION_API_ORIGIN || "http://18.223.249.15:8080";
+const API_ORIGIN = window.RESERVATION_API_ORIGIN || window.location.origin;
 const BASE_URL = `${API_ORIGIN}/api`;
+const REQUEST_TIMEOUT_MS = 8000;
 const DISABLED_USER_IDS_STORAGE_KEY = "disabledUserIds";
 const EVENT_OVERRIDES_STORAGE_KEY = "eventOverrides";
 const ATTENDEE_OVERRIDES_STORAGE_KEY = "attendeeOverrides";
+const FALLBACK_EVENT_TYPES = [
+    { value: "Meeting", label: "Meeting", description: "Social" },
+    { value: "Other", label: "Other", description: "Hands-on learning session" },
+    { value: "Social", label: "Social", description: "Social event" },
+    { value: "Study_Group", label: "Study Group", description: "Collaborative student study" },
+    { value: "Workshop", label: "Workshop", description: "Educational workshop events" }
+];
+const EVENT_TYPE_VALUE_ALIASES = {
+    meeting: "Meeting",
+    office_hours: "Other",
+    other: "Other",
+    social: "Social",
+    study: "Study_Group",
+    study_group: "Study_Group",
+    work: "Workshop",
+    workshop: "Workshop"
+};
 
 // REWORK ALL API FUNCTIONS AND 
 
@@ -72,11 +90,22 @@ function getEventOverrides() {
         const storedValue = sessionStorage.getItem(EVENT_OVERRIDES_STORAGE_KEY);
         const parsedValue = JSON.parse(storedValue || "[]");
 
-        return Array.isArray(parsedValue) ? parsedValue : [];
+        return Array.isArray(parsedValue)
+            ? parsedValue.map(normalizeEvent).filter(hasRenderableEventDates)
+            : [];
     } catch (error) {
         console.error("Could not read event overrides:", error);
         return [];
     }
+}
+
+function hasRenderableEventDates(event) {
+    if (!event?.start_time || !event?.end_time) {
+        return false;
+    }
+
+    return !Number.isNaN(new Date(event.start_time).getTime()) &&
+        !Number.isNaN(new Date(event.end_time).getTime());
 }
 
 function saveEventOverride(eventData) {
@@ -217,7 +246,7 @@ function getBaseEvents() {
         "host_user_id": 2,
         "start_time": new Date("2026-05-28T10:00:00"),
         "end_time": new Date("2026-05-28T11:00:00"),
-        "event_type": "Study",
+        "event_type": "Meeting",
         "description": "The quick brown fox jumps over the lazy dog.",
         "title": "Team Meeting",
         "department": "Computer Science",
@@ -228,18 +257,18 @@ function getBaseEvents() {
         "host_user_id": 1,
         "start_time": new Date("2026-05-16T10:00:00"),
         "end_time": new Date("2026-05-16T11:00:00"),
-        "event_type": "Work",
+        "event_type": "Workshop",
         "description": "The quick brown fox jumps over the lazy dog.",
         "title": "Work",
         "department": "Computer Science",
         "is_public": true
-        },
+    },
     {
         "id": 3,
         "host_user_id": 3,
         "start_time": new Date("2026-05-27T10:00:00"),
         "end_time": new Date("2026-05-27T11:00:00"),
-        "event_type": "Work",
+        "event_type": "Workshop",
         "description": "The quick brown fox jumps over the lazy dog.",
         "title": "Work",
         "department": "Computer Science",
@@ -295,8 +324,8 @@ function getUserRoleName(user) {
 }
 
 function normalizeEvent(event) {
-    if (!event) {
-        return event;
+    if (!event || typeof event !== "object" || Array.isArray(event)) {
+        return null;
     }
 
     const hostUserId = event.host_user_id ?? event.user_id;
@@ -307,6 +336,7 @@ function normalizeEvent(event) {
         host_user_id: hostUserId,
         start_time: event.start_time ?? event.start,
         end_time: event.end_time ?? event.end,
+        event_type: normalizeEventTypeValue(event.event_type),
         host_user: hostUser
             ? {
                 ...hostUser,
@@ -335,16 +365,105 @@ function normalizeAttendee(attendee) {
     };
 }
 
+function normalizeEventType(eventType) {
+    const rawValue = typeof eventType === "string"
+        ? eventType
+        : eventType?.event_type ?? eventType?.name ?? eventType?.type ?? eventType?.value;
+    const value = normalizeEventTypeValue(rawValue);
+
+    if (!value) {
+        return null;
+    }
+
+    return {
+        value: String(value),
+        label: eventType?.label || formatEventTypeLabel(value),
+        description: eventType?.description || ""
+    };
+}
+
+function formatEventTypeLabel(value) {
+    return String(value)
+        .replace(/[_-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\b\w/g, letter => letter.toUpperCase());
+}
+
+function getFallbackEventTypes() {
+    return FALLBACK_EVENT_TYPES.map(eventType => ({ ...eventType }));
+}
+
+function normalizeEventTypeValue(value) {
+    if (value === undefined || value === null) {
+        return value;
+    }
+
+    const rawValue = String(value).trim();
+
+    if (!rawValue) {
+        return rawValue;
+    }
+
+    const aliasKey = rawValue.toLowerCase().replace(/[-\s]+/g, "_");
+
+    return EVENT_TYPE_VALUE_ALIASES[aliasKey] || rawValue;
+}
+
+function normalizeCollection(responseData, collectionKeys = []) {
+    if (Array.isArray(responseData)) {
+        return responseData;
+    }
+
+    for (const collectionKey of collectionKeys) {
+        if (Array.isArray(responseData?.[collectionKey])) {
+            return responseData[collectionKey];
+        }
+    }
+
+    return [];
+}
+
+function getRequestFailureMessage(error, fallbackMessage) {
+    const responseMessage =
+        error?.data?.error ||
+        error?.data?.message ||
+        (typeof error?.data === "string" ? error.data : "");
+
+    if (responseMessage) {
+        return responseMessage;
+    }
+
+    if (error?.status === 401) {
+        return "Your login session could not be verified. Please sign in again.";
+    }
+
+    if (error?.status === 403) {
+        return "You do not have permission to complete this request.";
+    }
+
+    return fallbackMessage;
+}
+
 function toBackendEvent(eventData) {
     return {
-        user_id: eventData.user_id ?? eventData.host_user_id,
-        start: eventData.start ?? eventData.start_time,
-        end: eventData.end ?? eventData.end_time,
-        event_type: eventData.event_type,
+        host_user_id: normalizeInteger(
+            eventData.host_user_id ?? eventData.user_id
+        ),
+        start_time: eventData.start_time ?? eventData.start,
+        end_time: eventData.end_time ?? eventData.end,
+        event_type: normalizeEventTypeValue(eventData.event_type),
         description: eventData.description,
         title: eventData.title,
+        department: eventData.department,
         is_public: eventData.is_public
     };
+}
+
+function normalizeInteger(value) {
+    const numberValue = Number(value);
+
+    return Number.isNaN(numberValue) ? value : numberValue;
 }
 
 async function getValidationUsers() {
@@ -364,7 +483,7 @@ async function getValidationUsers() {
 // cookie-cutter request helper called by all data functions
 async function request(endpoint, method = "GET", data = null) {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000);
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     const options = {
         method,
@@ -411,11 +530,10 @@ export async function getEvents() {
     let events;
 
     try {
-        events = (await request("/events", "GET")).map(normalizeEvent);
-
-        if (!Array.isArray(events)) {
-            throw new Error("Events response was not an array.");
-        }
+        events = normalizeCollection(
+            await request("/events", "GET"),
+            ["events", "data", "items", "records"]
+        ).map(normalizeEvent).filter(Boolean);
     } catch (error) {
         console.error("Could not load events from backend. Using local events:", error);
         events = getBaseEvents();
@@ -423,6 +541,20 @@ export async function getEvents() {
 
     return applyLocalEventOverrides(events)
         .map(event => attachHostUser(event));
+}
+
+export async function getEventTypes() {
+    try {
+        const eventTypes = normalizeCollection(
+            await request("/event-types", "GET"),
+            ["event_types", "data", "items", "records"]
+        ).map(normalizeEventType).filter(Boolean);
+
+        return eventTypes.length > 0 ? eventTypes : getFallbackEventTypes();
+    } catch (error) {
+        console.error("Could not load event types from backend:", error);
+        return getFallbackEventTypes();
+    }
 }
 
 export async function createEvent(eventData) {
@@ -446,21 +578,28 @@ export async function createEvent(eventData) {
     };
 
     try {
-        const createdEvent = normalizeEvent(
-            await request("/events", "POST", toBackendEvent(eventForBackend))
-        );
+        const createResponse = await request("/events", "POST", toBackendEvent(eventForBackend));
+        const createdEvent = normalizeCollection(
+            createResponse,
+            ["events", "data", "items", "records"]
+        ).map(normalizeEvent).filter(Boolean)[0] ||
+            normalizeEvent(createResponse);
+        const reservationToReturn = attachHostUser({
+            ...eventForBackend,
+            ...createdEvent,
+            id: createdEvent?.id ?? eventForBackend.id ?? getNextEventId(events)
+        }, users);
 
-        return attachHostUser(createdEvent || eventForBackend, users);
+        return saveEventOverride(reservationToReturn);
     } catch (error) {
-        console.error("Could not create event on backend. Saving locally:", error);
+        console.error("Could not create event on backend:", error);
+        throw new Error(
+            getRequestFailureMessage(
+                error,
+                "Could not save the reservation to the backend."
+            )
+        );
     }
-
-    const createdEvent = attachHostUser({
-        ...eventForBackend,
-        id: getNextEventId(events)
-    }, users);
-
-    return saveEventOverride(createdEvent);
 }
 
 export async function deleteEvent(eventData) {
@@ -482,9 +621,12 @@ export async function updateEvent(eventData) {
     }
 
     try {
-        const updatedEvent = normalizeEvent(
-            await request(`/events/${eventData.id}`, "PATCH", toBackendEvent(eventData))
-        );
+        const updateResponse = await request(`/events/${eventData.id}`, "PATCH", toBackendEvent(eventData));
+        const updatedEvent = normalizeCollection(
+            updateResponse,
+            ["events", "data", "items", "records"]
+        ).map(normalizeEvent).filter(Boolean)[0] ||
+            normalizeEvent(updateResponse);
 
         return attachHostUser(updatedEvent || eventData, users);
     } catch (error) {
@@ -686,23 +828,12 @@ export async function createAttendee(attendeeData) {
 
 export async function getAttendees() {
     try {
-        const attendees = (await request("/attendees", "GET")).map(normalizeAttendee);
-
-        if (!Array.isArray(attendees)) {
-            throw new Error("Attendees response was not an array.");
-        }
+        const attendees = normalizeCollection(
+            await request("/attendees", "GET"),
+            ["attendees", "data", "items", "records"]
+        ).map(normalizeAttendee);
 
         return mergeLocalAttendees(attendees);
-    } catch (error) {
-        console.error("Could not load attendees from /attendees. Trying legacy route:", error);
-    }
-
-    try {
-        const attendees = (await request("/attendee", "GET")).map(normalizeAttendee);
-
-        return Array.isArray(attendees)
-            ? mergeLocalAttendees(attendees)
-            : getLocalAttendees();
     } catch (error) {
         console.error("Could not load attendees from backend. Using local attendees:", error);
     }

@@ -139,17 +139,20 @@ export function sortReservedEvents(reservedEvents) {
 // Displays color based on event type (event type is also displayed in text in the modal window), previously color was defined as a data field
 export function getEventColorClass(eventType) {
     switch (eventType?.toLowerCase()) {
-        case "study":
+        case "study_group":
             return "green";
 
         case "meeting":
             return "blue";
 
-        case "work":
+        case "workshop":
             return "orange";
 
-        case "office hours":
+        case "social":
             return "purple";
+
+        case "other":
+            return "red";
 
         default:
             return "red";

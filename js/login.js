@@ -23,8 +23,7 @@ async function handleLogin() {
 
   try {
     const loginResponse = await loginUser(username, userPassword);
-    const matchedUser = getAuthenticatedUser(loginResponse) ||
-      getAuthenticatedUser(await getCurrentSession());
+    const matchedUser = await getVerifiedSessionUser(loginResponse);
 
     if (!matchedUser) {
       message.textContent =
@@ -45,6 +44,22 @@ async function handleLogin() {
     }
 
     await handleMockLoginFallback(username, userPassword);
+  }
+}
+
+async function getVerifiedSessionUser(loginResponse) {
+  try {
+    const sessionResponse = await getCurrentSession();
+
+    return getAuthenticatedUser(sessionResponse) ||
+      getAuthenticatedUser(loginResponse);
+  } catch (error) {
+    console.error("Login succeeded, but session verification failed:", error);
+
+    message.textContent =
+      "Login worked, but your session could not be verified. Please try again.";
+
+    return null;
   }
 }
 

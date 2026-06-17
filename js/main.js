@@ -1,4 +1,4 @@
-import { getAttendees, getCurrentSession, getEvents, getUsers, logoutUser, updateEvent } from "./api.js";
+import { getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
@@ -8,6 +8,7 @@ import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
 import { renderEventAttendees } from "./ui/attendees.js";
 import { createModalController } from "./ui/modal.js";
+import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 
 
 // Makes all page elements accessible in one place
@@ -36,6 +37,7 @@ const elements = {
     facultyReservationStatus: document.getElementById("facultyReservationStatus"),
     facultyReservationAttendeesList: document.getElementById("facultyReservationAttendeesList"),
     facultyReservationAttendeesCount: document.getElementById("facultyReservationAttendeesCount"),
+    facultyReservationType: document.getElementById("facultyReservationType"),
     eventModalOverlay: document.getElementById("eventModalOverlay"),
     modalCloseBtn: document.getElementById("modalCloseBtn"),
     modalEventTitle: document.getElementById("modalEventTitle"),
@@ -73,12 +75,14 @@ if (elements.openReservationModalBtn) {
 // New event loading system
 let reservedEvents = [];
 let attendees = [];
+let eventTypes = [];
 let currentUser = null;
 let selectedFacultyReservation = null;
 
 async function loadEvents() {
     await syncSessionFromBackend();
     await loadCurrentUser();
+    await loadEventTypes();
 
     try {
         reservedEvents = await getEvents();
@@ -95,6 +99,12 @@ async function loadEvents() {
     init();
 }
 
+async function loadEventTypes() {
+    eventTypes = await getEventTypes();
+
+    renderEventTypeOptions(elements.facultyReservationType, eventTypes);
+}
+
 loadEvents();
 
 async function loadCurrentUser() {
@@ -107,15 +117,28 @@ async function loadCurrentUser() {
     }
 
     try {
-        const users = await getUsers();
+        const sessionUser = await getCurrentSession();
 
-        currentUser = users.find(user => {
-            return String(user.id) === String(currentUserId);
-        }) || null;
+        currentUser =
+            sessionUser && String(sessionUser.id) === String(currentUserId)
+                ? sessionUser
+                : getStoredCurrentUser();
     } catch (error) {
         console.error("Error loading current user:", error);
-        currentUser = null;
+        currentUser = getStoredCurrentUser();
     }
+}
+
+function getStoredCurrentUser() {
+    if (!currentUserId) {
+        return null;
+    }
+
+    return {
+        id: currentUserId,
+        email: sessionStorage.getItem("currentUserEmail") || "",
+        role_name: currentUserRole
+    };
 }
 
 // Initializes selected date to today's date
@@ -257,6 +280,78 @@ function renderAll() {
         reservedEvents,
         openEventModal
     );
+}
+
+async function handleReservationCreated(event) {
+    const createdReservation = getRenderableReservation(
+        event.detail?.reservation
+    );
+
+    if (!createdReservation) {
+        return;
+    }
+
+    reservedEvents = [
+        ...reservedEvents.filter(reservation => {
+            return (
+                createdReservation.id === undefined ||
+                createdReservation.id === null ||
+                String(reservation.id) !== String(createdReservation.id)
+            );
+        }),
+        createdReservation
+    ];
+
+    sortReservedEvents(reservedEvents);
+    selectReservationDate(createdReservation);
+
+    await loadAttendees();
+    renderAll();
+}
+
+function getRenderableReservation(reservation) {
+    if (!reservation || typeof reservation !== "object") {
+        return null;
+    }
+
+    const hostUserId =
+        reservation.host_user_id ??
+        reservation.user_id ??
+        reservation.host_user?.id ??
+        currentUser?.id;
+
+    const hostUser =
+        reservation.host_user ||
+        reservation.users ||
+        (
+            currentUser && String(currentUser.id) === String(hostUserId)
+                ? currentUser
+                : null
+        );
+
+    return {
+        ...reservation,
+        host_user_id: hostUserId,
+        start_time: reservation.start_time ?? reservation.start,
+        end_time: reservation.end_time ?? reservation.end,
+        host_user: hostUser || reservation.host_user
+    };
+}
+
+function selectReservationDate(reservation) {
+    const reservationDate = new Date(reservation.start_time);
+
+    if (Number.isNaN(reservationDate.getTime())) {
+        return;
+    }
+
+    state.selectedDate = new Date(
+        reservationDate.getFullYear(),
+        reservationDate.getMonth(),
+        reservationDate.getDate()
+    );
+
+    syncCalendarToSelectedDate();
 }
 
 async function loadAttendees() {
@@ -431,7 +526,11 @@ function openFacultyReservationEditModal(reservation) {
     document.getElementById("facultyReservationHostUserId").value =
         reservation.host_user_id ?? reservation.host_user?.id ?? currentUser.id ?? "";
     document.getElementById("facultyReservationTitle").value = reservation.title ?? "";
-    document.getElementById("facultyReservationType").value = reservation.event_type ?? "";
+    renderEventTypeOptions(
+        elements.facultyReservationType,
+        eventTypes,
+        { selectedValue: reservation.event_type ?? "" }
+    );
     document.getElementById("facultyReservationDescription").value = reservation.description ?? "";
     document.getElementById("facultyReservationStart").value = formatDateTimeLocalValue(reservation.start_time);
     document.getElementById("facultyReservationEnd").value = formatDateTimeLocalValue(reservation.end_time);
@@ -743,6 +842,11 @@ function bindEvents() {
     elements.facultyReservationForm.addEventListener(
         "submit",
         handleFacultyReservationSubmit
+    );
+
+    window.addEventListener(
+        "reservation:created",
+        handleReservationCreated
     );
 
     if (largeScreenQuery.addEventListener) {

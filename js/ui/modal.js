@@ -1,6 +1,7 @@
-import { createAttendee, createEvent, getEvents, getUsers, isUserDisabled } from "../api.js";
+import { createAttendee, createEvent, getEventTypes, getEvents, isUserDisabled } from "../api.js";
 import { formatReadableDate } from "../utils/dateUtils.js";
 import { validateReservationData } from "../utils/reservationValidation.js";
+import { renderEventTypeOptions } from "./eventTypeOptions.js";
 
 const reservationModalOverlay = document.getElementById("reservationModalOverlay");
 const openReservationModalBtn = document.getElementById("openReservationModalBtn");
@@ -9,7 +10,9 @@ const reservationCancelBtn = document.getElementById("reservationCancelBtn");
 const reservationForm = document.getElementById("reservationForm");
 const reservationSubmitBtn = reservationForm?.querySelector('button[type="submit"]');
 const reservationStatus = document.getElementById("reservationStatus");
+const reservationTypeSelect = document.getElementById("reservationType");
 const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
+let reservationEventTypes = [];
 let reservationPointerStartedOnBackdrop = false;
 let eventModalReturnFocusElement = null;
 let reservationModalReturnFocusElement = null;
@@ -206,20 +209,7 @@ export function createModalController(elements) {
 }
 
 async function getEventHostUser(eventData) {
-    if (eventData.host_user) {
-        return eventData.host_user;
-    }
-
-    try {
-        const users = await getUsers();
-
-        return users.find(user => {
-            return String(user.id) === String(eventData.host_user_id);
-        });
-    } catch (error) {
-        console.error("Could not load event host:", error);
-        return null;
-    }
+    return eventData.host_user || eventData.users || null;
 }
 
 function getUserFullName(user) {
@@ -232,6 +222,8 @@ function getUserFullName(user) {
 
 // Opens reservation creation modal
 async function openReservationModal() {
+    await loadReservationEventTypes();
+
     if (await isUserDisabled(currentHostUserId)) {
         return;
     }
@@ -242,6 +234,16 @@ async function openReservationModal() {
 
     reservationModalOverlay.classList.add("active");
     reservationModalOverlay.setAttribute("aria-hidden", "false");
+}
+
+async function loadReservationEventTypes(selectedValue = reservationTypeSelect?.value || "") {
+    reservationEventTypes = await getEventTypes();
+
+    renderEventTypeOptions(
+        reservationTypeSelect,
+        reservationEventTypes,
+        { selectedValue }
+    );
 }
 
 // Closes reservation creation modal
@@ -396,14 +398,11 @@ reservationForm.addEventListener("submit", async (event) => {
     setReservationSubmitting(true);
 
     try {
-        const [existingReservations, users] = await Promise.all([
-            getEvents(),
-            getUsers()
-        ]);
+        const existingReservations = await getEvents();
         const validation = validateReservationData({
             reservationData: eventData,
             existingReservations,
-            users
+            users: []
         });
 
         if (!validation.isValid) {
@@ -411,12 +410,15 @@ reservationForm.addEventListener("submit", async (event) => {
             return;
         }
 
-        await createEvent(eventData);
+        const createdEvent = await createEvent(eventData);
 
         closeReservationModal();
 
-        // Temporary refresh until state-based refresh is added
-        window.location.reload();
+        window.dispatchEvent(new CustomEvent("reservation:created", {
+            detail: {
+                reservation: createdEvent || eventData
+            }
+        }));
     } catch (error) {
         console.error("Error creating reservation:", error);
         setReservationStatus(

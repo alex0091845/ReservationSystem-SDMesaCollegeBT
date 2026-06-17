@@ -1,6 +1,7 @@
 import {
     getEvents,
     getAttendees,
+    getEventTypes,
     getUsers,
     createUser,
     updateUser,
@@ -13,6 +14,7 @@ import {
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderEventAttendees } from "./ui/attendees.js";
 import { createEventCard } from "./ui/eventCards.js";
+import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
 const userCount = document.getElementById("userCount");
@@ -51,10 +53,12 @@ const adminReservationSubmitBtn = document.getElementById("adminReservationSubmi
 const adminReservationStatus = document.getElementById("adminReservationStatus");
 const adminReservationAttendeesList = document.getElementById("adminReservationAttendeesList");
 const adminReservationAttendeesCount = document.getElementById("adminReservationAttendeesCount");
+const adminReservationType = document.getElementById("adminReservationType");
 
 let users = [];
 let reservations = [];
 let attendees = [];
+let eventTypes = [];
 let selectedUser = null;
 let selectedReservation = null;
 let userPendingStatusChange = null;
@@ -140,6 +144,15 @@ async function loadDashboardData() {
         console.error("Could not load attendees for admin dashboard:", error);
         attendees = [];
     }
+
+    try {
+        eventTypes = await getEventTypes();
+    } catch (error) {
+        console.error("Could not load event types for admin dashboard:", error);
+        eventTypes = [];
+    }
+
+    renderEventTypeOptions(adminReservationType, eventTypes);
 
     renderUsers();
     renderUserDetails();
@@ -476,7 +489,11 @@ function openReservationEditModal(reservation) {
     document.getElementById("adminReservationHostUserId").value =
         reservation.host_user_id ?? reservation.host_user?.id ?? selectedUser?.id ?? "";
     document.getElementById("adminReservationTitle").value = reservation.title ?? "";
-    document.getElementById("adminReservationType").value = reservation.event_type ?? "";
+    renderEventTypeOptions(
+        adminReservationType,
+        eventTypes,
+        { selectedValue: reservation.event_type ?? "" }
+    );
     document.getElementById("adminReservationDescription").value = reservation.description ?? "";
     document.getElementById("adminReservationStart").value = formatDateTimeLocalValue(reservation.start_time);
     document.getElementById("adminReservationEnd").value = formatDateTimeLocalValue(reservation.end_time);
