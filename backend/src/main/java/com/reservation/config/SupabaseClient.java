@@ -11,6 +11,11 @@ import org.springframework.stereotype.Component;
 //@Component is an annotation of spring that at start up creates an instance of this class that you can inject elsewhere
 @Component
 public class SupabaseClient {
+    public record SupabaseResponse(int statusCode, String body) {
+        public boolean isSuccessful() {
+            return statusCode >= 200 && statusCode < 300;
+        }
+    }
 
     // @value is a spring annotation that injects value into field from application.properties
     /* The $ is a property placeholder telling spring that that this isnt just a string
@@ -43,6 +48,10 @@ public class SupabaseClient {
 
     // POST at /rest/v1/{endpoint}
     public String post(String endpoint, String json) {
+        return postResponse(endpoint, json).body();
+    }
+
+    public SupabaseResponse postResponse(String endpoint, String json) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
@@ -53,7 +62,9 @@ public class SupabaseClient {
                 .POST(HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
-            return http.send(request, HttpResponse.BodyHandlers.ofString()).body();
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+            return new SupabaseResponse(response.statusCode(), response.body());
 
         } catch (Exception e) {
             throw new RuntimeException("Supabase request failed: " + e.getMessage());
@@ -62,6 +73,10 @@ public class SupabaseClient {
 
     // PATCH at /rest/v1/{endpoint}
     public String patch(String endpoint, String json) {
+        return patchResponse(endpoint, json).body();
+    }
+
+    public SupabaseResponse patchResponse(String endpoint, String json) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
@@ -72,7 +87,9 @@ public class SupabaseClient {
                 .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
                 .build();
 
-            return http.send(request, HttpResponse.BodyHandlers.ofString()).body();
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+            return new SupabaseResponse(response.statusCode(), response.body());
 
         } catch (Exception e) {
             throw new RuntimeException("Supabase request failed: " + e.getMessage());
