@@ -133,14 +133,15 @@
     padding: 0;
     border: none;
     border-radius: 9px;
-    background: #e5e7eb;
+    background: var(--mesa-blue);
+    color: #fff;
     font-size: 18px;
     cursor: pointer;
     transition: background 0.2s ease, transform 0.2s ease;
 }
 
 .nav-btn:hover {
-    background: #d1d5db;
+    background: var(--mesa-blue-dark);
     transform: scale(1.05);
 }
 

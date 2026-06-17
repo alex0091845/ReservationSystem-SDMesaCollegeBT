@@ -126,8 +126,8 @@
 
 .faculty-user-controls input:focus,
 .faculty-user-controls select:focus {
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    border-color: var(--mesa-blue);
+    box-shadow: 0 0 0 3px rgba(10, 85, 164, 0.14);
     outline: none;
 }
 
@@ -163,9 +163,9 @@
 }
 
 .faculty-user-card.selected {
-    border-color: #2563eb;
+    border-color: var(--mesa-blue);
     background: #eff6ff;
-    box-shadow: inset 4px 0 0 #2563eb;
+    box-shadow: inset 4px 0 0 var(--mesa-blue);
 }
 
 .faculty-user-card.disabled {
@@ -286,7 +286,7 @@
 }
 
 .selected-user-actions .reservation-primary-btn:hover {
-    background: #1d4ed8;
+    background: var(--mesa-blue-dark);
 }
 
 .selected-user-actions .disable-user-btn:hover:not(:disabled) {

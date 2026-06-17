@@ -148,8 +148,8 @@
 /* Event Colors (Needs to be replaced to reflect a shift to department colors or event type colors) */
 
 .blue {
-    background: #3b82f6;
-    border-left-color: #3b82f6;
+    background: var(--mesa-blue);
+    border-left-color: var(--mesa-blue);
 }
 
 .green {

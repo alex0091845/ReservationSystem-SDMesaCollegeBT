@@ -150,7 +150,7 @@ function getAuthenticatedUser(authResponse) {
 }
 
 function getUserRoleName(user) {
-  return user.role_name || user.role || "";
+  return user.role_name || user.role || user.user_roles?.name || "";
 }
 
 loginBtn.addEventListener("click", handleLogin);

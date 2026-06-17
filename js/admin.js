@@ -7,7 +7,8 @@ import {
     updateEvent,
     disableUser,
     enableUser,
-    logoutUser
+    logoutUser,
+    getCurrentSession
 } from "./api.js";
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderEventAttendees } from "./ui/attendees.js";
@@ -63,11 +64,59 @@ let userSearchTerm = "";
 let userRoleValue = "all";
 let userSortValue = "name-asc";
 
-const isAdminLoggedIn =
+let isAdminLoggedIn =
     sessionStorage.getItem("adminLoggedIn") === "true";
 
-if (!isAdminLoggedIn) {
-    window.location.href = "login.html";
+async function bootstrapAdminDashboard() {
+    const canAccessAdmin = await verifyAdminSession();
+
+    if (!canAccessAdmin) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    loadDashboardData();
+}
+
+async function verifyAdminSession() {
+    try {
+        const sessionUser = await getCurrentSession();
+
+        if (!isAdminUser(sessionUser)) {
+            clearStoredSession();
+            return false;
+        }
+
+        storeSessionUser(sessionUser);
+        return true;
+    } catch (error) {
+        if (!error.status && isAdminLoggedIn) {
+            return true;
+        }
+
+        clearStoredSession();
+        return false;
+    }
+}
+
+function storeSessionUser(user) {
+    isAdminLoggedIn = true;
+
+    sessionStorage.setItem("facultyLoggedIn", "true");
+    sessionStorage.setItem("adminLoggedIn", "true");
+    sessionStorage.setItem("currentUserId", String(user.id));
+    sessionStorage.setItem("currentUserEmail", user.email || "");
+    sessionStorage.setItem("currentUserRole", getUserRoleName(user));
+}
+
+function clearStoredSession() {
+    isAdminLoggedIn = false;
+
+    sessionStorage.removeItem("adminLoggedIn");
+    sessionStorage.removeItem("facultyLoggedIn");
+    sessionStorage.removeItem("currentUserId");
+    sessionStorage.removeItem("currentUserEmail");
+    sessionStorage.removeItem("currentUserRole");
 }
 
 async function loadDashboardData() {
@@ -315,7 +364,7 @@ function getUserFullName(user) {
 }
 
 function getUserRoleName(user) {
-    return user.role_name || user.role || "Faculty";
+    return user.role_name || user.role || user.user_roles?.name || "Faculty";
 }
 
 function isUserEnabled(user) {
@@ -794,4 +843,4 @@ logoutBtn.addEventListener("click", async () => {
     window.location.href = "index.html";
 });
 
-loadDashboardData();
+bootstrapAdminDashboard();

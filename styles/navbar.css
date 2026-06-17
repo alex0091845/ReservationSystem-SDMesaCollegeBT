@@ -5,15 +5,46 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    height: 60px;
-    padding: 0 20px;
-    background-color: #1e293b;
-    color: #fff;
+    min-height: 72px;
+    padding: 10px 24px;
+    border-bottom: 1px solid #dbe3ef;
+    background-color: #fff;
+    color: var(--mesa-blue);
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+}
+
+.nav-brand-link {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: #fff;
+}
+
+.nav-brand-logo {
+    display: block;
+    width: clamp(138px, 18vw, 190px);
+    height: auto;
 }
 
 .nav-title {
-    font-size: 1.2rem;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-family: var(--font-primary);
+    font-size: 1.55rem;
     font-weight: 600;
+    color: #000;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .nav-right {
@@ -30,11 +61,11 @@
     min-width: 0;
     max-width: 260px;
     min-height: 36px;
-    border: 1px solid rgba(226, 232, 240, 0.22);
+    border: 1px solid rgba(10, 85, 164, 0.18);
     border-radius: 999px;
     padding: 4px 12px 4px 5px;
-    background: rgba(15, 23, 42, 0.42);
-    color: #e5edf8;
+    background: rgba(10, 85, 164, 0.08);
+    color: var(--mesa-blue);
 }
 
 .nav-user-chip[hidden] {
@@ -49,8 +80,8 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: #dbeafe;
-    color: #1e3a8a;
+    background: var(--mesa-blue);
+    color: #fff;
     font-size: 12px;
     font-weight: 800;
 }
@@ -58,7 +89,7 @@
 .nav-user-name {
     min-width: 0;
     overflow: hidden;
-    color: #f8fafc;
+    color: var(--mesa-blue);
     font-size: 14px;
     font-weight: 700;
     line-height: 1.2;
@@ -67,17 +98,18 @@
 }
 
 .login-btn {
-    border: none;
+    border: 1px solid var(--mesa-blue);
     border-radius: 6px;
     padding: 8px 16px;
-    background-color: #3b82f6;
+    background-color: var(--mesa-blue);
     color: #fff;
     cursor: pointer;
+    font-weight: 700;
     transition: background-color 0.2s ease;
 }
 
 .login-btn:hover {
-    background-color: #2563eb;
+    background-color: var(--mesa-blue-dark);
 }
 
 /* Makes the create reservation button invisible before login validation: interactivity is already disabled, this is just for visual continuity */
@@ -88,13 +120,28 @@
 
 @media (max-width: 720px) {
     .navbar {
+        flex-wrap: wrap;
         height: auto;
         min-height: 60px;
         gap: 12px;
         padding: 10px 14px;
     }
 
+    .nav-left {
+        flex: 1 1 100%;
+        gap: 10px;
+    }
+
+    .nav-brand-logo {
+        width: 132px;
+    }
+
+    .nav-title {
+        font-size: 1.2rem;
+    }
+
     .nav-right {
+        width: 100%;
         justify-content: flex-end;
         flex-wrap: wrap;
     }
@@ -102,4 +149,5 @@
     .nav-user-chip {
         max-width: 180px;
     }
+
 }

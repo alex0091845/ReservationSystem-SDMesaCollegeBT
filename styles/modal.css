@@ -140,8 +140,8 @@
 
 .reservation-input:focus {
     outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    border-color: var(--mesa-blue);
+    box-shadow: 0 0 0 3px rgba(10, 85, 164, 0.15);
 }
 
 .reservation-textarea {
@@ -199,7 +199,7 @@
     border-radius: 999px;
     padding: 5px 10px;
     background: #eff6ff;
-    color: #1d4ed8;
+    color: var(--mesa-blue);
     font-size: 12px;
     font-weight: 800;
     line-height: 1;
@@ -308,12 +308,12 @@
 }
 
 .reservation-primary-btn {
-    background: #2563eb;
+    background: var(--mesa-blue);
     color: white;
 }
 
 .reservation-primary-btn:hover {
-    background: #1d4ed8;
+    background: var(--mesa-blue-dark);
 }
 
 .reservation-secondary-btn {
@@ -373,7 +373,7 @@
 }
 
 .reservation-select:focus {
-    border-color: #3b82f6;
+    border-color: var(--mesa-blue);
 }
 
 .visibility-toggle {
@@ -423,13 +423,13 @@
 }
 
 .visibility-option input:checked+.visibility-card {
-    border-color: #2563eb;
+    border-color: var(--mesa-blue);
     background: #eff6ff;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 3px rgba(10, 85, 164, 0.12);
 }
 
 .visibility-option input:focus-visible+.visibility-card {
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+    box-shadow: 0 0 0 3px rgba(10, 85, 164, 0.18);
 }
 
 @media (max-width: 720px) {
@@ -520,7 +520,7 @@
     border-radius: 999px;
     padding: 4px 10px;
     background: #eff6ff;
-    color: #1d4ed8;
+    color: var(--mesa-blue);
     font-size: 12px;
     font-weight: 700;
     line-height: 1;

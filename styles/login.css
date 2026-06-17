@@ -1,5 +1,7 @@
+@import url("./base.css");
+
 body {
-  font-family: Arial, sans-serif;
+  font-family: var(--font-secondary);
   background-color: #f4f4f4;
   display: flex;
   justify-content: center;
@@ -11,12 +13,21 @@ body {
 .login-container {
   background-color: white;
   padding: 30px;
-  border-radius: 10px;
+  border-radius: 8px;
   width: 300px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
+.login-brand-logo {
+  display: block;
+  width: 100%;
+  max-width: 230px;
+  height: auto;
+  margin: 0 auto 20px;
+}
+
 h1 {
+  font-family: var(--font-primary);
   text-align: center;
   margin-bottom: 20px;
 }
@@ -49,13 +60,13 @@ input {
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: #0078d4;
+  accent-color: var(--mesa-blue);
 }
 
 button {
   width: 100%;
   padding: 10px;
-  background-color: #0078d4;
+  background-color: var(--mesa-blue);
   color: white;
   border: none;
   border-radius: 5px;
@@ -63,7 +74,7 @@ button {
 }
 
 button:hover {
-  background-color: #005fa3;
+  background-color: var(--mesa-blue-dark);
 }
 
 #message {

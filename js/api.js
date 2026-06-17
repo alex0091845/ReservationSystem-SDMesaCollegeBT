@@ -1,6 +1,7 @@
 import { validateReservationData } from "./utils/reservationValidation.js";
 
-const BASE_URL = "http://18.223.249.15:8080/api";
+const API_ORIGIN = window.RESERVATION_API_ORIGIN || "http://18.223.249.15:8080";
+const BASE_URL = `${API_ORIGIN}/api`;
 const DISABLED_USER_IDS_STORAGE_KEY = "disabledUserIds";
 const EVENT_OVERRIDES_STORAGE_KEY = "eventOverrides";
 const ATTENDEE_OVERRIDES_STORAGE_KEY = "attendeeOverrides";
@@ -37,12 +38,26 @@ function saveDisabledUserIds(userIds) {
 }
 
 export async function isUserDisabled(userId) {
-    const user = (await getUsers()).find(testUser => {
-        return String(testUser.id) === String(userId);
-    });
+    try {
+        const currentUser = await getCurrentSession();
 
-    if (user) {
-        return user.enabled === false;
+        if (currentUser && String(currentUser.id) === String(userId)) {
+            return currentUser.enabled === false;
+        }
+    } catch (error) {
+        // No active backend session. Fall through to local/offline status.
+    }
+
+    try {
+        const user = (await getUsers()).find(testUser => {
+            return String(testUser.id) === String(userId);
+        });
+
+        if (user) {
+            return user.enabled === false;
+        }
+    } catch (error) {
+        console.error("Could not check user status from backend:", error);
     }
 
     return getDisabledUserIds().includes(String(userId));
@@ -173,19 +188,20 @@ function getEventHostUser(user) {
         first_name: user.first_name,
         last_name: user.last_name,
         phone: user.phone,
-        role_name: user.role_name,
+        role_name: getUserRoleName(user),
         enabled: user.enabled !== false
     };
 }
 
-function getEventHostById(hostUserId, users) {
+function getEventHostById(hostUserId, users = []) {
     return getEventHostUser(users.find(user => {
         return String(user.id) === String(hostUserId);
     }));
 }
 
-function attachHostUser(event, users) {
-    const hostUser = getEventHostById(event.host_user_id, users);
+function attachHostUser(event, users = []) {
+    const hostUser = getEventHostById(event.host_user_id, users) ||
+        getEventHostUser(event.host_user);
 
     return {
         ...event,
@@ -256,11 +272,93 @@ function applyLocalUserStatus(users) {
     const disabledUserIds = getDisabledUserIds();
 
     return users.map(user => ({
-        ...user,
+        ...normalizeUser(user),
         enabled: disabledUserIds.includes(String(user.id))
             ? false
             : user.enabled !== false
     }));
+}
+
+function normalizeUser(user) {
+    if (!user) {
+        return user;
+    }
+
+    return {
+        ...user,
+        role_name: getUserRoleName(user)
+    };
+}
+
+function getUserRoleName(user) {
+    return user.role_name || user.role || user.user_roles?.name || "";
+}
+
+function normalizeEvent(event) {
+    if (!event) {
+        return event;
+    }
+
+    const hostUserId = event.host_user_id ?? event.user_id;
+    const hostUser = event.host_user || event.users;
+
+    return {
+        ...event,
+        host_user_id: hostUserId,
+        start_time: event.start_time ?? event.start,
+        end_time: event.end_time ?? event.end,
+        host_user: hostUser
+            ? {
+                ...hostUser,
+                id: hostUser.id ?? hostUserId
+            }
+            : event.host_user
+    };
+}
+
+function normalizeAttendee(attendee) {
+    if (!attendee) {
+        return attendee;
+    }
+
+    const [firstName = "", ...lastNameParts] =
+        attendee.full_name && !attendee.first_name
+            ? attendee.full_name.split(/\s+/)
+            : [];
+
+    return {
+        ...attendee,
+        first_name: attendee.first_name ?? firstName,
+        last_name: attendee.last_name ?? lastNameParts.join(" "),
+        email: attendee.email ?? attendee.student_email,
+        check_in_time: attendee.check_in_time ?? attendee.check_in ?? attendee.checked_in
+    };
+}
+
+function toBackendEvent(eventData) {
+    return {
+        user_id: eventData.user_id ?? eventData.host_user_id,
+        start: eventData.start ?? eventData.start_time,
+        end: eventData.end ?? eventData.end_time,
+        event_type: eventData.event_type,
+        description: eventData.description,
+        title: eventData.title,
+        is_public: eventData.is_public
+    };
+}
+
+async function getValidationUsers() {
+    try {
+        const currentUser = await getCurrentSession();
+
+        if (getUserRoleName(currentUser).toLowerCase() === "admin") {
+            return getUsers();
+        }
+
+        return currentUser ? [currentUser] : [];
+    } catch (error) {
+        return [];
+    }
 }
 
 // cookie-cutter request helper called by all data functions
@@ -270,7 +368,7 @@ async function request(endpoint, method = "GET", data = null) {
 
     const options = {
         method,
-        // credentials: "include",
+        credentials: "include",
         headers: {
             "Content-Type": "application/json"
         },
@@ -283,12 +381,24 @@ async function request(endpoint, method = "GET", data = null) {
 
     try {
         const response = await fetch(`${BASE_URL}${endpoint}`, options);
-        const responseData = response.status === 204
-            ? null
-            : await response.json();
+        const responseText = response.status === 204
+            ? ""
+            : await response.text();
+        let responseData = null;
+
+        if (responseText) {
+            try {
+                responseData = JSON.parse(responseText);
+            } catch (error) {
+                responseData = responseText;
+            }
+        }
 
         if (!response.ok) {
-            throw new Error(`Request failed: ${method} ${endpoint}`);
+            const error = new Error(`Request failed: ${method} ${endpoint}`);
+            error.status = response.status;
+            error.data = responseData;
+            throw error;
         }
 
         return responseData;
@@ -301,7 +411,7 @@ export async function getEvents() {
     let events;
 
     try {
-        events = await request("/events", "GET");
+        events = (await request("/events", "GET")).map(normalizeEvent);
 
         if (!Array.isArray(events)) {
             throw new Error("Events response was not an array.");
@@ -311,14 +421,12 @@ export async function getEvents() {
         events = getBaseEvents();
     }
 
-    const users = await getUsers();
-
     return applyLocalEventOverrides(events)
-        .map(event => attachHostUser(event, users));
+        .map(event => attachHostUser(event));
 }
 
 export async function createEvent(eventData) {
-    const users = await getUsers();
+    const users = await getValidationUsers();
     const events = await getEvents();
     const validation = validateReservationData({
         reservationData: eventData,
@@ -338,7 +446,9 @@ export async function createEvent(eventData) {
     };
 
     try {
-        const createdEvent = await request("/events", "POST", eventForBackend);
+        const createdEvent = normalizeEvent(
+            await request("/events", "POST", toBackendEvent(eventForBackend))
+        );
 
         return attachHostUser(createdEvent || eventForBackend, users);
     } catch (error) {
@@ -354,11 +464,11 @@ export async function createEvent(eventData) {
 }
 
 export async function deleteEvent(eventData) {
-    return request("/events", "DELETE", eventData);
+    return request(`/events/${eventData.id}`, "DELETE");
 }
 
 export async function updateEvent(eventData) {
-    const users = await getUsers();
+    const users = await getValidationUsers();
     const events = await getEvents();
     const validation = validateReservationData({
         reservationData: eventData,
@@ -372,7 +482,9 @@ export async function updateEvent(eventData) {
     }
 
     try {
-        const updatedEvent = await request("/events", "PATCH", eventData);
+        const updatedEvent = normalizeEvent(
+            await request(`/events/${eventData.id}`, "PATCH", toBackendEvent(eventData))
+        );
 
         return attachHostUser(updatedEvent || eventData, users);
     } catch (error) {
@@ -387,10 +499,10 @@ export async function createUser(userData) {
 }
 
 export async function loginUser(email, password) {
-    return request("/login", "POST", {
+    return normalizeUser(await request("/login", "POST", {
         email,
         password
-    });
+    }));
 }
 
 export async function logoutUser() {
@@ -398,7 +510,7 @@ export async function logoutUser() {
 }
 
 export async function getCurrentSession() {
-    return request("/session", "GET");
+    return normalizeUser(await request("/session", "GET"));
 }
 
 // NOT DOCUMENTED
@@ -513,12 +625,12 @@ export async function getUsers() {
 }
 
 export async function updateUser(userData) {
-    return request("/users", "PATCH", userData);
+    return request(`/users/${userData.id}`, "PATCH", userData);
 }
 
 export async function disableUser(userData) {
     try {
-        return request("/users", "PATCH", {
+        return request(`/users/${userData.id}`, "PATCH", {
             ...userData,
             enabled: false
         });
@@ -542,7 +654,7 @@ export async function disableUser(userData) {
 
 export async function enableUser(userData) {
     try {
-        return request("/users", "PATCH", {
+        return request(`/users/${userData.id}`, "PATCH", {
             ...userData,
             enabled: true
         });
@@ -564,7 +676,7 @@ export async function enableUser(userData) {
 
 export async function createAttendee(attendeeData) {
     try {
-        return await request("/attendees", "POST", attendeeData);
+        return normalizeAttendee(await request("/attendees", "POST", attendeeData));
     } catch (error) {
         console.error("Could not create attendee on backend. Saving locally:", error);
     }
@@ -574,7 +686,7 @@ export async function createAttendee(attendeeData) {
 
 export async function getAttendees() {
     try {
-        const attendees = await request("/attendees", "GET");
+        const attendees = (await request("/attendees", "GET")).map(normalizeAttendee);
 
         if (!Array.isArray(attendees)) {
             throw new Error("Attendees response was not an array.");
@@ -586,7 +698,7 @@ export async function getAttendees() {
     }
 
     try {
-        const attendees = await request("/attendee", "GET");
+        const attendees = (await request("/attendee", "GET")).map(normalizeAttendee);
 
         return Array.isArray(attendees)
             ? mergeLocalAttendees(attendees)

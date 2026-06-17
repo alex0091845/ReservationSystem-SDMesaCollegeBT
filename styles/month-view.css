@@ -57,10 +57,10 @@
 }
 
 .date.selected {
-    background: #1d4ed8 !important;
+    background: var(--mesa-blue) !important;
     color: #fff;
     transform: scale(1.04);
-    box-shadow: 0 6px 14px rgba(29, 78, 216, 0.2);
+    box-shadow: 0 6px 14px rgba(10, 85, 164, 0.22);
 }
 
 .date.other-month {

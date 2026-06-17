@@ -1,4 +1,4 @@
-import { getAttendees, getEvents, getUsers, logoutUser, updateEvent } from "./api.js";
+import { getAttendees, getCurrentSession, getEvents, getUsers, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
@@ -57,10 +57,10 @@ const elements = {
     navUserName: document.getElementById("navUserName")
 };
 
-const isFacultyLoggedIn =
+let isFacultyLoggedIn =
     sessionStorage.getItem("facultyLoggedIn") === "true";
-const currentUserId = sessionStorage.getItem("currentUserId");
-const currentUserRole = sessionStorage.getItem("currentUserRole") || "";
+let currentUserId = sessionStorage.getItem("currentUserId");
+let currentUserRole = sessionStorage.getItem("currentUserRole") || "";
 const largeScreenQuery = window.matchMedia("(min-width: 1680px)");
 
 if (elements.openReservationModalBtn) {
@@ -77,6 +77,7 @@ let currentUser = null;
 let selectedFacultyReservation = null;
 
 async function loadEvents() {
+    await syncSessionFromBackend();
     await loadCurrentUser();
 
     try {
@@ -98,6 +99,10 @@ loadEvents();
 
 async function loadCurrentUser() {
     if (!isFacultyLoggedIn || isCurrentSessionAdmin() || !currentUserId) {
+        return;
+    }
+
+    if (currentUser && String(currentUser.id) === String(currentUserId)) {
         return;
     }
 
@@ -266,6 +271,56 @@ async function loadAttendees() {
         console.error("Error loading attendees:", error);
         attendees = [];
     }
+}
+
+async function syncSessionFromBackend() {
+    try {
+        const sessionUser = await getCurrentSession();
+
+        if (!sessionUser?.id) {
+            return;
+        }
+
+        storeSessionUser(sessionUser);
+
+        if (!isAdminUser(sessionUser)) {
+            currentUser = sessionUser;
+        }
+    } catch (error) {
+        if (error.status === 401) {
+            clearStoredSession();
+        }
+    }
+}
+
+function storeSessionUser(user) {
+    isFacultyLoggedIn = true;
+    currentUserId = String(user.id);
+    currentUserRole = getUserRoleName(user);
+
+    sessionStorage.setItem("facultyLoggedIn", "true");
+    sessionStorage.setItem("currentUserId", currentUserId);
+    sessionStorage.setItem("currentUserEmail", user.email || "");
+    sessionStorage.setItem("currentUserRole", currentUserRole);
+
+    if (currentUserRole.toLowerCase() === "admin") {
+        sessionStorage.setItem("adminLoggedIn", "true");
+    } else {
+        sessionStorage.removeItem("adminLoggedIn");
+    }
+}
+
+function clearStoredSession() {
+    isFacultyLoggedIn = false;
+    currentUserId = null;
+    currentUserRole = "";
+    currentUser = null;
+
+    sessionStorage.removeItem("adminLoggedIn");
+    sessionStorage.removeItem("facultyLoggedIn");
+    sessionStorage.removeItem("currentUserId");
+    sessionStorage.removeItem("currentUserEmail");
+    sessionStorage.removeItem("currentUserRole");
 }
 
 function renderSideWidget() {
@@ -641,7 +696,11 @@ function isCurrentSessionAdmin() {
 }
 
 function isAdminUser(user) {
-    return (user.role_name || user.role || "").toLowerCase() === "admin";
+    return getUserRoleName(user).toLowerCase() === "admin";
+}
+
+function getUserRoleName(user) {
+    return user.role_name || user.role || user.user_roles?.name || "";
 }
 
 // Starts event listeners for button and modal interactivity
