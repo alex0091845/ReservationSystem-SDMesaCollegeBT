@@ -25,10 +25,20 @@
 }
 
 .my-events {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: var(--side-widget-max-height, none);
+    overflow: hidden;
     padding: 20px;
 }
 
 .check-in-widget {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: var(--side-widget-max-height, none);
+    overflow: hidden;
     padding: 20px;
 }
 
@@ -63,14 +73,23 @@
 }
 
 .my-events .my-events-list {
-    max-height: 240px;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    padding-right: 4px;
 }
 
 .check-in-widget-list {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 10px;
-    max-height: 320px;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     padding-right: 4px;
 }

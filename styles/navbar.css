@@ -98,6 +98,10 @@
 }
 
 .login-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
     border: 1px solid var(--mesa-blue);
     border-radius: 6px;
     padding: 8px 16px;
@@ -105,7 +109,19 @@
     color: #fff;
     cursor: pointer;
     font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
     transition: background-color 0.2s ease;
+}
+
+.admin-dashboard-link {
+    flex: 0 0 auto;
+}
+
+.login-btn[hidden] {
+    display: none;
 }
 
 .login-btn:hover {

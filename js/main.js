@@ -53,6 +53,7 @@ const elements = {
     eventCheckInSubmitBtn: document.getElementById("eventCheckInSubmitBtn"),
     eventCheckInStatus: document.getElementById("eventCheckInStatus"),
     openReservationModalBtn: document.getElementById("openReservationModalBtn"),
+    adminDashboardBtn: document.getElementById("adminDashboardBtn"),
     loginBtn: document.getElementById("loginBtn"),
     navUserIdentity: document.getElementById("navUserIdentity"),
     navUserInitials: document.getElementById("navUserInitials"),
@@ -252,6 +253,7 @@ function changeMonth(monthOffset) {
 // Draws all the page elements
 function renderAll() {
     updateCreateReservationButtonState();
+    updateAdminDashboardButtonState();
     renderCurrentUserIdentity();
     renderSideWidget();
 
@@ -280,6 +282,8 @@ function renderAll() {
         reservedEvents,
         openEventModal
     );
+
+    syncSideWidgetMaxHeight();
 }
 
 async function handleReservationCreated(event) {
@@ -443,6 +447,26 @@ function syncSideWidgetPlacement() {
         if (widget.parentElement !== widgetTarget) {
             widgetTarget.appendChild(widget);
         }
+    });
+}
+
+function syncSideWidgetLayout() {
+    syncSideWidgetPlacement();
+    syncSideWidgetMaxHeight();
+}
+
+function syncSideWidgetMaxHeight() {
+    const weekView = elements.weekViewWrapper?.closest(".week-view");
+    const maxHeight = weekView?.offsetHeight || 0;
+    const shouldUseWeekViewCap = window.matchMedia("(min-width: 721px)").matches;
+
+    getSideWidgets().forEach(widget => {
+        if (!shouldUseWeekViewCap || widget.hidden || maxHeight <= 0) {
+            widget.style.removeProperty("--side-widget-max-height");
+            return;
+        }
+
+        widget.style.setProperty("--side-widget-max-height", `${maxHeight}px`);
     });
 }
 
@@ -743,6 +767,14 @@ function updateCreateReservationButtonState() {
             : "";
 }
 
+function updateAdminDashboardButtonState() {
+    if (!elements.adminDashboardBtn) {
+        return;
+    }
+
+    elements.adminDashboardBtn.hidden = !isCurrentSessionAdmin();
+}
+
 function renderCurrentUserIdentity() {
     if (!elements.navUserIdentity) {
         return;
@@ -852,11 +884,13 @@ function bindEvents() {
     if (largeScreenQuery.addEventListener) {
         largeScreenQuery.addEventListener(
             "change",
-            syncSideWidgetPlacement
+            syncSideWidgetLayout
         );
     } else {
-        largeScreenQuery.addListener(syncSideWidgetPlacement);
+        largeScreenQuery.addListener(syncSideWidgetLayout);
     }
+
+    window.addEventListener("resize", syncSideWidgetMaxHeight);
 
     // Allows event modal to be closed by clicking background
     bindBackdropClose(elements.eventModalOverlay, closeEventModal);

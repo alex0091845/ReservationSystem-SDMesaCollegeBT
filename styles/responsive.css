@@ -106,12 +106,11 @@
 
     .left-column > .my-events,
     .left-column > .check-in-widget {
-        display: flex;
-        flex-direction: column;
         grid-column: 1;
         grid-row: 2;
         align-self: start;
-        height: 320px;
+        height: auto;
+        min-height: 0;
         padding: 16px;
     }
 
@@ -141,6 +140,22 @@
     .week-event {
         padding: 7px 6px;
         font-size: 11px;
+    }
+}
+
+/* Preserve readable week columns when the side widgets reduce horizontal space */
+@media (min-width: 721px) and (max-width: 1200px) {
+    .week-grid {
+        --week-day-column-min: 92px;
+        overflow-x: hidden;
+    }
+
+    .week-header,
+    .week-row {
+        width: max(
+            100%,
+            calc(var(--week-time-column-width) + (7 * var(--week-day-column-min)))
+        );
     }
 }
 
@@ -235,6 +250,11 @@
     .check-in-widget {
         height: auto;
         padding: 18px;
+    }
+
+    .my-events,
+    .check-in-widget {
+        --side-widget-max-height: calc(100vh - 96px);
     }
 
     .upcoming-events h3,
