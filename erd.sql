@@ -38,3 +38,17 @@ CREATE TABLE attendee (
   sdccd_id INT,
   full_name TEXT
 );
+
+CREATE TABLE sessions (
+  id BIGSERIAL PRIMARY KEY,
+  session_id TEXT UNIQUE NOT NULL,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_seen_at TIMESTAMPTZ,
+  invalidated_at TIMESTAMPTZ
+);
+
+CREATE INDEX sessions_session_id_idx ON sessions(session_id);
+CREATE INDEX sessions_user_id_idx ON sessions(user_id);
+CREATE INDEX sessions_expires_at_idx ON sessions(expires_at);

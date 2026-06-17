@@ -1,13 +1,23 @@
 package com.reservation.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 //@Configure scans for @Bean and registers its return
 @Configuration
 public class CorsConfig {
+    private final AuthInterceptor authInterceptor;
+
+    @Value("${app.cors.allowed-origin-patterns:*}")
+    private String[] allowedOriginPatterns;
+
+    public CorsConfig(AuthInterceptor authInterceptor) {
+        this.authInterceptor = authInterceptor;
+    }
 
     /*Bean is a spring annotation on a method inside a config class that tells Spring to call the method take
     the obeject returned and register it in th application as a managed bean. So other parts can then @Autowired
@@ -43,9 +53,16 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**")
-                        .allowedOrigins("*")
+                        .allowedOriginPatterns(allowedOriginPatterns)
                         .allowedMethods("GET", "POST", "PATCH", "DELETE", "OPTIONS")
-                        .allowedHeaders("*");
+                        .allowedHeaders("*")
+                        .allowCredentials(true);
+            }
+
+            @Override
+            public void addInterceptors(InterceptorRegistry registry) {
+                registry.addInterceptor(authInterceptor)
+                        .addPathPatterns("/api/**");
             }
         };
     }
