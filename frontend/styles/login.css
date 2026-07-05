@@ -1,0 +1,99 @@
+@import url("./base.css");
+
+body {
+  font-family: var(--font-secondary);
+  background-color: #f4f4f4;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  height: 100vh;
+  margin: 0;
+}
+
+.login-container {
+  background-color: white;
+  padding: 42px;
+  border-radius: 10px;
+  width: min(100%, 380px);
+  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
+}
+
+.login-brand-logo {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+  margin: 0 auto 24px;
+}
+
+h1 {
+  font-family: var(--font-primary);
+  text-align: center;
+  margin: 0 0 24px;
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 5px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+  min-height: 44px;
+}
+
+.show-password-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.show-password-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--mesa-blue);
+}
+
+button {
+  width: 100%;
+  min-height: 44px;
+  padding: 12px;
+  background-color: var(--mesa-blue);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: var(--mesa-blue-dark);
+}
+
+#message {
+  margin-top: 15px;
+  text-align: center;
+  color: red;
+}
+
+@media (max-width: 420px) {
+  .login-container {
+    padding: 30px 24px;
+  }
+
+  h1 {
+    font-size: 30px;
+  }
+}

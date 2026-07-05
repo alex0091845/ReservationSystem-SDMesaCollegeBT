@@ -1,0 +1,47 @@
+/* Base Styles */
+
+:root {
+    --font-tertiary: Arial, Helvetica, sans-serif;
+    --font-secondary: "URW DIN", "DIN 2014", "DIN Alternate", var(--font-tertiary);
+    --font-primary: Optima, "Optima Nova", "URW Classico", var(--font-secondary);
+    --mesa-blue: #0a55a4;
+    --mesa-blue-dark: #073f78;
+    --district-cyan: #2fa9e0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-secondary);
+    background: var(--mesa-blue);
+    display: block;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-primary);
+    letter-spacing: 0;
+}
+
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 700;
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
