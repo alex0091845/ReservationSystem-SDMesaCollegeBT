@@ -1,54 +1,58 @@
-CREATE TABLE user_roles (
-  id SERIAL PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL,
-  description TEXT
+CREATE TABLE public.user_roles (
+  name text NOT NULL UNIQUE,
+  description text,
+  CONSTRAINT user_roles_pkey PRIMARY KEY (name)
 );
-
-CREATE TABLE users (
-  id SERIAL PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  first_name TEXT,
-  last_name TEXT,
-  phone TEXT,
-  role_id INT REFERENCES user_roles(id)
+CREATE TABLE public.users (
+  id integer NOT NULL DEFAULT nextval('users_user_id_seq'::regclass),
+  email text NOT NULL UNIQUE,
+  password_hash text NOT NULL,
+  first_name text,
+  last_name text,
+  phone text,
+  role_name text,
+  enabled boolean,
+  CONSTRAINT users_pkey PRIMARY KEY (id),
+  CONSTRAINT users_role_name_fkey FOREIGN KEY (role_name) REFERENCES public.user_roles(name)
 );
-
-CREATE TABLE event_types (
-  event_type TEXT PRIMARY KEY,
-  description TEXT
+CREATE TABLE public.events (
+  id integer NOT NULL DEFAULT nextval('reservations_reservation_id_seq'::regclass),
+  host_user_id integer NOT NULL,
+  start_time timestamp with time zone NOT NULL,
+  end_time timestamp with time zone NOT NULL,
+  event_type text,
+  description text,
+  title text,
+  department text,
+  is_public boolean,
+  CONSTRAINT events_pkey PRIMARY KEY (id),
+  CONSTRAINT reservations_user_id_fkey FOREIGN KEY (host_user_id) REFERENCES public.users(id),
+  CONSTRAINT events_event_type_fkey FOREIGN KEY (event_type) REFERENCES public.event_types(event_type)
 );
-
-CREATE TABLE events (
-  id SERIAL PRIMARY KEY,
-  user_id INT NOT NULL REFERENCES users(id),
-  start TIMESTAMPTZ NOT NULL,
-  "end" TIMESTAMPTZ NOT NULL,
-  event_type TEXT REFERENCES event_types(event_type),
-  description TEXT,
-  title TEXT,
-  is_public BOOLEAN DEFAULT false,
-  CHECK ("end" > start)
+CREATE TABLE public.event_types (
+  event_type text NOT NULL,
+  description text,
+  CONSTRAINT event_types_pkey PRIMARY KEY (event_type)
 );
-
-CREATE TABLE attendee (
-  id BIGSERIAL PRIMARY KEY,
-  check_in TIMESTAMPTZ,
-  event_id INT REFERENCES events(id),
-  sdccd_id INT,
-  full_name TEXT
+CREATE TABLE public.attendees (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  check_in_time timestamp with time zone NOT NULL DEFAULT now(),
+  event_id integer,
+  sdccd_id integer,
+  first_name text,
+  last_name text,
+  email text,
+  CONSTRAINT attendees_pkey PRIMARY KEY (id),
+  CONSTRAINT attendee_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
 );
-
-CREATE TABLE sessions (
-  id BIGSERIAL PRIMARY KEY,
-  session_id TEXT UNIQUE NOT NULL,
-  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  expires_at TIMESTAMPTZ NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  last_seen_at TIMESTAMPTZ,
-  invalidated_at TIMESTAMPTZ
+CREATE TABLE public.sessions (
+  id bigint NOT NULL DEFAULT nextval('sessions_id_seq'::regclass),
+  session_id text NOT NULL UNIQUE,
+  user_id integer NOT NULL,
+  expires_at timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  last_seen_at timestamp with time zone,
+  invalidated_at timestamp with time zone,
+  CONSTRAINT sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-
-CREATE INDEX sessions_session_id_idx ON sessions(session_id);
-CREATE INDEX sessions_user_id_idx ON sessions(user_id);
-CREATE INDEX sessions_expires_at_idx ON sessions(expires_at);

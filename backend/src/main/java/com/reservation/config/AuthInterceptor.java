@@ -49,9 +49,9 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private boolean isPublicEndpoint(String method, String path) {
         if (path.equals("/api/login") ||
-            path.equals("/api/auth/login") ||
             path.equals("/api/session") ||
-            path.equals("/api/logout")) {
+            path.equals("/api/logout") ||
+            path.equals("/api/health")) {
             return true;
         }
 

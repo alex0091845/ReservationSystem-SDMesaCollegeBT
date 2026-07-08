@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -26,13 +27,20 @@ public class SupabaseClient {
     @Value("${supabase.api-key}")
     private String apiKey;
 
-    private final HttpClient http = HttpClient.newHttpClient();
+    // Connect timeout on the client; per-request read timeout on each HttpRequest below.
+    // Prevents a slow/hung Supabase call from pinning a servlet thread indefinitely.
+    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
+
+    private final HttpClient http = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(5))
+        .build();
 
     // GET at /rest/v1/{endpoint}
     public String get(String endpoint) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
+                .timeout(REQUEST_TIMEOUT)
                 .header("apikey", apiKey)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
@@ -55,6 +63,7 @@ public class SupabaseClient {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
+                .timeout(REQUEST_TIMEOUT)
                 .header("apikey", apiKey)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
@@ -80,6 +89,7 @@ public class SupabaseClient {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
+                .timeout(REQUEST_TIMEOUT)
                 .header("apikey", apiKey)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
@@ -101,6 +111,7 @@ public class SupabaseClient {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
+                .timeout(REQUEST_TIMEOUT)
                 .header("apikey", apiKey)
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")

@@ -1,4 +1,4 @@
-import { getCurrentSession, getUsers, loginUser } from "./api.js";
+import { getCurrentSession, loginUser } from "./api.js";
 
 const loginBtn = document.getElementById("loginBtn");
 
@@ -36,14 +36,9 @@ async function handleLogin() {
   } catch (error) {
     console.error("Login failed:", error);
 
-    if (!isServerUnavailableError(error)) {
-      message.textContent =
-        "Email or Password is incorrect. Please try again.";
-
-      return;
-    }
-
-    await handleMockLoginFallback(username, userPassword);
+    message.textContent = isServerUnavailableError(error)
+      ? "Could not reach the server. Please try again later."
+      : "Email or Password is incorrect. Please try again.";
   }
 }
 
@@ -60,32 +55,6 @@ async function getVerifiedSessionUser(loginResponse) {
       "Login worked, but your session could not be verified. Please try again.";
 
     return null;
-  }
-}
-
-async function handleMockLoginFallback(username, userPassword) {
-  try {
-    const users = await getUsers();
-    const matchedUser = users.find(user => {
-      return (
-        user.email.toLowerCase() === username &&
-        user.password_hash === userPassword
-      );
-    });
-
-    if (!matchedUser) {
-      message.textContent =
-        "Invalid email or password.";
-
-      return;
-    }
-
-    completeLogin(matchedUser, "Offline login successful!");
-  } catch (error) {
-    console.error("Offline login fallback failed:", error);
-
-    message.textContent =
-      "Could not log in. Please try again.";
   }
 }
 

@@ -44,7 +44,7 @@ This is a monorepo with two independently deployed halves:
 
 - **Java 17+** and **Maven** (for the backend)
 - A modern browser and any static file server (for the frontend)
-- A **Supabase** project (only needed for the real profile — the mock profile needs no database)
+- A **Supabase** project (the backend talks to it over Supabase's REST API)
 
 ---
 
@@ -56,19 +56,7 @@ From the `backend/` folder:
 cd backend
 ```
 
-### Mock mode (no database)
-
-Serves canned data from `src/main/resources/mock_data.json` — great for frontend development without a Supabase project.
-
-```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=mock
-```
-
-Mock controllers are annotated `@Profile("mock")`; the real controllers are `@Profile("!mock")`, so exactly one set is active at a time.
-
-### Real mode (Supabase)
-
-The default profile. Requires the environment variables below to be set first.
+Set the environment variables below first, then run:
 
 ```bash
 mvn spring-boot:run
@@ -78,25 +66,39 @@ mvn spring-boot:run
 
 ```bash
 mvn clean package
-java -jar target/*.jar          # add --spring.profiles.active=mock for mock mode
+java -jar target/*.jar
+```
+
+### Running with Docker
+
+A multi-stage `Dockerfile` lives in `backend/`:
+
+```bash
+cd backend
+docker build -t reservation-backend .
+docker run -p 8080:8080 \
+  -e SUPABASE_URL=... -e SUPABASE_API_KEY=... \
+  -e APP_CORS_ALLOWED_ORIGIN_PATTERNS=... \
+  reservation-backend
 ```
 
 The API listens on **http://localhost:8080** by default (override with `SERVER_PORT`).
+Liveness probe: `GET /api/health` → `{"status":"ok"}` (public, no auth).
 
 ---
 
-## Environment variables (real mode)
+## Environment variables
 
-Set these before running the default profile. Mock mode ignores them.
+Set these before starting the backend. `APP_CORS_ALLOWED_ORIGIN_PATTERNS` has **no default** — the app fails to start if it is unset (fail closed), so misconfiguration can never silently open CORS to all origins.
 
 | Variable                            | Required | Default | Description                                                                 |
 |-------------------------------------|:--------:|---------|-----------------------------------------------------------------------------|
 | `SUPABASE_URL`                      | ✅       | —       | Supabase project URL (Dashboard → Project Settings → API)                   |
-| `SUPABASE_API_KEY`                  | ✅       | —       | Supabase API key                                                            |
-| `APP_CORS_ALLOWED_ORIGIN_PATTERNS`  | ✅       | —       | Comma-separated allowed frontend origins, e.g. `https://your-bucket.s3-website.amazonaws.com,http://localhost:5500` |
+| `SUPABASE_API_KEY`                  | ✅       | —       | Supabase key — use the **anon** key with Row Level Security enabled, **not** the service-role key |
+| `APP_CORS_ALLOWED_ORIGIN_PATTERNS`  | ✅       | —       | Comma-separated allowed frontend origins, e.g. `https://your-bucket.s3-website.amazonaws.com,http://localhost:5500`. Must list the exact deployed frontend origin (no `*` with credentials) |
 | `SERVER_PORT`                       |          | `8080`  | Port the backend binds to                                                   |
-| `AUTH_COOKIE_SECURE`                |          | `true`  | Set `false` for local http testing                                          |
-| `AUTH_COOKIE_SAME_SITE`             |          | `Lax`   | Session cookie SameSite policy                                              |
+| `AUTH_COOKIE_SECURE`                |          | `true`  | Keep `true` in production; set `false` only for local http testing          |
+| `AUTH_COOKIE_SAME_SITE`             |          | `Lax`   | Session cookie SameSite policy. For a cross-site frontend (S3) → backend (EC2) setup, use `None` (which also requires `AUTH_COOKIE_SECURE=true`) |
 | `AUTH_SESSION_HOURS`                |          | `8`     | Session lifetime in hours                                                   |
 
 Example (macOS/Linux):
@@ -131,14 +133,18 @@ const API_ORIGIN = window.RESERVATION_API_ORIGIN || window.location.origin;
 const BASE_URL = `${API_ORIGIN}/api`;
 ```
 
-- By default it calls `/api` on the **same origin** as the page.
-- To point at a backend on a different host (e.g. your EC2 instance during local dev), set a global before `api.js` loads, for example in your HTML:
+Each HTML page (`index.html`, `admin.html`, `login.html`) contains a config block **before** its module script:
 
-  ```html
-  <script>window.RESERVATION_API_ORIGIN = "http://localhost:8080";</script>
-  ```
+```html
+<!-- Backend API origin. Leave empty to call /api on the same origin as this page;
+     set to the backend's origin when the frontend is hosted separately (e.g. S3 → EC2). -->
+<script>window.RESERVATION_API_ORIGIN = "";</script>
+```
 
-Make sure that origin is included in the backend's `APP_CORS_ALLOWED_ORIGIN_PATTERNS`.
+- **Same-origin deploy** (frontend served by the backend): leave it empty.
+- **Split deploy** (frontend on S3, backend on EC2 — the intended setup): set it to the backend origin, e.g. `"https://api.your-domain.com"`, in all three HTML files at deploy time.
+
+Whatever origin you set here must also be listed in the backend's `APP_CORS_ALLOWED_ORIGIN_PATTERNS`, and for cross-site cookies the backend needs `AUTH_COOKIE_SAME_SITE=None` + `AUTH_COOKIE_SECURE=true`.
 
 ---
 
@@ -148,6 +154,7 @@ All routes are under `/api`. Sessions are cookie-based (`session_id`).
 
 | Method(s)              | Path                          | Purpose                          |
 |------------------------|-------------------------------|----------------------------------|
+| `GET`                  | `/api/health`                 | Liveness probe (public)          |
 | `POST`                 | `/api/login`                  | Log in, sets the session cookie  |
 | `POST`                 | `/api/logout`                 | Invalidate the session           |
 | `GET`                  | `/api/session`                | Current logged-in user           |
@@ -162,7 +169,7 @@ All routes are under `/api`. Sessions are cookie-based (`session_id`).
 
 ## Database
 
-- **Schema:** `erd.sql` — tables (`users`, `user_roles`, `events`, `event_types`, `attendee`, `sessions`) and indexes.
+- **Schema:** `erd.sql` — tables (`users`, `user_roles`, `events`, `event_types`, `attendees`, `sessions`).
 - **Seed data:** `testData.sql`.
 
 Apply them to your Supabase/PostgreSQL instance (e.g. via the Supabase SQL editor) to set up the schema and sample data.
@@ -179,6 +186,8 @@ There is no CI yet — deploys are manual.
 aws s3 sync frontend/ s3://<your-bucket> --delete
 ```
 
+Before syncing, set `window.RESERVATION_API_ORIGIN` in the three HTML files to the deployed backend origin (see [Pointing the frontend at the backend](#pointing-the-frontend-at-the-backend)).
+
 **Backend → EC2**
 
 ```bash
@@ -189,7 +198,15 @@ mvn clean package
 java -jar target/*.jar          # with SUPABASE_* / CORS env vars exported
 ```
 
-Keep the deployed frontend's origin listed in the backend's `APP_CORS_ALLOWED_ORIGIN_PATTERNS`.
+Or with Docker:
+
+```bash
+cd backend
+docker build -t reservation-backend .
+docker run -d -p 8080:8080 --env-file .env reservation-backend
+```
+
+Keep the deployed frontend's origin listed in the backend's `APP_CORS_ALLOWED_ORIGIN_PATTERNS`, and use `AUTH_COOKIE_SAME_SITE=None` + `AUTH_COOKIE_SECURE=true` for the cross-site S3 → EC2 setup.
 
 ---
 

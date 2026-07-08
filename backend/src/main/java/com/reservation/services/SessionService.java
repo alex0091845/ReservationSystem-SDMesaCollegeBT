@@ -29,7 +29,7 @@ public class SessionService {
     @Value("${auth.cookie.name:session_id}")
     private String cookieName;
 
-    @Value("${auth.cookie.secure:false}")
+    @Value("${auth.cookie.secure:true}")
     private boolean cookieSecure;
 
     @Value("${auth.cookie.same-site:Lax}")

@@ -118,7 +118,15 @@
                             <option value="Admin">Admin</option>
                         </select>
                     </div>
+
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="userPassword">Password</label>
+                        <input class="reservation-input" id="userPassword" name="password" type="password" autocomplete="new-password">
+                        <small class="modal-hint" id="userPasswordHint">Required for new users.</small>
+                    </div>
                 </div>
+
+                <p class="modal-message" id="userFormMessage" role="alert"></p>
 
                 <div class="reservation-actions">
                     <button type="button" class="reservation-secondary-btn" id="userCancelBtn">Cancel</button>
@@ -264,6 +272,9 @@
         </div>
     </div>
 
+    <!-- Backend API origin. Leave empty to call /api on the same origin as this page;
+         set to the backend's origin when the frontend is hosted separately (e.g. S3 -> EC2). -->
+    <script>window.RESERVATION_API_ORIGIN = "";</script>
     <script type="module" src="js/admin.js"></script>
 </body>
 

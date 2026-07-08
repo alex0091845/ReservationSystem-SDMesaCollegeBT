@@ -396,6 +396,8 @@ function openCreateUserModal() {
 
     userForm.reset();
     document.getElementById("userId").value = "";
+    document.getElementById("userFormMessage").textContent = "";
+    document.getElementById("userPasswordHint").textContent = "Required for new users.";
 
     userModalTitle.textContent = "Create User";
     userModalSubtitle.textContent = "Add a new faculty user";
@@ -414,6 +416,9 @@ function openEditUserModal(user) {
     document.getElementById("userEmail").value = user.email ?? "";
     document.getElementById("userPhone").value = user.phone ?? "";
     document.getElementById("userRole").value = getUserRoleName(user);
+    document.getElementById("userPassword").value = "";
+    document.getElementById("userFormMessage").textContent = "";
+    document.getElementById("userPasswordHint").textContent = "Leave blank to keep the current password.";
 
     userModalTitle.textContent = "Edit User";
     userModalSubtitle.textContent = "Update faculty user information";
@@ -623,11 +628,20 @@ function getUpdatedHostUser(hostName, fallbackHostUser) {
 userForm.addEventListener("submit", async event => {
     event.preventDefault();
 
+    const userFormMessage = document.getElementById("userFormMessage");
+    userFormMessage.textContent = "";
+
     const formData = new FormData(userForm);
     const userData = Object.fromEntries(formData.entries());
+    const password = (userData.password || "").trim();
 
     if (modalMode === "create") {
         delete userData.id;
+
+        if (!password) {
+            userFormMessage.textContent = "A password is required for new users.";
+            return;
+        }
 
         try {
             const createdUser = await createUser(userData);
@@ -636,21 +650,24 @@ userForm.addEventListener("submit", async event => {
                 enabled: createdUser.enabled !== false
             });
         } catch (error) {
-            console.error("Could not create user on backend. Adding locally:", error);
-
-            users.push({
-                ...userData,
-                id: Date.now(),
-                enabled: true
-            });
+            console.error("Could not create user:", error);
+            userFormMessage.textContent = getUserFormErrorMessage(error, "Could not create the user.");
+            return;
         }
     }
 
     if (modalMode === "edit") {
+        // A blank password on edit means "keep the current password" — don't send it.
+        if (!password) {
+            delete userData.password;
+        }
+
         try {
             await updateUser(userData);
         } catch (error) {
-            console.error("Could not update user on backend. Updating locally:", error);
+            console.error("Could not update user:", error);
+            userFormMessage.textContent = getUserFormErrorMessage(error, "Could not update the user.");
+            return;
         }
 
         users = users.map(user => {
@@ -660,6 +677,8 @@ userForm.addEventListener("submit", async event => {
                     ...userData
                 };
 
+                // Never keep the plaintext password in the in-memory list.
+                delete updatedUser.password;
                 selectedUser = updatedUser;
 
                 return updatedUser;
@@ -673,6 +692,14 @@ userForm.addEventListener("submit", async event => {
     renderUserDetails();
     closeUserModal();
 });
+
+function getUserFormErrorMessage(error, fallback) {
+    if (error?.status === 403) {
+        return "You do not have permission to manage users.";
+    }
+
+    return error?.data?.error || error?.data?.message || fallback;
+}
 
 createUserBtn.addEventListener("click", openCreateUserModal);
 
@@ -756,6 +783,7 @@ async function handleConfirmUserStatusChange() {
 
     const userToUpdate = userPendingStatusChange;
     const disablingUser = pendingStatusAction === "disable";
+    const actionLabel = disablingUser ? "Disable User" : "Enable User";
 
     disableUserConfirmBtn.disabled = true;
     disableUserConfirmBtn.textContent = disablingUser ? "Disabling..." : "Enabling...";
@@ -767,7 +795,14 @@ async function handleConfirmUserStatusChange() {
             await enableUser({ id: userToUpdate.id });
         }
     } catch (error) {
-        console.error("Could not update user status on backend. Updating locally:", error);
+        console.error("Could not update user status:", error);
+        disableUserWarning.textContent = getUserFormErrorMessage(
+            error,
+            `Could not ${disablingUser ? "disable" : "enable"} the user. Please try again.`
+        );
+        disableUserConfirmBtn.disabled = false;
+        disableUserConfirmBtn.textContent = actionLabel;
+        return;
     }
 
     users = users.map(user => {

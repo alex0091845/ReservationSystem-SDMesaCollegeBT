@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
@@ -13,11 +13,12 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class AuthService {
     private final SupabaseClient supabase;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final PasswordEncoder encoder;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public AuthService(SupabaseClient supabase) {
+    public AuthService(SupabaseClient supabase, PasswordEncoder encoder) {
         this.supabase = supabase;
+        this.encoder = encoder;
     }
 
     public JsonNode authenticate(String email, String password) {
@@ -76,7 +77,8 @@ public class AuthService {
             return encoder.matches(rawPassword, storedPassword);
         }
 
-        return rawPassword.equals(storedPassword);
+        // Fail closed: a stored value that is not a BCrypt hash is never a match.
+        return false;
     }
 
     private JsonNode sanitizeUser(JsonNode user) {

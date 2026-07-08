@@ -1,11 +1,9 @@
 package com.reservation.controller;
 
 import com.reservation.config.SupabaseClient;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Profile("!mock")
 @RestController
 @RequestMapping("/api/event-types")
 public class EventTypeController {

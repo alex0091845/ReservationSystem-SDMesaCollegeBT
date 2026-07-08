@@ -6,3 +6,8 @@ backend/target/
 
 # macOS
 .DS_Store
+
+# Environment files (never commit secrets)
+.env
+*.env
+

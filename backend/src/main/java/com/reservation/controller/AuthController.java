@@ -5,12 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.reservation.services.AuthService;
 import com.reservation.services.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@Profile("!mock")
 @RestController
 @RequestMapping("/api")
 public class AuthController {
@@ -24,7 +22,7 @@ public class AuthController {
         this.sessionService = sessionService;
     }
 
-    @PostMapping({"/login", "/auth/login"})
+    @PostMapping("/login")
     public ResponseEntity<String> login(@RequestBody String body) {
         try {
             JsonNode credentials = mapper.readTree(body);

@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prototype Login Page</title>
+  <title>Sign In — BT Building Room Reservations</title>
   <link rel="icon" href="assets/favicon.ico" sizes="any">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -40,6 +40,9 @@
 
     <p id="message"></p>
   </div>
+  <!-- Backend API origin. Leave empty to call /api on the same origin as this page;
+       set to the backend's origin when the frontend is hosted separately (e.g. S3 -> EC2). -->
+  <script>window.RESERVATION_API_ORIGIN = "";</script>
   <script type="module" src="js/login.js"></script>
 </body>
 

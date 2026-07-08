@@ -12,7 +12,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class CorsConfig {
     private final AuthInterceptor authInterceptor;
 
-    @Value("${app.cors.allowed-origin-patterns:*}")
+    // No default: an unset value fails startup (fail closed) rather than silently
+    // allowing all origins with credentials.
+    @Value("${app.cors.allowed-origin-patterns}")
     private String[] allowedOriginPatterns;
 
     public CorsConfig(AuthInterceptor authInterceptor) {
