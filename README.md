@@ -159,6 +159,7 @@ All routes are under `/api`. Sessions are cookie-based (`session_id`).
 | `POST`                 | `/api/logout`                 | Invalidate the session           |
 | `GET`                  | `/api/session`                | Current logged-in user           |
 | `GET/POST/PATCH/DELETE`| `/api/events`                 | Reservations / events            |
+| `GET/POST/DELETE`      | `/api/reservation-drafts`     | Autosaved reservation drafts     |
 | `GET`                  | `/api/events/public`          | Publicly visible events          |
 | `GET/POST/…`           | `/api/attendees`              | Attendees (incl. `/by-event/{id}`, `/by-user/{id}`) |
 | `GET/POST/PATCH/DELETE`| `/api/event-types`            | Event types                      |
@@ -169,7 +170,7 @@ All routes are under `/api`. Sessions are cookie-based (`session_id`).
 
 ## Database
 
-- **Schema:** `erd.sql` — tables (`users`, `user_roles`, `events`, `event_types`, `attendees`, `sessions`).
+- **Schema:** `erd.sql` — tables (`users`, `user_roles`, `events`, `event_types`, `attendees`, `sessions`, `reservation_drafts`).
 - **Seed data:** `testData.sql`.
 
 Apply them to your Supabase/PostgreSQL instance (e.g. via the Supabase SQL editor) to set up the schema and sample data.

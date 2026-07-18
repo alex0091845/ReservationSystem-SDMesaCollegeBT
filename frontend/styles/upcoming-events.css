@@ -52,12 +52,12 @@
     display: inline-flex;
     width: fit-content;
     margin-top: 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-control);
     padding: 4px 9px;
     background: rgba(255, 255, 255, 0.18);
     color: #fff;
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 500;
     line-height: 1;
 }
 

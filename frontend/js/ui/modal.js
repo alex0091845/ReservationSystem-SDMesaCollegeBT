@@ -2,6 +2,11 @@ import { createAttendee, createEvent, getEventTypes, getEvents, isUserDisabled }
 import { formatReadableDate } from "../utils/dateUtils.js";
 import { validateReservationData } from "../utils/reservationValidation.js";
 import { renderEventTypeOptions } from "./eventTypeOptions.js";
+import {
+    applyReservationFormDraft,
+    collectReservationFormDraft,
+    createReservationDraftAutosave
+} from "./reservationDrafts.js";
 import { createReservationTimePicker } from "./reservationTimePicker.js";
 
 const reservationModalOverlay = document.getElementById("reservationModalOverlay");
@@ -24,6 +29,24 @@ const reservationTimePicker = createReservationTimePicker({
     summaryElement: document.getElementById("reservationTimeSummary"),
     startInput: reservationStartInput,
     endInput: reservationEndInput
+});
+const reservationDraftAutosave = createReservationDraftAutosave({
+    form: reservationForm,
+    timePicker: reservationTimePicker,
+    draftType: "create",
+    getHostUserId: () => currentHostUserId,
+    collectPayload: () => collectReservationFormDraft(
+        reservationForm,
+        reservationTimePicker
+    ),
+    applyPayload: payload => {
+        applyReservationFormDraft(
+            reservationForm,
+            reservationTimePicker,
+            payload
+        );
+        renderRecurringControls();
+    }
 });
 let reservationEventTypes = [];
 let reservationPointerStartedOnBackdrop = false;
@@ -248,6 +271,7 @@ async function openReservationModal() {
     reservationModalOverlay.classList.add("active");
     reservationModalOverlay.setAttribute("aria-hidden", "false");
     reservationTimePicker.setWeekFromDate(new Date());
+    await reservationDraftAutosave.activate();
 }
 
 async function loadReservationEventTypes(selectedValue = reservationTypeSelect?.value || "") {
@@ -261,7 +285,13 @@ async function loadReservationEventTypes(selectedValue = reservationTypeSelect?.
 }
 
 // Closes reservation creation modal
-function closeReservationModal() {
+function closeReservationModal({ flushDraft = true } = {}) {
+    if (flushDraft) {
+        reservationDraftAutosave.deactivate({ flush: true });
+    } else {
+        reservationDraftAutosave.deactivate();
+    }
+
     restoreFocusBeforeHide(
         reservationModalOverlay,
         reservationModalReturnFocusElement
@@ -306,22 +336,12 @@ function renderRecurringControls() {
 
     const isRecurring = reservationRecurringInput.checked;
 
-    reservationRecurringControls.hidden = !isRecurring;
+    reservationRecurringControls.classList.toggle("disabled", !isRecurring);
 
     if (reservationRecurringDuration) {
         reservationRecurringDuration.disabled = !isRecurring;
         reservationRecurringDuration.required = isRecurring;
     }
-}
-
-function toIsoDateTimeValue(value) {
-    if (!value) {
-        return "";
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 function getModalReturnFocusElement(overlay) {
@@ -413,16 +433,19 @@ reservationForm.addEventListener("submit", async (event) => {
 
     const formData = new FormData(reservationForm);
 
-    const startValue = formData.get("start");
-    const endValue = formData.get("end");
+    const selectedTimeRanges = reservationTimePicker.getRanges();
 
-    const start_time = toIsoDateTimeValue(startValue);
-    const end_time = toIsoDateTimeValue(endValue);
+    if (selectedTimeRanges.length === 0) {
+        setReservationStatus("Select at least one reservation time block.", "error");
+        return;
+    }
+
+    const primaryRange = selectedTimeRanges[0];
 
     const eventData = {
         host_user_id: currentHostUserId,
-        start_time,
-        end_time,
+        start_time: primaryRange.start.toISOString(),
+        end_time: primaryRange.end.toISOString(),
         event_type: formData.get("type"),
         description: formData.get("description"),
         title: formData.get("title"),
@@ -434,7 +457,10 @@ reservationForm.addEventListener("submit", async (event) => {
     setReservationSubmitting(true);
 
     try {
-        const eventOccurrences = buildReservationOccurrences(eventData);
+        const eventOccurrences = buildReservationOccurrences(
+            eventData,
+            selectedTimeRanges
+        );
         const existingReservations = await getEvents();
         const reservationPlan = buildCreatableReservationPlan(
             eventOccurrences,
@@ -446,13 +472,21 @@ reservationForm.addEventListener("submit", async (event) => {
             return;
         }
 
+        if (
+            reservationPlan.skippedOccurrences.length > 0 &&
+            !confirmSkippedRecurringReservations(reservationPlan.skippedOccurrences)
+        ) {
+            return;
+        }
+
         const createdEvents = [];
 
         for (const occurrence of reservationPlan.creatableOccurrences) {
             createdEvents.push(await createEvent(occurrence));
         }
 
-        closeReservationModal();
+        await reservationDraftAutosave.discard();
+        closeReservationModal({ flushDraft: false });
 
         window.dispatchEvent(new CustomEvent("reservation:created", {
             detail: {
@@ -473,18 +507,32 @@ reservationForm.addEventListener("submit", async (event) => {
     }
 });
 
-function buildReservationOccurrences(eventData) {
+function buildReservationOccurrences(eventData, selectedTimeRanges = []) {
     const durationWeeks = getReservationDurationWeeks();
+    const baseRanges = selectedTimeRanges.length > 0
+        ? selectedTimeRanges
+        : [{
+            start: new Date(eventData.start_time),
+            end: new Date(eventData.end_time)
+        }];
     const recurrenceGroupId =
         durationWeeks > 1
             ? createRecurrenceGroupId()
             : null;
 
-    return Array.from({ length: durationWeeks }, (_, index) => {
-        return {
-            ...offsetReservationByWeeks(eventData, index),
-            ...(recurrenceGroupId ? { recurrence_group_id: recurrenceGroupId } : {})
+    return baseRanges.flatMap(timeRange => {
+        const baseEventData = {
+            ...eventData,
+            start_time: timeRange.start.toISOString(),
+            end_time: timeRange.end.toISOString()
         };
+
+        return Array.from({ length: durationWeeks }, (_, index) => {
+            return {
+                ...offsetReservationByWeeks(baseEventData, index),
+                ...(recurrenceGroupId ? { recurrence_group_id: recurrenceGroupId } : {})
+            };
+        });
     });
 }
 
@@ -535,7 +583,7 @@ function buildCreatableReservationPlan(eventOccurrences, existingReservations) {
     const creatableOccurrences = [];
     const skippedOccurrences = [];
     const canSkipOverlaps =
-        reservationRecurringInput?.checked &&
+        getReservationDurationWeeks() > 1 &&
         eventOccurrences.length > 1;
 
     for (const occurrence of eventOccurrences) {
@@ -585,4 +633,48 @@ function buildCreatableReservationPlan(eventOccurrences, existingReservations) {
 
 function isOverlapValidationMessage(message) {
     return String(message || "").startsWith(OVERLAP_VALIDATION_MESSAGE_PREFIX);
+}
+
+function confirmSkippedRecurringReservations(skippedOccurrences) {
+    const skippedDateList = skippedOccurrences
+        .map(formatSkippedOccurrence)
+        .join("\n");
+
+    return window.confirm(
+        [
+            "Some recurring reservation dates overlap with existing reservations.",
+            "Those dates will be skipped:",
+            "",
+            skippedDateList,
+            "",
+            "Continue creating the remaining reservations?"
+        ].join("\n")
+    );
+}
+
+function formatSkippedOccurrence(occurrence) {
+    const startDate = new Date(occurrence.start_time);
+    const endDate = new Date(occurrence.end_time);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        return "- Date unavailable";
+    }
+
+    return `- ${formatReadableSkippedDate(startDate)}, ${formatTime(startDate)} - ${formatTime(endDate)}`;
+}
+
+function formatReadableSkippedDate(date) {
+    return date.toLocaleDateString([], {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+    });
+}
+
+function formatTime(date) {
+    return date.toLocaleTimeString([], {
+        hour: "numeric",
+        minute: "2-digit"
+    });
 }

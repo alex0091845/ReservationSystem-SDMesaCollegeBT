@@ -1,4 +1,4 @@
-import { deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
+import { createEvent, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
@@ -10,6 +10,11 @@ import { renderEventAttendees } from "./ui/attendees.js";
 import { createModalController } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
+import {
+    applyReservationFormDraft,
+    collectReservationFormDraft,
+    createReservationDraftAutosave
+} from "./ui/reservationDrafts.js";
 
 
 // Makes all page elements accessible in one place
@@ -58,6 +63,7 @@ const elements = {
     openReservationModalBtn: document.getElementById("openReservationModalBtn"),
     adminDashboardBtn: document.getElementById("adminDashboardBtn"),
     loginBtn: document.getElementById("loginBtn"),
+    navTitle: document.querySelector(".nav-title"),
     navUserIdentity: document.getElementById("navUserIdentity"),
     navUserInitials: document.getElementById("navUserInitials"),
     navUserName: document.getElementById("navUserName")
@@ -87,6 +93,28 @@ const facultyReservationTimePicker = createReservationTimePicker({
     summaryElement: document.getElementById("facultyReservationTimeSummary"),
     startInput: document.getElementById("facultyReservationStart"),
     endInput: document.getElementById("facultyReservationEnd")
+});
+const facultyReservationDraftAutosave = createReservationDraftAutosave({
+    form: elements.facultyReservationForm,
+    timePicker: facultyReservationTimePicker,
+    draftType: "edit",
+    getSourceEventId: () => selectedFacultyReservation?.id,
+    getHostUserId: () => {
+        return document.getElementById("facultyReservationHostUserId")?.value ||
+            currentUser?.id ||
+            currentUserId;
+    },
+    collectPayload: () => collectReservationFormDraft(
+        elements.facultyReservationForm,
+        facultyReservationTimePicker
+    ),
+    applyPayload: payload => {
+        applyReservationFormDraft(
+            elements.facultyReservationForm,
+            facultyReservationTimePicker,
+            payload
+        );
+    }
 });
 
 async function loadEvents() {
@@ -261,6 +289,7 @@ function changeMonth(monthOffset) {
 
 // Draws all the page elements
 function renderAll() {
+    renderApplicationTitle();
     updateCreateReservationButtonState();
     updateAdminDashboardButtonState();
     renderCurrentUserIdentity();
@@ -293,6 +322,18 @@ function renderAll() {
     );
 
     syncSideWidgetMaxHeight();
+}
+
+function renderApplicationTitle() {
+    const titleText = isFacultyLoggedIn
+        ? "BT-216 Reservations"
+        : "BT-216 Events";
+
+    if (elements.navTitle) {
+        elements.navTitle.textContent = titleText;
+    }
+
+    document.title = titleText;
 }
 
 async function handleReservationCreated(event) {
@@ -566,7 +607,7 @@ function openCalendarEvent(reservation) {
     openEventModal(reservation);
 }
 
-function openFacultyReservationEditModal(reservation) {
+async function openFacultyReservationEditModal(reservation) {
     if (!canCurrentUserEditReservation(reservation)) {
         return;
     }
@@ -605,6 +646,7 @@ function openFacultyReservationEditModal(reservation) {
     setFacultyReservationSubmitting(false);
     elements.facultyReservationModalOverlay.classList.add("active");
     elements.facultyReservationModalOverlay.setAttribute("aria-hidden", "false");
+    await facultyReservationDraftAutosave.activate();
 }
 
 function renderFacultyReservationAttendees(reservation) {
@@ -632,7 +674,13 @@ function updateFacultyReservationSeriesDeleteButton(reservation) {
         seriesReservations.length < 2;
 }
 
-function closeFacultyReservationEditModal() {
+function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
+    if (flushDraft) {
+        facultyReservationDraftAutosave.deactivate({ flush: true });
+    } else {
+        facultyReservationDraftAutosave.deactivate();
+    }
+
     blurFocusedElementInside(elements.facultyReservationModalOverlay);
 
     elements.facultyReservationModalOverlay.classList.remove("active");
@@ -708,16 +756,6 @@ function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
     }
 }
 
-function toIsoDateTimeValue(value) {
-    if (!value) {
-        return "";
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
-}
-
 async function handleFacultyReservationSubmit(event) {
     event.preventDefault();
 
@@ -730,8 +768,16 @@ async function handleFacultyReservationSubmit(event) {
     }
 
     const formData = new FormData(elements.facultyReservationForm);
-    const startTime = toIsoDateTimeValue(formData.get("start"));
-    const endTime = toIsoDateTimeValue(formData.get("end"));
+    const selectedTimeRanges = facultyReservationTimePicker.getRanges();
+
+    if (selectedTimeRanges.length === 0) {
+        setFacultyReservationStatus("Select at least one reservation time block.", "error");
+        return;
+    }
+
+    const primaryRange = selectedTimeRanges[0];
+    const recurrenceGroupId =
+        selectedFacultyReservation.recurrence_group_id || null;
     const existingHostUser = selectedFacultyReservation.host_user || {};
     const hostUserId = formData.get("host_user_id") || existingHostUser.id || currentUser?.id;
 
@@ -748,20 +794,35 @@ async function handleFacultyReservationSubmit(event) {
             role_name: existingHostUser.role_name ?? currentUser?.role_name,
             enabled: existingHostUser.enabled ?? currentUser?.enabled
         },
-        start_time: startTime,
-        end_time: endTime,
+        start_time: primaryRange.start.toISOString(),
+        end_time: primaryRange.end.toISOString(),
         event_type: formData.get("type"),
         description: formData.get("description"),
         title: formData.get("title"),
         department: formData.get("department"),
-        is_public: formData.get("access") === "open"
+        is_public: formData.get("access") === "open",
+        ...(recurrenceGroupId ? { recurrence_group_id: recurrenceGroupId } : {})
     };
+    const additionalReservationData = selectedTimeRanges.slice(1).map(timeRange => {
+        const additionalReservation = {
+            ...reservationData,
+            id: undefined,
+            start_time: timeRange.start.toISOString(),
+            end_time: timeRange.end.toISOString()
+        };
 
-    const validation = validateReservationData({
-        reservationData,
+        delete additionalReservation.id;
+        return additionalReservation;
+    });
+
+    const validation = validateEditedReservations({
+        reservationsToSave: [
+            reservationData,
+            ...additionalReservationData
+        ],
         existingReservations: reservedEvents,
-        users: currentUser ? [currentUser] : [],
-        requireId: true
+        selectedReservation: selectedFacultyReservation,
+        users: currentUser ? [currentUser] : []
     });
 
     if (!validation.isValid) {
@@ -775,16 +836,23 @@ async function handleFacultyReservationSubmit(event) {
     try {
         const updatedReservation = await updateEvent(reservationData);
         const reservationToRender = updatedReservation || reservationData;
+        const createdReservations = [];
+
+        for (const additionalReservation of additionalReservationData) {
+            createdReservations.push(await createEvent(additionalReservation));
+        }
 
         reservedEvents = reservedEvents.map(reservation => {
             return String(reservation.id) === String(reservationToRender.id)
                 ? reservationToRender
                 : reservation;
         });
+        reservedEvents.push(...createdReservations);
 
         sortReservedEvents(reservedEvents);
         renderAll();
-        closeFacultyReservationEditModal();
+        await facultyReservationDraftAutosave.discard();
+        closeFacultyReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not update reservation:", error);
         setFacultyReservationStatus(
@@ -794,6 +862,38 @@ async function handleFacultyReservationSubmit(event) {
     } finally {
         setFacultyReservationSubmitting(false);
     }
+}
+
+function validateEditedReservations({
+    reservationsToSave,
+    existingReservations,
+    selectedReservation,
+    users
+}) {
+    const selectedReservationId = String(selectedReservation?.id ?? "");
+    const reservationsToCheck = existingReservations.filter(reservation => {
+        return String(reservation.id) !== selectedReservationId;
+    });
+
+    for (const [index, reservationData] of reservationsToSave.entries()) {
+        const validation = validateReservationData({
+            reservationData,
+            existingReservations: reservationsToCheck,
+            users,
+            requireId: index === 0
+        });
+
+        if (!validation.isValid) {
+            return validation;
+        }
+
+        reservationsToCheck.push(reservationData);
+    }
+
+    return {
+        isValid: true,
+        message: ""
+    };
 }
 
 async function handleFacultyReservationDelete() {
@@ -815,9 +915,10 @@ async function handleFacultyReservationDelete() {
 
     try {
         await deleteEvent(selectedFacultyReservation);
+        await facultyReservationDraftAutosave.discard();
         removeReservationsFromFacultyState([selectedFacultyReservation]);
 
-        closeFacultyReservationEditModal();
+        closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
     } catch (error) {
         console.error("Could not delete reservation:", error);
@@ -860,9 +961,10 @@ async function handleFacultyReservationDeleteSeries() {
 
     try {
         await deleteReservations(seriesReservations);
+        await facultyReservationDraftAutosave.discard();
         removeReservationsFromFacultyState(seriesReservations);
 
-        closeFacultyReservationEditModal();
+        closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
     } catch (error) {
         console.error("Could not delete recurring reservation series:", error);

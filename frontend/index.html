@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BT Building Room Reservations</title>
+    <title>BT-216 Events</title>
     <link rel="icon" href="assets/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -19,7 +19,7 @@
             <a class="nav-brand-link" href="index.html" aria-label="San Diego Mesa College">
                 <img class="nav-brand-logo" src="assets/mesa-district-horizontal.png" alt="San Diego Mesa College">
             </a>
-            <h1 class="nav-title">BT-216 Reservation System</h1>
+            <h1 class="nav-title">BT-216 Events</h1>
         </div>
         <div class="nav-right">
             <div class="nav-user-chip" id="navUserIdentity" hidden>
@@ -386,6 +386,16 @@
                     </div>
 
                     <div class="modal-field reservation-full recurrence-section">
+                        <div class="recurrence-controls" id="reservationRecurringControls">
+                            <label class="modal-label" for="reservationRecurringDuration">Duration</label>
+                            <div class="duration-input-row">
+                                <input class="reservation-input" id="reservationRecurringDuration"
+                                    name="recurring_duration" type="number" min="1" step="1" value="4"
+                                    inputmode="numeric" disabled>
+                                <span class="duration-unit">weeks</span>
+                            </div>
+                        </div>
+
                         <label class="recurrence-toggle" for="reservationRecurring">
                             <input id="reservationRecurring" name="recurring" type="checkbox">
                             <span>
@@ -393,16 +403,6 @@
                                 <small>Create this reservation on the same day and time for multiple weeks.</small>
                             </span>
                         </label>
-
-                        <div class="recurrence-controls" id="reservationRecurringControls" hidden>
-                            <label class="modal-label" for="reservationRecurringDuration">Duration</label>
-                            <div class="duration-input-row">
-                                <input class="reservation-input" id="reservationRecurringDuration"
-                                    name="recurring_duration" type="number" min="1" step="1" value="4"
-                                    inputmode="numeric">
-                                <span class="duration-unit">weeks</span>
-                            </div>
-                        </div>
                     </div>
 
                 </div>

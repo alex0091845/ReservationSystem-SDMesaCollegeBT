@@ -112,6 +112,21 @@ function normalizeEvent(event) {
     };
 }
 
+function normalizeReservationDraft(draft) {
+    if (!draft || typeof draft !== "object" || Array.isArray(draft)) {
+        return null;
+    }
+
+    const payload = typeof draft.payload === "string"
+        ? parseJsonValue(draft.payload)
+        : draft.payload;
+
+    return {
+        ...draft,
+        payload: payload || {}
+    };
+}
+
 function normalizeAttendee(attendee) {
     if (!attendee) {
         return attendee;
@@ -221,6 +236,14 @@ function toBackendEvent(eventData) {
         is_public: eventData.is_public,
         recurrence_group_id: eventData.recurrence_group_id
     };
+}
+
+function parseJsonValue(value) {
+    try {
+        return JSON.parse(value);
+    } catch (error) {
+        return null;
+    }
 }
 
 function normalizeInteger(value) {
@@ -351,6 +374,45 @@ export async function createEvent(eventData) {
 
 export async function deleteEvent(eventData) {
     return request(`/events/${eventData.id}`, "DELETE");
+}
+
+export async function getReservationDraft({
+    draft_type,
+    source_event_id = null
+}) {
+    const params = new URLSearchParams({
+        draft_type
+    });
+
+    if (source_event_id !== undefined && source_event_id !== null && source_event_id !== "") {
+        params.set("source_event_id", source_event_id);
+    }
+
+    const drafts = normalizeCollection(
+        await request(`/reservation-drafts?${params.toString()}`, "GET"),
+        ["reservation_drafts", "drafts", "data", "items", "records"]
+    ).map(normalizeReservationDraft).filter(Boolean);
+
+    return drafts[0] || null;
+}
+
+export async function saveReservationDraft(draftData) {
+    const saveResponse = await request("/reservation-drafts", "POST", draftData);
+    const savedDraft = normalizeCollection(
+        saveResponse,
+        ["reservation_drafts", "drafts", "data", "items", "records"]
+    ).map(normalizeReservationDraft).filter(Boolean)[0] ||
+        normalizeReservationDraft(saveResponse);
+
+    return savedDraft;
+}
+
+export async function deleteReservationDraft(draftData) {
+    if (!draftData?.id) {
+        return null;
+    }
+
+    return request(`/reservation-drafts/${draftData.id}`, "DELETE");
 }
 
 export async function updateEvent(eventData) {

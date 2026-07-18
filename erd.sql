@@ -57,3 +57,22 @@ CREATE TABLE public.sessions (
   CONSTRAINT sessions_pkey PRIMARY KEY (id),
   CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
+CREATE TABLE public.reservation_drafts (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id integer NOT NULL,
+  host_user_id integer,
+  source_event_id integer,
+  draft_type text NOT NULL,
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  discarded_at timestamp with time zone,
+  CONSTRAINT reservation_drafts_pkey PRIMARY KEY (id),
+  CONSTRAINT reservation_drafts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE,
+  CONSTRAINT reservation_drafts_host_user_id_fkey FOREIGN KEY (host_user_id) REFERENCES public.users(id) ON DELETE SET NULL,
+  CONSTRAINT reservation_drafts_source_event_id_fkey FOREIGN KEY (source_event_id) REFERENCES public.events(id) ON DELETE CASCADE,
+  CONSTRAINT reservation_drafts_type_check CHECK (draft_type IN ('create', 'edit'))
+);
+CREATE UNIQUE INDEX reservation_drafts_active_unique_idx
+  ON public.reservation_drafts (user_id, draft_type, COALESCE(source_event_id, -1))
+  WHERE discarded_at IS NULL;

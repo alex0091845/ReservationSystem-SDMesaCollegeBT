@@ -3,6 +3,7 @@ import {
     getAttendees,
     getEventTypes,
     getUsers,
+    createEvent,
     createUser,
     updateUser,
     updateEvent,
@@ -17,6 +18,11 @@ import { renderEventAttendees } from "./ui/attendees.js";
 import { createEventCard } from "./ui/eventCards.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
+import {
+    applyReservationFormDraft,
+    collectReservationFormDraft,
+    createReservationDraftAutosave
+} from "./ui/reservationDrafts.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
 const userCount = document.getElementById("userCount");
@@ -76,6 +82,27 @@ const adminReservationTimePicker = createReservationTimePicker({
     summaryElement: document.getElementById("adminReservationTimeSummary"),
     startInput: document.getElementById("adminReservationStart"),
     endInput: document.getElementById("adminReservationEnd")
+});
+const adminReservationDraftAutosave = createReservationDraftAutosave({
+    form: adminReservationForm,
+    timePicker: adminReservationTimePicker,
+    draftType: "edit",
+    getSourceEventId: () => selectedReservation?.id,
+    getHostUserId: () => {
+        return document.getElementById("adminReservationHostUserId")?.value ||
+            selectedUser?.id;
+    },
+    collectPayload: () => collectReservationFormDraft(
+        adminReservationForm,
+        adminReservationTimePicker
+    ),
+    applyPayload: payload => {
+        applyReservationFormDraft(
+            adminReservationForm,
+            adminReservationTimePicker,
+            payload
+        );
+    }
 });
 
 let isAdminLoggedIn =
@@ -497,7 +524,7 @@ function closeDisableUserModal() {
     disableUserWarning.classList.remove("success");
 }
 
-function openReservationEditModal(reservation) {
+async function openReservationEditModal(reservation) {
     selectedReservation = reservation;
 
     document.getElementById("adminReservationId").value = reservation.id ?? "";
@@ -533,6 +560,7 @@ function openReservationEditModal(reservation) {
     setAdminReservationSubmitting(false);
     adminReservationModalOverlay.classList.add("active");
     adminReservationModalOverlay.setAttribute("aria-hidden", "false");
+    await adminReservationDraftAutosave.activate();
 }
 
 function renderAdminReservationAttendees(reservation) {
@@ -553,7 +581,13 @@ function updateAdminReservationSeriesDeleteButton(reservation) {
         getReservationSeries(reservation, reservations).length < 2;
 }
 
-function closeReservationEditModal() {
+function closeReservationEditModal({ flushDraft = true } = {}) {
+    if (flushDraft) {
+        adminReservationDraftAutosave.deactivate({ flush: true });
+    } else {
+        adminReservationDraftAutosave.deactivate();
+    }
+
     adminReservationModalOverlay.classList.remove("active");
     adminReservationModalOverlay.setAttribute("aria-hidden", "true");
 
@@ -651,16 +685,6 @@ function setAdminReservationDeleting(isDeleting, deleteMode = "reservation") {
     if (adminReservationCancelBtn) {
         adminReservationCancelBtn.disabled = isDeleting;
     }
-}
-
-function toIsoDateTimeValue(value) {
-    if (!value) {
-        return "";
-    }
-
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 function getReservationHostName(reservation) {
@@ -775,8 +799,16 @@ adminReservationForm.addEventListener("submit", async event => {
 
     const formData = new FormData(adminReservationForm);
     const hostUserId = formData.get("host_user_id") || selectedUser?.id;
-    const startTime = toIsoDateTimeValue(formData.get("start"));
-    const endTime = toIsoDateTimeValue(formData.get("end"));
+    const selectedTimeRanges = adminReservationTimePicker.getRanges();
+
+    if (selectedTimeRanges.length === 0) {
+        setAdminReservationStatus("Select at least one reservation time block.", "error");
+        return;
+    }
+
+    const primaryRange = selectedTimeRanges[0];
+    const recurrenceGroupId =
+        selectedReservation.recurrence_group_id || null;
 
     const reservationData = {
         ...selectedReservation,
@@ -786,20 +818,35 @@ adminReservationForm.addEventListener("submit", async event => {
             formData.get("host") || "",
             selectedReservation.host_user
         ),
-        start_time: startTime,
-        end_time: endTime,
+        start_time: primaryRange.start.toISOString(),
+        end_time: primaryRange.end.toISOString(),
         event_type: formData.get("type"),
         description: formData.get("description"),
         title: formData.get("title"),
         department: formData.get("department"),
-        is_public: formData.get("access") === "open"
+        is_public: formData.get("access") === "open",
+        ...(recurrenceGroupId ? { recurrence_group_id: recurrenceGroupId } : {})
     };
+    const additionalReservationData = selectedTimeRanges.slice(1).map(timeRange => {
+        const additionalReservation = {
+            ...reservationData,
+            id: undefined,
+            start_time: timeRange.start.toISOString(),
+            end_time: timeRange.end.toISOString()
+        };
 
-    const validation = validateReservationData({
-        reservationData,
+        delete additionalReservation.id;
+        return additionalReservation;
+    });
+
+    const validation = validateEditedReservations({
+        reservationsToSave: [
+            reservationData,
+            ...additionalReservationData
+        ],
         existingReservations: reservations,
-        users,
-        requireId: true
+        selectedReservation,
+        users
     });
 
     if (!validation.isValid) {
@@ -813,6 +860,11 @@ adminReservationForm.addEventListener("submit", async event => {
     try {
         const updatedReservation = await updateEvent(reservationData);
         const reservationToRender = updatedReservation || reservationData;
+        const createdReservations = [];
+
+        for (const additionalReservation of additionalReservationData) {
+            createdReservations.push(await createEvent(additionalReservation));
+        }
 
         reservations = reservations.map(reservation => {
             if (String(reservation.id) === String(reservationToRender.id)) {
@@ -821,9 +873,11 @@ adminReservationForm.addEventListener("submit", async event => {
 
             return reservation;
         });
+        reservations.push(...createdReservations);
 
         renderUserDetails();
-        closeReservationEditModal();
+        await adminReservationDraftAutosave.discard();
+        closeReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not update reservation:", error);
         setAdminReservationStatus(
@@ -834,6 +888,38 @@ adminReservationForm.addEventListener("submit", async event => {
         setAdminReservationSubmitting(false);
     }
 });
+
+function validateEditedReservations({
+    reservationsToSave,
+    existingReservations,
+    selectedReservation,
+    users
+}) {
+    const selectedReservationId = String(selectedReservation?.id ?? "");
+    const reservationsToCheck = existingReservations.filter(reservation => {
+        return String(reservation.id) !== selectedReservationId;
+    });
+
+    for (const [index, reservationData] of reservationsToSave.entries()) {
+        const validation = validateReservationData({
+            reservationData,
+            existingReservations: reservationsToCheck,
+            users,
+            requireId: index === 0
+        });
+
+        if (!validation.isValid) {
+            return validation;
+        }
+
+        reservationsToCheck.push(reservationData);
+    }
+
+    return {
+        isValid: true,
+        message: ""
+    };
+}
 
 async function handleAdminReservationDelete() {
     if (!selectedReservation) {
@@ -854,10 +940,11 @@ async function handleAdminReservationDelete() {
 
     try {
         await deleteEvent(selectedReservation);
+        await adminReservationDraftAutosave.discard();
         removeReservationsFromAdminState([selectedReservation]);
 
         renderUserDetails();
-        closeReservationEditModal();
+        closeReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not delete reservation:", error);
         setAdminReservationStatus(
@@ -894,10 +981,11 @@ async function handleAdminReservationDeleteSeries() {
 
     try {
         await deleteReservations(seriesReservations);
+        await adminReservationDraftAutosave.discard();
         removeReservationsFromAdminState(seriesReservations);
 
         renderUserDetails();
-        closeReservationEditModal();
+        closeReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not delete recurring reservation series:", error);
         setAdminReservationStatus(
