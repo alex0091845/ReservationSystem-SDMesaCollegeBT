@@ -10,9 +10,20 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
+
 @RestController
 @RequestMapping("/api/events")
 public class ReservationController {
+
+    private static final ZoneId RESERVATION_TIME_ZONE = ZoneId.of("America/Los_Angeles");
+    private static final LocalTime RESERVATION_DAY_END = LocalTime.of(17, 0);
 
     private final SupabaseClient supabase;
     private final ObjectMapper objectMapper;
@@ -263,6 +274,51 @@ public class ReservationController {
         requireField(event, "title");
         requireField(event, "department");
         requireField(event, "is_public");
+
+        validateReservationTimeWindow(event);
+    }
+
+    private void validateReservationTimeWindow(ObjectNode event) {
+        ZonedDateTime startTime = parseReservationDateTime(
+            event.path("start_time").asText(),
+            "start_time"
+        );
+        ZonedDateTime endTime = parseReservationDateTime(
+            event.path("end_time").asText(),
+            "end_time"
+        );
+
+        if (!endTime.isAfter(startTime)) {
+            throw new IllegalArgumentException("End time must be after start time.");
+        }
+
+        if (!startTime.toLocalTime().isBefore(RESERVATION_DAY_END)) {
+            throw new IllegalArgumentException("Start time must be before 5:00 PM.");
+        }
+
+        if (endTime.toLocalTime().isAfter(RESERVATION_DAY_END)) {
+            throw new IllegalArgumentException("Reservations must end by 5:00 PM.");
+        }
+    }
+
+    private ZonedDateTime parseReservationDateTime(String value, String fieldName) {
+        try {
+            return Instant.parse(value).atZone(RESERVATION_TIME_ZONE);
+        } catch (DateTimeParseException ignored) {
+            // Try a broader set of accepted timestamp shapes below.
+        }
+
+        try {
+            return OffsetDateTime.parse(value).atZoneSameInstant(RESERVATION_TIME_ZONE);
+        } catch (DateTimeParseException ignored) {
+            // Try local date-time as a final fallback.
+        }
+
+        try {
+            return LocalDateTime.parse(value).atZone(RESERVATION_TIME_ZONE);
+        } catch (DateTimeParseException error) {
+            throw new IllegalArgumentException(fieldName + " must be a valid date and time.");
+        }
     }
 
     private void requireField(ObjectNode event, String fieldName) {

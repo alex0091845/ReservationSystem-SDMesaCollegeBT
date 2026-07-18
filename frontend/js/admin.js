@@ -16,6 +16,7 @@ import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderEventAttendees } from "./ui/attendees.js";
 import { createEventCard } from "./ui/eventCards.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
+import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
 const userCount = document.getElementById("userCount");
@@ -69,6 +70,12 @@ let modalMode = "create";
 let userSearchTerm = "";
 let userRoleValue = "all";
 let userSortValue = "name-asc";
+const adminReservationTimePicker = createReservationTimePicker({
+    container: document.getElementById("adminReservationTimePicker"),
+    summaryElement: document.getElementById("adminReservationTimeSummary"),
+    startInput: document.getElementById("adminReservationStart"),
+    endInput: document.getElementById("adminReservationEnd")
+});
 
 let isAdminLoggedIn =
     sessionStorage.getItem("adminLoggedIn") === "true";
@@ -502,8 +509,10 @@ function openReservationEditModal(reservation) {
         { selectedValue: reservation.event_type ?? "" }
     );
     document.getElementById("adminReservationDescription").value = reservation.description ?? "";
-    document.getElementById("adminReservationStart").value = formatDateTimeLocalValue(reservation.start_time);
-    document.getElementById("adminReservationEnd").value = formatDateTimeLocalValue(reservation.end_time);
+    adminReservationTimePicker.setRange(
+        reservation.start_time,
+        reservation.end_time
+    );
     document.getElementById("adminReservationDepartment").value = reservation.department ?? "";
     document.getElementById("adminReservationHost").value = getReservationHostName(reservation);
 
@@ -539,6 +548,7 @@ function closeReservationEditModal() {
 
     selectedReservation = null;
     adminReservationForm.reset();
+    adminReservationTimePicker.clear();
     setAdminReservationStatus("");
     setAdminReservationSubmitting(false);
     setAdminReservationDeleting(false);

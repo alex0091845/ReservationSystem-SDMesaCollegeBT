@@ -1,20 +1,13 @@
 // import { reservedEvents } from "../data/events.js";
 
-export const hourNames = [
-    "8:00 AM",
-    "9:00 AM",
-    "10:00 AM",
-    "11:00 AM",
-    "12:00 PM",
-    "1:00 PM",
-    "2:00 PM",
-    "3:00 PM",
-    "4:00 PM",
-    "5:00 PM",
-    "6:00 PM",
-    "7:00 PM",
-    "8:00 PM"
-];
+export const CALENDAR_START_HOUR = 8;
+export const CALENDAR_END_HOUR = 17;
+export const CALENDAR_END_LABEL = "5:00 PM";
+
+export const hourNames = Array.from(
+    { length: CALENDAR_END_HOUR - CALENDAR_START_HOUR },
+    (_, index) => formatHourLabel(CALENDAR_START_HOUR + index)
+);
 
 export const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -33,17 +26,63 @@ export function formatDateKey(year, month, day) {
 
 // Gets array of events for the given date, if none returns empty array
 export function getEventsForDay(reservedEvents, year, month, day) {
-    const dateKey = formatDateKey(year, month, day);
+    const dayStart = new Date(year, month, day, 0, 0, 0, 0);
+    const nextDayStart = new Date(year, month, day + 1, 0, 0, 0, 0);
 
     return reservedEvents.filter(event => {
-        const eventDate = new Date(event.start_time);
+        const startDate = parseEventDate(event.start_time);
+        const endDate = parseEventDate(event.end_time);
 
-        return formatDateKey(
-            eventDate.getFullYear(),
-            eventDate.getMonth(),
-            eventDate.getDate()
-        ) === dateKey;
+        if (!startDate || !endDate) {
+            return false;
+        }
+
+        return startDate < nextDayStart && endDate > dayStart;
     });
+}
+
+export function getVisibleEventSectionForDay(event, dateObj) {
+    const startDate = parseEventDate(event.start_time);
+    const endDate = parseEventDate(event.end_time);
+
+    if (!startDate || !endDate) {
+        return null;
+    }
+
+    const visibleDayStart = new Date(
+        dateObj.getFullYear(),
+        dateObj.getMonth(),
+        dateObj.getDate(),
+        CALENDAR_START_HOUR,
+        0,
+        0,
+        0
+    );
+    const visibleDayEnd = new Date(
+        dateObj.getFullYear(),
+        dateObj.getMonth(),
+        dateObj.getDate(),
+        CALENDAR_END_HOUR,
+        0,
+        0,
+        0
+    );
+
+    const sectionStart = new Date(
+        Math.max(startDate.getTime(), visibleDayStart.getTime())
+    );
+    const sectionEnd = new Date(
+        Math.min(endDate.getTime(), visibleDayEnd.getTime())
+    );
+
+    if (sectionEnd <= sectionStart) {
+        return null;
+    }
+
+    return {
+        start: sectionStart,
+        end: sectionEnd
+    };
 }
 
 // Returns level 0-4 based on how many events scheduled for given date
@@ -157,4 +196,21 @@ export function getEventColorClass(eventType) {
         default:
             return "red";
     }
+}
+
+function formatHourLabel(hour) {
+    const displayHour = hour % 12 || 12;
+    const modifier = hour >= 12 ? "PM" : "AM";
+
+    return `${displayHour}:00 ${modifier}`;
+}
+
+function parseEventDate(value) {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? null : date;
 }

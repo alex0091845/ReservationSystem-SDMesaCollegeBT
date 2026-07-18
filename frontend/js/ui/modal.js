@@ -2,6 +2,7 @@ import { createAttendee, createEvent, getEventTypes, getEvents, isUserDisabled }
 import { formatReadableDate } from "../utils/dateUtils.js";
 import { validateReservationData } from "../utils/reservationValidation.js";
 import { renderEventTypeOptions } from "./eventTypeOptions.js";
+import { createReservationTimePicker } from "./reservationTimePicker.js";
 
 const reservationModalOverlay = document.getElementById("reservationModalOverlay");
 const openReservationModalBtn = document.getElementById("openReservationModalBtn");
@@ -11,7 +12,18 @@ const reservationForm = document.getElementById("reservationForm");
 const reservationSubmitBtn = reservationForm?.querySelector('button[type="submit"]');
 const reservationStatus = document.getElementById("reservationStatus");
 const reservationTypeSelect = document.getElementById("reservationType");
+const reservationStartInput = document.getElementById("reservationStart");
+const reservationEndInput = document.getElementById("reservationEnd");
+const reservationRecurringInput = document.getElementById("reservationRecurring");
+const reservationRecurringControls = document.getElementById("reservationRecurringControls");
+const reservationRecurringCount = document.getElementById("reservationRecurringCount");
 const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
+const reservationTimePicker = createReservationTimePicker({
+    container: document.getElementById("reservationTimePicker"),
+    summaryElement: document.getElementById("reservationTimeSummary"),
+    startInput: reservationStartInput,
+    endInput: reservationEndInput
+});
 let reservationEventTypes = [];
 let reservationPointerStartedOnBackdrop = false;
 let eventModalReturnFocusElement = null;
@@ -234,6 +246,7 @@ async function openReservationModal() {
 
     reservationModalOverlay.classList.add("active");
     reservationModalOverlay.setAttribute("aria-hidden", "false");
+    reservationTimePicker.setWeekFromDate(new Date());
 }
 
 async function loadReservationEventTypes(selectedValue = reservationTypeSelect?.value || "") {
@@ -257,6 +270,8 @@ function closeReservationModal() {
     reservationModalOverlay.setAttribute("aria-hidden", "true");
 
     reservationForm.reset();
+    reservationTimePicker.clear();
+    renderRecurringControls();
     setReservationStatus("");
     setReservationSubmitting(false);
     reservationModalReturnFocusElement = null;
@@ -281,6 +296,14 @@ function setReservationSubmitting(isSubmitting) {
     reservationSubmitBtn.textContent = isSubmitting
         ? "Creating..."
         : "Create Reservation";
+}
+
+function renderRecurringControls() {
+    if (!reservationRecurringInput || !reservationRecurringControls) {
+        return;
+    }
+
+    reservationRecurringControls.hidden = !reservationRecurringInput.checked;
 }
 
 function toIsoDateTimeValue(value) {
@@ -328,6 +351,11 @@ if (openReservationModalBtn) {
         "click",
         openReservationModal
     );
+}
+
+if (reservationRecurringInput) {
+    reservationRecurringInput.addEventListener("change", renderRecurringControls);
+    renderRecurringControls();
 }
 
 // Close modal buttons
@@ -398,25 +426,31 @@ reservationForm.addEventListener("submit", async (event) => {
     setReservationSubmitting(true);
 
     try {
+        const eventOccurrences = buildReservationOccurrences(eventData);
         const existingReservations = await getEvents();
-        const validation = validateReservationData({
-            reservationData: eventData,
-            existingReservations,
-            users: []
-        });
+        const validation = validateReservationOccurrences(
+            eventOccurrences,
+            existingReservations
+        );
 
         if (!validation.isValid) {
             setReservationStatus(validation.message, "error");
             return;
         }
 
-        const createdEvent = await createEvent(eventData);
+        const createdEvents = [];
+
+        for (const occurrence of eventOccurrences) {
+            createdEvents.push(await createEvent(occurrence));
+        }
 
         closeReservationModal();
 
         window.dispatchEvent(new CustomEvent("reservation:created", {
             detail: {
-                reservation: createdEvent || eventData
+                reservations: createdEvents.length > 0
+                    ? createdEvents
+                    : eventOccurrences
             }
         }));
     } catch (error) {
@@ -429,3 +463,68 @@ reservationForm.addEventListener("submit", async (event) => {
         setReservationSubmitting(false);
     }
 });
+
+function buildReservationOccurrences(eventData) {
+    const occurrenceCount = getReservationOccurrenceCount();
+
+    return Array.from({ length: occurrenceCount }, (_, index) => {
+        return offsetReservationByWeeks(eventData, index);
+    });
+}
+
+function getReservationOccurrenceCount() {
+    if (!reservationRecurringInput?.checked) {
+        return 1;
+    }
+
+    const count = Number(reservationRecurringCount?.value || 1);
+
+    if (!Number.isFinite(count)) {
+        return 1;
+    }
+
+    return Math.max(1, Math.min(count, 16));
+}
+
+function offsetReservationByWeeks(eventData, weekOffset) {
+    if (weekOffset === 0) {
+        return eventData;
+    }
+
+    return {
+        ...eventData,
+        start_time: offsetIsoDateByDays(eventData.start_time, weekOffset * 7),
+        end_time: offsetIsoDateByDays(eventData.end_time, weekOffset * 7)
+    };
+}
+
+function offsetIsoDateByDays(value, dayOffset) {
+    const date = new Date(value);
+
+    date.setDate(date.getDate() + dayOffset);
+
+    return date.toISOString();
+}
+
+function validateReservationOccurrences(eventOccurrences, existingReservations) {
+    const reservationsToCheck = [...existingReservations];
+
+    for (const occurrence of eventOccurrences) {
+        const validation = validateReservationData({
+            reservationData: occurrence,
+            existingReservations: reservationsToCheck,
+            users: []
+        });
+
+        if (!validation.isValid) {
+            return validation;
+        }
+
+        reservationsToCheck.push(occurrence);
+    }
+
+    return {
+        isValid: true,
+        message: ""
+    };
+}

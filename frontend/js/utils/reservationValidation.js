@@ -1,3 +1,5 @@
+import { CALENDAR_END_HOUR, CALENDAR_END_LABEL } from "./dateUtils.js";
+
 const REQUIRED_RESERVATION_FIELDS = [
     ["host_user_id", "Host user"],
     ["start_time", "Start time"],
@@ -64,6 +66,12 @@ function getReservationValidationMessage({
 
     if (endDate <= startDate) {
         return "End time must be after start time.";
+    }
+
+    const timeWindowMessage = getReservationTimeWindowMessage(startDate, endDate);
+
+    if (timeWindowMessage) {
+        return timeWindowMessage;
     }
 
     const hostUser = getReservationHostUser(reservationData, users);
@@ -164,6 +172,39 @@ function isBlankValue(value) {
     return value === undefined ||
         value === null ||
         String(value).trim() === "";
+}
+
+function getReservationTimeWindowMessage(startDate, endDate) {
+    if (!isBeforeDailyEnd(startDate)) {
+        return `Start time must be before ${CALENDAR_END_LABEL}.`;
+    }
+
+    if (isAfterDailyEnd(endDate)) {
+        return `Reservations must end by ${CALENDAR_END_LABEL}.`;
+    }
+
+    return "";
+}
+
+function isBeforeDailyEnd(date) {
+    return getMillisecondsSinceMidnight(date) < getDailyEndMilliseconds();
+}
+
+function isAfterDailyEnd(date) {
+    return getMillisecondsSinceMidnight(date) > getDailyEndMilliseconds();
+}
+
+function getDailyEndMilliseconds() {
+    return CALENDAR_END_HOUR * 60 * 60 * 1000;
+}
+
+function getMillisecondsSinceMidnight(date) {
+    return (
+        (date.getHours() * 60 * 60 * 1000) +
+        (date.getMinutes() * 60 * 1000) +
+        (date.getSeconds() * 1000) +
+        date.getMilliseconds()
+    );
 }
 
 function parseReservationDate(value) {

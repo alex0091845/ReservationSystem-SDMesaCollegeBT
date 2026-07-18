@@ -227,15 +227,14 @@
                         </div>
                     </div>
 
-                    <div class="modal-field">
-                        <label class="modal-label" for="adminReservationStart">Start</label>
-                        <input class="reservation-input" id="adminReservationStart" name="start" type="datetime-local"
-                            required>
-                    </div>
-
-                    <div class="modal-field">
-                        <label class="modal-label" for="adminReservationEnd">End</label>
-                        <input class="reservation-input" id="adminReservationEnd" name="end" type="datetime-local" required>
+                    <div class="modal-field reservation-full reservation-time-section">
+                        <div class="reservation-time-label-row">
+                            <label class="modal-label" for="adminReservationTimePicker">Reservation Time</label>
+                            <span class="reservation-time-range-summary" id="adminReservationTimeSummary"></span>
+                        </div>
+                        <div id="adminReservationTimePicker" aria-label="Reservation time selector"></div>
+                        <input id="adminReservationStart" name="start" type="hidden" required>
+                        <input id="adminReservationEnd" name="end" type="hidden" required>
                     </div>
 
                     <div class="modal-field">

@@ -1,8 +1,9 @@
 import {
+    CALENDAR_END_HOUR,
     convertHourLabelTo24,
-    formatDateKey,
     formatShortDateRange,
     getEventsForDay,
+    getVisibleEventSectionForDay,
     hourNames,
     weekdayNames
 } from "../utils/dateUtils.js";
@@ -129,12 +130,6 @@ export function renderWeekView({
 
             cell.classList.add("week-cell");
 
-            const currentDateKey = formatDateKey(
-                dateObj.getFullYear(),
-                dateObj.getMonth(),
-                dateObj.getDate()
-            );
-
             // Allows clicking any cell to select day
             cell.addEventListener("click", () => {
                 onSelectDate(
@@ -167,31 +162,33 @@ export function renderWeekView({
             const cellHour =
                 convertHourLabelTo24(hourLabel);
 
-            // Finds events beginning during this hour
-            const matchingEvents = events.filter(event => {
-                const startDate = new Date(event.start_time);
-
-                return startDate.getHours() === cellHour;
-            });
+            // Finds visible daily sections beginning during this hour.
+            const matchingEventSections = events
+                .map(event => ({
+                    event,
+                    section: getVisibleEventSectionForDay(event, dateObj)
+                }))
+                .filter(({ section }) => {
+                    return section && section.start.getHours() === cellHour;
+                });
 
             // Calculating blocks for each event
-            matchingEvents.forEach(event => {
+            matchingEventSections.forEach(({ event, section }) => {
                 const eventEl = createWeekEventCard({
                     event,
                     onClick: openEventModal
                 });
 
-                // Parses timestamps
-                const startDate = new Date(event.start_time);
-                const endDate = new Date(event.end_time);
-
                 const startMinutes =
-                    (startDate.getHours() * 60) +
-                    startDate.getMinutes();
+                    (section.start.getHours() * 60) +
+                    section.start.getMinutes();
 
                 const endMinutes =
-                    (endDate.getHours() * 60) +
-                    endDate.getMinutes();
+                    Math.min(
+                        (section.end.getHours() * 60) +
+                        section.end.getMinutes(),
+                        CALENDAR_END_HOUR * 60
+                    );
 
                 const rowStartMinutes =
                     cellHour * 60;

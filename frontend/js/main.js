@@ -9,6 +9,7 @@ import { renderCheckInEvents } from "./ui/checkInEvents.js";
 import { renderEventAttendees } from "./ui/attendees.js";
 import { createModalController } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
+import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 
 
 // Makes all page elements accessible in one place
@@ -80,6 +81,12 @@ let attendees = [];
 let eventTypes = [];
 let currentUser = null;
 let selectedFacultyReservation = null;
+const facultyReservationTimePicker = createReservationTimePicker({
+    container: document.getElementById("facultyReservationTimePicker"),
+    summaryElement: document.getElementById("facultyReservationTimeSummary"),
+    startInput: document.getElementById("facultyReservationStart"),
+    endInput: document.getElementById("facultyReservationEnd")
+});
 
 async function loadEvents() {
     await syncSessionFromBackend();
@@ -288,30 +295,41 @@ function renderAll() {
 }
 
 async function handleReservationCreated(event) {
-    const createdReservation = getRenderableReservation(
-        event.detail?.reservation
-    );
+    const createdReservations = normalizeCreatedReservations(event.detail);
 
-    if (!createdReservation) {
+    if (createdReservations.length === 0) {
         return;
     }
 
+    const createdReservationIds = new Set(
+        createdReservations
+            .map(reservation => reservation.id)
+            .filter(id => id !== undefined && id !== null)
+            .map(id => String(id))
+    );
+
     reservedEvents = [
         ...reservedEvents.filter(reservation => {
-            return (
-                createdReservation.id === undefined ||
-                createdReservation.id === null ||
-                String(reservation.id) !== String(createdReservation.id)
-            );
+            return !createdReservationIds.has(String(reservation.id));
         }),
-        createdReservation
+        ...createdReservations
     ];
 
     sortReservedEvents(reservedEvents);
-    selectReservationDate(createdReservation);
+    selectReservationDate(createdReservations[0]);
 
     await loadAttendees();
     renderAll();
+}
+
+function normalizeCreatedReservations(detail) {
+    const reservations = Array.isArray(detail?.reservations)
+        ? detail.reservations
+        : [detail?.reservation];
+
+    return reservations
+        .map(getRenderableReservation)
+        .filter(Boolean);
 }
 
 function getRenderableReservation(reservation) {
@@ -564,8 +582,10 @@ function openFacultyReservationEditModal(reservation) {
         { selectedValue: reservation.event_type ?? "" }
     );
     document.getElementById("facultyReservationDescription").value = reservation.description ?? "";
-    document.getElementById("facultyReservationStart").value = formatDateTimeLocalValue(reservation.start_time);
-    document.getElementById("facultyReservationEnd").value = formatDateTimeLocalValue(reservation.end_time);
+    facultyReservationTimePicker.setRange(
+        reservation.start_time,
+        reservation.end_time
+    );
     document.getElementById("facultyReservationDepartment").value = reservation.department ?? "";
 
     const accessValue = reservation.is_public ? "open" : "private";
@@ -602,6 +622,7 @@ function closeFacultyReservationEditModal() {
 
     selectedFacultyReservation = null;
     elements.facultyReservationForm.reset();
+    facultyReservationTimePicker.clear();
     setFacultyReservationStatus("");
     setFacultyReservationSubmitting(false);
     setFacultyReservationDeleting(false);

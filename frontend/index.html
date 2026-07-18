@@ -259,16 +259,14 @@
                         </div>
                     </div>
 
-                    <div class="modal-field">
-                        <label class="modal-label" for="facultyReservationStart">Start</label>
-                        <input class="reservation-input" id="facultyReservationStart" name="start" type="datetime-local"
-                            required>
-                    </div>
-
-                    <div class="modal-field">
-                        <label class="modal-label" for="facultyReservationEnd">End</label>
-                        <input class="reservation-input" id="facultyReservationEnd" name="end" type="datetime-local"
-                            required>
+                    <div class="modal-field reservation-full reservation-time-section">
+                        <div class="reservation-time-label-row">
+                            <label class="modal-label" for="facultyReservationTimePicker">Reservation Time</label>
+                            <span class="reservation-time-range-summary" id="facultyReservationTimeSummary"></span>
+                        </div>
+                        <div id="facultyReservationTimePicker" aria-label="Reservation time selector"></div>
+                        <input id="facultyReservationStart" name="start" type="hidden" required>
+                        <input id="facultyReservationEnd" name="end" type="hidden" required>
                     </div>
 
                     <div class="modal-field reservation-full">
@@ -372,15 +370,36 @@
                         </div>
                     </div>
 
-                    <div class="modal-field">
-                        <label class="modal-label" for="reservationStart">Start</label>
-                        <input class="reservation-input" id="reservationStart" name="start" type="datetime-local"
-                            required>
+                    <div class="modal-field reservation-full reservation-time-section">
+                        <div class="reservation-time-label-row">
+                            <label class="modal-label" for="reservationTimePicker">Reservation Time</label>
+                            <span class="reservation-time-range-summary" id="reservationTimeSummary"></span>
+                        </div>
+                        <div id="reservationTimePicker" aria-label="Reservation time selector"></div>
+                        <input id="reservationStart" name="start" type="hidden" required>
+                        <input id="reservationEnd" name="end" type="hidden" required>
                     </div>
 
-                    <div class="modal-field">
-                        <label class="modal-label" for="reservationEnd">End</label>
-                        <input class="reservation-input" id="reservationEnd" name="end" type="datetime-local" required>
+                    <div class="modal-field reservation-full recurrence-section">
+                        <label class="recurrence-toggle" for="reservationRecurring">
+                            <input id="reservationRecurring" name="recurring" type="checkbox">
+                            <span>
+                                <strong>Repeat weekly</strong>
+                                <small>Create this reservation on the same day and time for multiple weeks.</small>
+                            </span>
+                        </label>
+
+                        <div class="recurrence-controls" id="reservationRecurringControls" hidden>
+                            <label class="modal-label" for="reservationRecurringCount">Occurrences</label>
+                            <select class="reservation-input reservation-select" id="reservationRecurringCount"
+                                name="recurring_count">
+                                <option value="2">2 weeks</option>
+                                <option value="4" selected>4 weeks</option>
+                                <option value="8">8 weeks</option>
+                                <option value="12">12 weeks</option>
+                                <option value="16">16 weeks</option>
+                            </select>
+                        </div>
                     </div>
 
                 </div>
