@@ -115,8 +115,17 @@ export function createReservationTimePicker({
 
     function createTimeLabel(hour, minute) {
         const label = document.createElement("div");
+        const startText = document.createElement("span");
+        const endText = document.createElement("span");
+        const { hour: endHour, minute: endMinute } =
+            getSlotEndTime(hour, minute);
+
         label.className = "reservation-time-picker-time";
-        label.textContent = formatTimeLabel(hour, minute);
+        startText.className = "reservation-time-picker-time-start";
+        startText.textContent = formatTimeLabel(hour, minute);
+        endText.className = "reservation-time-picker-time-end";
+        endText.textContent = `to ${formatTimeLabel(endHour, endMinute)}`;
+        label.append(startText, endText);
 
         return label;
     }
@@ -143,7 +152,7 @@ export function createReservationTimePicker({
         cell.dataset.end = String(slotEnd.getTime());
         cell.setAttribute(
             "aria-label",
-            `${formatDayLabel(slotStart)}, ${formatTimeLabel(hour, minute)}`
+            `${formatDayLabel(slotStart)}, ${formatSlotRangeLabel(slotStart, slotEnd)}`
         );
 
         cell.addEventListener("pointerdown", event => {
@@ -319,6 +328,15 @@ function getSlotTimes() {
     return slots;
 }
 
+function getSlotEndTime(hour, minute) {
+    const totalMinutes = (hour * 60) + minute + SLOT_MINUTES;
+
+    return {
+        hour: Math.floor(totalMinutes / 60),
+        minute: totalMinutes % 60
+    };
+}
+
 function getCellRange(cell) {
     const start = Number(cell?.dataset.start);
     const end = Number(cell?.dataset.end);
@@ -417,6 +435,10 @@ function formatSelectedRange(start, end) {
     }
 
     return `${formatDayLabel(start)}, ${formatTimeLabel(start.getHours(), start.getMinutes())} - ${formatDayLabel(end)}, ${formatTimeLabel(end.getHours(), end.getMinutes())}`;
+}
+
+function formatSlotRangeLabel(start, end) {
+    return `${formatTimeLabel(start.getHours(), start.getMinutes())} to ${formatTimeLabel(end.getHours(), end.getMinutes())}`;
 }
 
 function formatDayLabel(date) {

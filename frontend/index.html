@@ -390,15 +390,13 @@
                         </label>
 
                         <div class="recurrence-controls" id="reservationRecurringControls" hidden>
-                            <label class="modal-label" for="reservationRecurringCount">Occurrences</label>
-                            <select class="reservation-input reservation-select" id="reservationRecurringCount"
-                                name="recurring_count">
-                                <option value="2">2 weeks</option>
-                                <option value="4" selected>4 weeks</option>
-                                <option value="8">8 weeks</option>
-                                <option value="12">12 weeks</option>
-                                <option value="16">16 weeks</option>
-                            </select>
+                            <label class="modal-label" for="reservationRecurringDuration">Duration</label>
+                            <div class="duration-input-row">
+                                <input class="reservation-input" id="reservationRecurringDuration"
+                                    name="recurring_duration" type="number" min="1" step="1" value="4"
+                                    inputmode="numeric">
+                                <span class="duration-unit">weeks</span>
+                            </div>
                         </div>
                     </div>
 

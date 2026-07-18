@@ -16,8 +16,9 @@ const reservationStartInput = document.getElementById("reservationStart");
 const reservationEndInput = document.getElementById("reservationEnd");
 const reservationRecurringInput = document.getElementById("reservationRecurring");
 const reservationRecurringControls = document.getElementById("reservationRecurringControls");
-const reservationRecurringCount = document.getElementById("reservationRecurringCount");
+const reservationRecurringDuration = document.getElementById("reservationRecurringDuration");
 const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
+const OVERLAP_VALIDATION_MESSAGE_PREFIX = "This reservation overlaps with";
 const reservationTimePicker = createReservationTimePicker({
     container: document.getElementById("reservationTimePicker"),
     summaryElement: document.getElementById("reservationTimeSummary"),
@@ -303,7 +304,14 @@ function renderRecurringControls() {
         return;
     }
 
-    reservationRecurringControls.hidden = !reservationRecurringInput.checked;
+    const isRecurring = reservationRecurringInput.checked;
+
+    reservationRecurringControls.hidden = !isRecurring;
+
+    if (reservationRecurringDuration) {
+        reservationRecurringDuration.disabled = !isRecurring;
+        reservationRecurringDuration.required = isRecurring;
+    }
 }
 
 function toIsoDateTimeValue(value) {
@@ -428,19 +436,19 @@ reservationForm.addEventListener("submit", async (event) => {
     try {
         const eventOccurrences = buildReservationOccurrences(eventData);
         const existingReservations = await getEvents();
-        const validation = validateReservationOccurrences(
+        const reservationPlan = buildCreatableReservationPlan(
             eventOccurrences,
             existingReservations
         );
 
-        if (!validation.isValid) {
-            setReservationStatus(validation.message, "error");
+        if (!reservationPlan.isValid) {
+            setReservationStatus(reservationPlan.message, "error");
             return;
         }
 
         const createdEvents = [];
 
-        for (const occurrence of eventOccurrences) {
+        for (const occurrence of reservationPlan.creatableOccurrences) {
             createdEvents.push(await createEvent(occurrence));
         }
 
@@ -450,7 +458,8 @@ reservationForm.addEventListener("submit", async (event) => {
             detail: {
                 reservations: createdEvents.length > 0
                     ? createdEvents
-                    : eventOccurrences
+                    : reservationPlan.creatableOccurrences,
+                skippedReservations: reservationPlan.skippedOccurrences
             }
         }));
     } catch (error) {
@@ -465,25 +474,25 @@ reservationForm.addEventListener("submit", async (event) => {
 });
 
 function buildReservationOccurrences(eventData) {
-    const occurrenceCount = getReservationOccurrenceCount();
+    const durationWeeks = getReservationDurationWeeks();
 
-    return Array.from({ length: occurrenceCount }, (_, index) => {
+    return Array.from({ length: durationWeeks }, (_, index) => {
         return offsetReservationByWeeks(eventData, index);
     });
 }
 
-function getReservationOccurrenceCount() {
+function getReservationDurationWeeks() {
     if (!reservationRecurringInput?.checked) {
         return 1;
     }
 
-    const count = Number(reservationRecurringCount?.value || 1);
+    const durationWeeks = Number(reservationRecurringDuration?.value || 1);
 
-    if (!Number.isFinite(count)) {
+    if (!Number.isFinite(durationWeeks)) {
         return 1;
     }
 
-    return Math.max(1, Math.min(count, 16));
+    return Math.max(1, Math.floor(durationWeeks));
 }
 
 function offsetReservationByWeeks(eventData, weekOffset) {
@@ -506,8 +515,13 @@ function offsetIsoDateByDays(value, dayOffset) {
     return date.toISOString();
 }
 
-function validateReservationOccurrences(eventOccurrences, existingReservations) {
+function buildCreatableReservationPlan(eventOccurrences, existingReservations) {
     const reservationsToCheck = [...existingReservations];
+    const creatableOccurrences = [];
+    const skippedOccurrences = [];
+    const canSkipOverlaps =
+        reservationRecurringInput?.checked &&
+        eventOccurrences.length > 1;
 
     for (const occurrence of eventOccurrences) {
         const validation = validateReservationData({
@@ -517,14 +531,43 @@ function validateReservationOccurrences(eventOccurrences, existingReservations) 
         });
 
         if (!validation.isValid) {
-            return validation;
+            if (canSkipOverlaps && isOverlapValidationMessage(validation.message)) {
+                skippedOccurrences.push({
+                    ...occurrence,
+                    skip_reason: validation.message
+                });
+                continue;
+            }
+
+            return {
+                isValid: false,
+                message: validation.message,
+                creatableOccurrences: [],
+                skippedOccurrences: []
+            };
         }
 
+        creatableOccurrences.push(occurrence);
         reservationsToCheck.push(occurrence);
+    }
+
+    if (creatableOccurrences.length === 0) {
+        return {
+            isValid: false,
+            message: "Every recurring reservation overlaps with an existing reservation.",
+            creatableOccurrences,
+            skippedOccurrences
+        };
     }
 
     return {
         isValid: true,
-        message: ""
+        message: "",
+        creatableOccurrences,
+        skippedOccurrences
     };
+}
+
+function isOverlapValidationMessage(message) {
+    return String(message || "").startsWith(OVERLAP_VALIDATION_MESSAGE_PREFIX);
 }
