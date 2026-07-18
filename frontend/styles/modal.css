@@ -110,7 +110,7 @@
 }
 
 .reservation-modal {
-    max-width: 680px;
+    max-width: 860px;
 }
 
 .reservation-form {
@@ -219,8 +219,8 @@
 .reservation-time-picker-grid {
     display: grid;
     grid-template-columns: 88px repeat(7, minmax(56px, 1fr));
-    max-height: 340px;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
     user-select: none;
     touch-action: none;
 }
@@ -722,7 +722,6 @@
 
     .reservation-time-picker-grid {
         grid-template-columns: 72px repeat(7, minmax(46px, 1fr));
-        max-height: 310px;
     }
 
     .reservation-time-picker-time {

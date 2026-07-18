@@ -25,8 +25,7 @@ export function createReservationTimePicker({
     }]);
     let dragAnchor = null;
     let dragPreviewRanges = [];
-    let draggedRangeIndex = -1;
-    let hasDraggedAcrossCells = false;
+    let dragShouldSelect = true;
     let isDragging = false;
 
     container.classList.add("reservation-time-picker");
@@ -179,6 +178,10 @@ export function createReservationTimePicker({
         );
 
         cell.addEventListener("pointerdown", event => {
+            if (event.pointerType === "mouse" && event.button !== 0) {
+                return;
+            }
+
             event.preventDefault();
             beginDrag(cell);
         });
@@ -190,8 +193,7 @@ export function createReservationTimePicker({
         dragAnchor = getCellRange(cell);
         isDragging = true;
         dragPreviewRanges = dragAnchor ? [dragAnchor] : [];
-        draggedRangeIndex = findRangeIndexForCell(dragAnchor, selectedRanges);
-        hasDraggedAcrossCells = false;
+        dragShouldSelect = !isRangeSelected(dragAnchor, selectedRanges);
         applyDragRange(cell);
 
         document.addEventListener("pointermove", handlePointerMove);
@@ -220,29 +222,19 @@ export function createReservationTimePicker({
             return;
         }
 
-        hasDraggedAcrossCells =
-            hasDraggedAcrossCells ||
-            dragAnchor.start.getTime() !== currentRange.start.getTime();
         dragPreviewRanges = buildDailyDragRanges(dragAnchor, currentRange);
 
-        syncInputs();
         updateSelectionStyles();
         updateSummary();
     }
 
     function endDrag() {
         if (dragPreviewRanges.length > 0) {
-            let nextRanges = [...selectedRanges];
-
-            if (draggedRangeIndex >= 0) {
-                nextRanges.splice(draggedRangeIndex, 1);
-            }
-
-            if (draggedRangeIndex < 0 || hasDraggedAcrossCells) {
-                nextRanges.push(...dragPreviewRanges);
-            }
-
-            selectedRanges = normalizeRanges(nextRanges);
+            selectedRanges = applySelectionOperation(
+                selectedRanges,
+                dragPreviewRanges,
+                dragShouldSelect
+            );
             syncInputs();
             updateSelectionStyles();
             updateSummary();
@@ -251,10 +243,11 @@ export function createReservationTimePicker({
         isDragging = false;
         dragAnchor = null;
         dragPreviewRanges = [];
-        draggedRangeIndex = -1;
-        hasDraggedAcrossCells = false;
+        dragShouldSelect = true;
 
         document.removeEventListener("pointermove", handlePointerMove);
+        document.removeEventListener("pointerup", endDrag);
+        document.removeEventListener("pointercancel", endDrag);
     }
 
     function setRange(startValue, endValue) {
@@ -366,17 +359,11 @@ export function createReservationTimePicker({
             return selectedRanges;
         }
 
-        const renderedRanges = [...selectedRanges];
-
-        if (draggedRangeIndex >= 0) {
-            renderedRanges.splice(draggedRangeIndex, 1);
-        }
-
-        if (draggedRangeIndex < 0 || hasDraggedAcrossCells) {
-            renderedRanges.push(...dragPreviewRanges);
-        }
-
-        return normalizeRanges(renderedRanges);
+        return applySelectionOperation(
+            selectedRanges,
+            dragPreviewRanges,
+            dragShouldSelect
+        );
     }
 
     function getWeekDates() {
@@ -497,12 +484,49 @@ function buildDailyDragRanges(anchorRange, currentRange) {
     return ranges;
 }
 
-function findRangeIndexForCell(cellRange, selectedRanges = []) {
-    if (!cellRange) {
-        return -1;
+function isRangeSelected(cellRange, selectedRanges = []) {
+    return Boolean(cellRange && selectedRanges.some(range => {
+        return rangesOverlap(range, cellRange);
+    }));
+}
+
+function applySelectionOperation(selectedRanges, operationRanges, shouldSelect) {
+    if (shouldSelect) {
+        return normalizeRanges([
+            ...selectedRanges,
+            ...operationRanges
+        ]);
     }
 
-    return selectedRanges.findIndex(range => rangesOverlap(range, cellRange));
+    return operationRanges.reduce((remainingRanges, operationRange) => {
+        return subtractRange(remainingRanges, operationRange);
+    }, normalizeRanges(selectedRanges));
+}
+
+function subtractRange(selectedRanges, removalRange) {
+    return selectedRanges.flatMap(selectedRange => {
+        if (!rangesOverlap(selectedRange, removalRange)) {
+            return [selectedRange];
+        }
+
+        const remainingRanges = [];
+
+        if (selectedRange.start < removalRange.start) {
+            remainingRanges.push({
+                start: new Date(selectedRange.start),
+                end: new Date(removalRange.start)
+            });
+        }
+
+        if (selectedRange.end > removalRange.end) {
+            remainingRanges.push({
+                start: new Date(removalRange.end),
+                end: new Date(selectedRange.end)
+            });
+        }
+
+        return remainingRanges;
+    });
 }
 
 function rangesOverlap(firstRange, secondRange) {
