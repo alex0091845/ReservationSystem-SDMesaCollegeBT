@@ -323,19 +323,18 @@
 
 .recurrence-section {
     display: grid;
-    grid-template-columns: minmax(160px, 0.75fr) minmax(240px, 1fr);
-    align-items: stretch;
-    gap: 12px;
+    grid-template-columns: 1fr;
 }
 
 .recurrence-toggle {
     display: flex;
+    flex: 1 1 auto;
     align-items: flex-start;
     gap: 10px;
-    padding: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: var(--radius-card);
-    background: #f9fafb;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
     cursor: pointer;
 }
 
@@ -346,6 +345,7 @@
 .recurrence-toggle span {
     display: grid;
     gap: 2px;
+    min-width: 0;
 }
 
 .recurrence-toggle strong {
@@ -361,14 +361,22 @@
 }
 
 .recurrence-controls {
-    display: grid;
-    gap: 6px;
-    align-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
     border: 1px solid #d1d5db;
     border-radius: var(--radius-card);
     padding: 12px;
     background: #fff;
     transition: background-color 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+}
+
+.recurrence-duration-group {
+    display: grid;
+    flex: 0 0 auto;
+    gap: 6px;
+    min-width: 168px;
 }
 
 .recurrence-controls.disabled {

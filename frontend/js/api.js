@@ -372,6 +372,76 @@ export async function createEvent(eventData) {
     }
 }
 
+export async function createEvents(eventsToCreate, {
+    existingReservations = null,
+    users = null
+} = {}) {
+    const eventList = Array.isArray(eventsToCreate)
+        ? eventsToCreate.filter(Boolean)
+        : [];
+
+    if (eventList.length === 0) {
+        return [];
+    }
+
+    const validationUsers = users || await getValidationUsers();
+    const existingEvents = existingReservations || await getEvents();
+    const validatedEvents = [];
+
+    for (const eventData of eventList) {
+        const validation = validateReservationData({
+            reservationData: eventData,
+            existingReservations: [
+                ...existingEvents,
+                ...validatedEvents
+            ],
+            users: validationUsers
+        });
+
+        if (!validation.isValid) {
+            throw new Error(validation.message);
+        }
+
+        const hostUser = getEventHostById(eventData.host_user_id, validationUsers);
+        const eventForBackend = {
+            ...eventData,
+            host_user_id: hostUser?.id ?? eventData.host_user_id
+        };
+
+        validatedEvents.push(eventForBackend);
+    }
+
+    try {
+        const createResponse = await request(
+            "/events/batch",
+            "POST",
+            validatedEvents.map(toBackendEvent)
+        );
+        const createdEvents = normalizeCollection(
+            createResponse,
+            ["events", "data", "items", "records"]
+        ).map(normalizeEvent).filter(Boolean);
+
+        return validatedEvents.map((eventForBackend, index) => {
+            const createdEvent = createdEvents[index] || {};
+
+            return attachHostUser({
+                ...eventForBackend,
+                ...createdEvent,
+                id: createdEvent.id ?? eventForBackend.id
+            }, validationUsers);
+        });
+    } catch (error) {
+        console.error("Could not create events on backend:", error);
+        throw new Error(
+            getRequestFailureMessage(
+                error,
+                "Could not save the reservations to the backend."
+            )
+        );
+    }
+}
+
 export async function deleteEvent(eventData) {
     return request(`/events/${eventData.id}`, "DELETE");
 }

@@ -1,4 +1,4 @@
-import { createAttendee, createEvent, getEventTypes, getEvents, isUserDisabled } from "../api.js";
+import { createAttendee, createEvents, getEventTypes, getEvents, isUserDisabled } from "../api.js";
 import { formatReadableDate } from "../utils/dateUtils.js";
 import { validateReservationData } from "../utils/reservationValidation.js";
 import { renderEventTypeOptions } from "./eventTypeOptions.js";
@@ -479,11 +479,10 @@ reservationForm.addEventListener("submit", async (event) => {
             return;
         }
 
-        const createdEvents = [];
-
-        for (const occurrence of reservationPlan.creatableOccurrences) {
-            createdEvents.push(await createEvent(occurrence));
-        }
+        const createdEvents = await createEvents(
+            reservationPlan.creatableOccurrences,
+            { existingReservations }
+        );
 
         await reservationDraftAutosave.discard();
         closeReservationModal({ flushDraft: false });

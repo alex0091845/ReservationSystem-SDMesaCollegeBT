@@ -3,7 +3,7 @@ import {
     getAttendees,
     getEventTypes,
     getUsers,
-    createEvent,
+    createEvents,
     createUser,
     updateUser,
     updateEvent,
@@ -860,11 +860,10 @@ adminReservationForm.addEventListener("submit", async event => {
     try {
         const updatedReservation = await updateEvent(reservationData);
         const reservationToRender = updatedReservation || reservationData;
-        const createdReservations = [];
-
-        for (const additionalReservation of additionalReservationData) {
-            createdReservations.push(await createEvent(additionalReservation));
-        }
+        const createdReservations = await createEvents(additionalReservationData, {
+            existingReservations: reservations,
+            users
+        });
 
         reservations = reservations.map(reservation => {
             if (String(reservation.id) === String(reservationToRender.id)) {

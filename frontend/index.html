@@ -387,22 +387,24 @@
 
                     <div class="modal-field reservation-full recurrence-section">
                         <div class="recurrence-controls" id="reservationRecurringControls">
-                            <label class="modal-label" for="reservationRecurringDuration">Duration</label>
-                            <div class="duration-input-row">
-                                <input class="reservation-input" id="reservationRecurringDuration"
-                                    name="recurring_duration" type="number" min="1" step="1" value="4"
-                                    inputmode="numeric" disabled>
-                                <span class="duration-unit">weeks</span>
+                            <div class="recurrence-duration-group">
+                                <label class="modal-label" for="reservationRecurringDuration">Duration</label>
+                                <div class="duration-input-row">
+                                    <input class="reservation-input" id="reservationRecurringDuration"
+                                        name="recurring_duration" type="number" min="1" step="1" value="4"
+                                        inputmode="numeric" disabled>
+                                    <span class="duration-unit">weeks</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <label class="recurrence-toggle" for="reservationRecurring">
-                            <input id="reservationRecurring" name="recurring" type="checkbox">
-                            <span>
-                                <strong>Repeat weekly</strong>
-                                <small>Create this reservation on the same day and time for multiple weeks.</small>
-                            </span>
-                        </label>
+                            <label class="recurrence-toggle" for="reservationRecurring">
+                                <input id="reservationRecurring" name="recurring" type="checkbox">
+                                <span>
+                                    <strong>Repeat weekly</strong>
+                                    <small>Create this reservation on the same day and time for multiple weeks.</small>
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
                 </div>

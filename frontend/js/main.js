@@ -1,4 +1,4 @@
-import { createEvent, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
+import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
@@ -836,11 +836,10 @@ async function handleFacultyReservationSubmit(event) {
     try {
         const updatedReservation = await updateEvent(reservationData);
         const reservationToRender = updatedReservation || reservationData;
-        const createdReservations = [];
-
-        for (const additionalReservation of additionalReservationData) {
-            createdReservations.push(await createEvent(additionalReservation));
-        }
+        const createdReservations = await createEvents(additionalReservationData, {
+            existingReservations: reservedEvents,
+            users: currentUser ? [currentUser] : []
+        });
 
         reservedEvents = reservedEvents.map(reservation => {
             return String(reservation.id) === String(reservationToRender.id)

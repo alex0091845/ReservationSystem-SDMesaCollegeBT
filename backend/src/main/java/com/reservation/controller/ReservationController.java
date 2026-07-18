@@ -2,6 +2,7 @@ package com.reservation.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
 import com.reservation.services.AuthService;
@@ -72,6 +73,42 @@ public class ReservationController {
         }
     }
 
+    @PostMapping("/batch")
+    public ResponseEntity<String> createBatch(@RequestBody String body, HttpServletRequest request) {
+        try {
+            JsonNode input = objectMapper.readTree(body);
+            JsonNode inputEvents = input.isArray() ? input : input.path("events");
+
+            if (!inputEvents.isArray() || inputEvents.isEmpty()) {
+                return jsonError(400, "At least one reservation is required.");
+            }
+
+            ArrayNode eventBodies = objectMapper.createArrayNode();
+
+            for (int index = 0; index < inputEvents.size(); index++) {
+                ObjectNode eventBody;
+
+                try {
+                    eventBody = normalizeEventInput(inputEvents.get(index));
+                } catch (IllegalArgumentException error) {
+                    return jsonError(400, "Reservation " + (index + 1) + ": " + error.getMessage());
+                }
+
+                if (!canSaveWithRequestedHost(request, eventBody)) {
+                    return jsonError(403, "You do not have permission to save reservation " + (index + 1) + " for that host.");
+                }
+
+                eventBodies.add(eventBody);
+            }
+
+            return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBodies)));
+        } catch (IllegalArgumentException error) {
+            return jsonError(400, error.getMessage());
+        } catch (Exception error) {
+            throw new RuntimeException(error);
+        }
+    }
+
     @PatchMapping("/{id}")
     public ResponseEntity<String> update(@PathVariable int id, @RequestBody String body, HttpServletRequest request) {
         try {
@@ -119,30 +156,34 @@ public class ReservationController {
         try {
             JsonNode input = objectMapper.readTree(body);
 
-            if (!input.isObject()) {
-                throw new IllegalArgumentException("Event body must be a JSON object.");
-            }
-
-            ObjectNode event = objectMapper.createObjectNode();
-
-            copyIntegerField(input, event, "host_user_id", "host_user_id", "user_id");
-            copyField(input, event, "start_time", "start_time", "start");
-            copyField(input, event, "end_time", "end_time", "end");
-            copyField(input, event, "event_type", "event_type");
-            copyField(input, event, "description", "description");
-            copyField(input, event, "title", "title");
-            copyField(input, event, "department", "department");
-            copyBooleanField(input, event, "is_public", "is_public");
-            copyField(input, event, "recurrence_group_id", "recurrence_group_id");
-
-            validateEventBody(event);
-
-            return event;
+            return normalizeEventInput(input);
         } catch (IllegalArgumentException error) {
             throw error;
         } catch (Exception error) {
             throw new IllegalArgumentException("Event body could not be parsed.");
         }
+    }
+
+    private ObjectNode normalizeEventInput(JsonNode input) {
+        if (!input.isObject()) {
+            throw new IllegalArgumentException("Event body must be a JSON object.");
+        }
+
+        ObjectNode event = objectMapper.createObjectNode();
+
+        copyIntegerField(input, event, "host_user_id", "host_user_id", "user_id");
+        copyField(input, event, "start_time", "start_time", "start");
+        copyField(input, event, "end_time", "end_time", "end");
+        copyField(input, event, "event_type", "event_type");
+        copyField(input, event, "description", "description");
+        copyField(input, event, "title", "title");
+        copyField(input, event, "department", "department");
+        copyBooleanField(input, event, "is_public", "is_public");
+        copyField(input, event, "recurrence_group_id", "recurrence_group_id");
+
+        validateEventBody(event);
+
+        return event;
     }
 
     private JsonNode getExistingEvent(int id) {
