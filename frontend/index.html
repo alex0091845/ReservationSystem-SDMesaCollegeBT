@@ -387,6 +387,14 @@
 
                     <div class="modal-field reservation-full recurrence-section">
                         <div class="recurrence-controls" id="reservationRecurringControls">
+                            <label class="recurrence-toggle" for="reservationRecurring">
+                                <input id="reservationRecurring" name="recurring" type="checkbox">
+                                <span>
+                                    <strong>Repeat weekly</strong>
+                                    <small>Create this reservation on the same day and time for multiple weeks.</small>
+                                </span>
+                            </label>
+
                             <div class="recurrence-duration-group">
                                 <label class="modal-label" for="reservationRecurringDuration">Duration</label>
                                 <div class="duration-input-row">
@@ -396,14 +404,6 @@
                                     <span class="duration-unit">weeks</span>
                                 </div>
                             </div>
-
-                            <label class="recurrence-toggle" for="reservationRecurring">
-                                <input id="reservationRecurring" name="recurring" type="checkbox">
-                                <span>
-                                    <strong>Repeat weekly</strong>
-                                    <small>Create this reservation on the same day and time for multiple weeks.</small>
-                                </span>
-                            </label>
                         </div>
                     </div>
 

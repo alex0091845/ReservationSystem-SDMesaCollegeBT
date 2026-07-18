@@ -150,7 +150,7 @@
 }
 
 .reservation-time-section {
-    gap: 10px;
+    gap: 8px;
 }
 
 .reservation-time-label-row {
@@ -185,17 +185,17 @@
     display: grid;
     grid-template-columns: 36px 1fr 36px;
     align-items: center;
-    gap: 10px;
-    padding: 10px;
+    gap: 8px;
+    padding: 8px;
     border-bottom: 1px solid #e5e7eb;
     background: #f9fafb;
 }
 
 .reservation-time-picker-title {
     color: #111827;
-    font-size: 15px;
-    font-weight: 800;
-    line-height: 1.2;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.15;
     text-align: center;
 }
 
@@ -219,7 +219,7 @@
 .reservation-time-picker-grid {
     display: grid;
     grid-template-columns: 88px repeat(7, minmax(56px, 1fr));
-    max-height: 370px;
+    max-height: 340px;
     overflow: auto;
     user-select: none;
     touch-action: none;
@@ -251,8 +251,8 @@
     display: grid;
     gap: 2px;
     place-items: center;
-    min-height: 48px;
-    padding: 6px 4px;
+    min-height: 42px;
+    padding: 4px;
     color: #374151;
     font-size: 12px;
     line-height: 1.1;
@@ -262,6 +262,7 @@
 .reservation-time-picker-day strong {
     color: #111827;
     font-size: 14px;
+    font-weight: 700;
 }
 
 .reservation-time-picker-time {
@@ -272,8 +273,8 @@
     align-content: start;
     justify-items: end;
     gap: 1px;
-    min-height: 36px;
-    padding: 0 8px 0 6px;
+    min-height: 31px;
+    padding: 1px 8px 0 6px;
     background: #fafafa;
     color: #111827;
     line-height: 1;
@@ -284,12 +285,12 @@
 .reservation-time-picker-time-start {
     display: block;
     font-size: 12px;
-    font-weight: 800;
-    transform: translateY(-7px);
+    font-weight: 700;
+    transform: translateY(-3px);
 }
 
 .reservation-time-picker-slot {
-    min-height: 36px;
+    min-height: 31px;
     border-top: none;
     border-left: none;
     background: #fff;
@@ -312,13 +313,13 @@
 
 .reservation-time-picker-boundary-label,
 .reservation-time-picker-boundary-cell {
-    min-height: 24px;
+    min-height: 18px;
     border-bottom: none;
     background: #fafafa;
 }
 
 .reservation-time-picker-boundary-label .reservation-time-picker-time-start {
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .recurrence-section {
@@ -361,9 +362,9 @@
 }
 
 .recurrence-controls {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(240px, 1fr) minmax(168px, auto);
     align-items: center;
-    justify-content: space-between;
     gap: 18px;
     border: 1px solid #d1d5db;
     border-radius: var(--radius-card);
@@ -374,7 +375,6 @@
 
 .recurrence-duration-group {
     display: grid;
-    flex: 0 0 auto;
     gap: 6px;
     min-width: 168px;
 }
@@ -669,16 +669,21 @@
 
     .reservation-time-picker-grid {
         grid-template-columns: 72px repeat(7, minmax(46px, 1fr));
-        max-height: 330px;
+        max-height: 310px;
     }
 
     .reservation-time-picker-time {
+        min-height: 30px;
         padding-inline: 5px;
     }
 
     .reservation-time-picker-time-start {
         font-size: 10px;
-        transform: translateY(-5px);
+        transform: translateY(-2px);
+    }
+
+    .reservation-time-picker-slot {
+        min-height: 30px;
     }
 
     .reservation-time-picker-day {
@@ -690,6 +695,10 @@
     }
 
     .recurrence-section {
+        grid-template-columns: 1fr;
+    }
+
+    .recurrence-controls {
         grid-template-columns: 1fr;
     }
 }
