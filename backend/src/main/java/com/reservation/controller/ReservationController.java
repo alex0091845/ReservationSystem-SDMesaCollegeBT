@@ -18,8 +18,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/events")
@@ -111,86 +109,6 @@ public class ReservationController {
         }
     }
 
-    @PostMapping("/recurring")
-    public ResponseEntity<String> createRecurring(@RequestBody String body, HttpServletRequest request) {
-        try {
-            JsonNode input = objectMapper.readTree(body);
-
-            if (input == null || !input.isObject()) {
-                return jsonError(400, "Recurring reservation body must be a JSON object.");
-            }
-
-            JsonNode eventTemplate = input.path("event");
-            JsonNode ranges = input.path("ranges");
-
-            if (!eventTemplate.isObject()) {
-                return jsonError(400, "Recurring reservation event details are required.");
-            }
-
-            if (!ranges.isArray() || ranges.isEmpty()) {
-                return jsonError(400, "At least one recurring reservation time range is required.");
-            }
-
-            ArrayNode eventBodies = objectMapper.createArrayNode();
-
-            for (int rangeIndex = 0; rangeIndex < ranges.size(); rangeIndex++) {
-                JsonNode range = ranges.get(rangeIndex);
-
-                if (!range.isObject()) {
-                    return jsonError(400, "Recurring reservation range " + (rangeIndex + 1) + " is invalid.");
-                }
-
-                ZonedDateTime baseStart = parseReservationDateTime(
-                    requiredText(range, "start_time", "Recurring reservation start time is required."),
-                    "start_time"
-                );
-                ZonedDateTime baseEnd = parseReservationDateTime(
-                    requiredText(range, "end_time", "Recurring reservation end time is required."),
-                    "end_time"
-                );
-                int weekCount = readWeekCount(range.path("week_count"));
-                Set<Integer> excludedWeekOffsets = readExcludedWeekOffsets(
-                    range.path("excluded_week_offsets"),
-                    weekCount
-                );
-
-                for (int weekOffset = 0; weekOffset < weekCount; weekOffset++) {
-                    if (excludedWeekOffsets.contains(weekOffset)) {
-                        continue;
-                    }
-
-                    ObjectNode occurrenceInput = ((ObjectNode) eventTemplate).deepCopy();
-                    occurrenceInput.put("start_time", baseStart.plusWeeks(weekOffset).toInstant().toString());
-                    occurrenceInput.put("end_time", baseEnd.plusWeeks(weekOffset).toInstant().toString());
-
-                    ObjectNode eventBody;
-
-                    try {
-                        eventBody = normalizeEventInput(occurrenceInput);
-                    } catch (IllegalArgumentException error) {
-                        return jsonError(
-                            400,
-                            "Recurring reservation range " + (rangeIndex + 1) +
-                                ", week " + (weekOffset + 1) + ": " + error.getMessage()
-                        );
-                    }
-
-                    if (!canSaveWithRequestedHost(request, eventBody)) {
-                        return jsonError(403, "You do not have permission to save this recurring reservation for that host.");
-                    }
-
-                    eventBodies.add(eventBody);
-                }
-            }
-
-            return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBodies)));
-        } catch (IllegalArgumentException error) {
-            return jsonError(400, error.getMessage());
-        } catch (Exception error) {
-            throw new RuntimeException(error);
-        }
-    }
-
     @PatchMapping("/{id}")
     public ResponseEntity<String> update(@PathVariable int id, @RequestBody String body, HttpServletRequest request) {
         try {
@@ -266,57 +184,6 @@ public class ReservationController {
         validateEventBody(event);
 
         return event;
-    }
-
-    private String requiredText(JsonNode input, String fieldName, String message) {
-        JsonNode value = input.get(fieldName);
-
-        if (value == null || !value.isTextual() || value.asText().isBlank()) {
-            throw new IllegalArgumentException(message);
-        }
-
-        return value.asText();
-    }
-
-    private int readWeekCount(JsonNode input) {
-        if (!input.isIntegralNumber() || !input.canConvertToInt() || input.asInt() < 1) {
-            throw new IllegalArgumentException("Recurring reservation week_count must be a positive whole number.");
-        }
-
-        return input.asInt();
-    }
-
-    private Set<Integer> readExcludedWeekOffsets(JsonNode input, int weekCount) {
-        Set<Integer> weekOffsets = new LinkedHashSet<>();
-
-        if (input.isMissingNode() || input.isNull()) {
-            return weekOffsets;
-        }
-
-        if (!input.isArray()) {
-            throw new IllegalArgumentException("Recurring reservation excluded week offsets must be an array.");
-        }
-
-        for (JsonNode value : input) {
-            if (
-                !value.isIntegralNumber() ||
-                !value.canConvertToInt() ||
-                value.asInt() < 0 ||
-                value.asInt() >= weekCount
-            ) {
-                throw new IllegalArgumentException(
-                    "Recurring reservation excluded week offsets must fall within the requested duration."
-                );
-            }
-
-            weekOffsets.add(value.asInt());
-        }
-
-        if (weekOffsets.size() == weekCount) {
-            throw new IllegalArgumentException("A recurring reservation cannot exclude every week.");
-        }
-
-        return weekOffsets;
     }
 
     private JsonNode getExistingEvent(int id) {

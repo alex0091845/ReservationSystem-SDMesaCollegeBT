@@ -595,12 +595,12 @@
 }
 
 .reservation-danger-btn {
-    background: #dc2626;
+    background: var(--mesa-maroon);
     color: #fff;
 }
 
 .reservation-danger-btn:hover:not(:disabled) {
-    background: #b91c1c;
+    background: var(--mesa-maroon-dark);
 }
 
 .reservation-primary-btn:disabled,
@@ -919,7 +919,7 @@
 }
 
 .draft-exit-card {
-    width: min(100%, 560px);
+    width: min(100%, 440px);
     border-radius: var(--radius-modal);
     padding: 22px;
     background: #fff;
@@ -942,7 +942,7 @@
 
 .draft-exit-actions {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 20px;
@@ -963,7 +963,6 @@
 
     .draft-exit-actions {
         flex-direction: column-reverse;
-        flex-wrap: wrap;
     }
 
     .modal-label {

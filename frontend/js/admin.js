@@ -175,43 +175,31 @@ function clearStoredSession() {
 }
 
 async function loadDashboardData() {
-    const [
-        usersResult,
-        reservationsResult,
-        attendeesResult,
-        eventTypesResult
-    ] = await Promise.allSettled([
-        getUsers(),
-        getEvents(),
-        getAttendees(),
-        getEventTypes()
-    ]);
-
-    if (usersResult.status === "fulfilled") {
-        users = usersResult.value;
-    } else {
-        console.error("Could not load users for admin dashboard:", usersResult.reason);
+    try {
+        users = await getUsers();
+    } catch (error) {
+        console.error("Could not load users for admin dashboard:", error);
         users = [];
     }
 
-    if (reservationsResult.status === "fulfilled") {
-        reservations = reservationsResult.value;
-    } else {
-        console.error("Could not load reservations for admin dashboard:", reservationsResult.reason);
+    try {
+        reservations = await getEvents();
+    } catch (error) {
+        console.error("Could not load reservations for admin dashboard:", error);
         reservations = [];
     }
 
-    if (attendeesResult.status === "fulfilled") {
-        attendees = attendeesResult.value;
-    } else {
-        console.error("Could not load attendees for admin dashboard:", attendeesResult.reason);
+    try {
+        attendees = await getAttendees();
+    } catch (error) {
+        console.error("Could not load attendees for admin dashboard:", error);
         attendees = [];
     }
 
-    if (eventTypesResult.status === "fulfilled") {
-        eventTypes = eventTypesResult.value;
-    } else {
-        console.error("Could not load event types for admin dashboard:", eventTypesResult.reason);
+    try {
+        eventTypes = await getEventTypes();
+    } catch (error) {
+        console.error("Could not load event types for admin dashboard:", error);
         eventTypes = [];
     }
 

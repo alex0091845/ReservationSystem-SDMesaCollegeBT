@@ -94,7 +94,6 @@ let eventTypes = [];
 let currentUser = null;
 let selectedFacultyReservation = null;
 let facultyReservationClosePromptOpen = false;
-let appInitialized = false;
 const facultyReservationTimePicker = createReservationTimePicker({
     container: document.getElementById("facultyReservationTimePicker"),
     summaryElement: document.getElementById("facultyReservationTimeSummary"),
@@ -133,34 +132,10 @@ const facultyReservationDraftAutosave = createReservationDraftAutosave({
 });
 
 async function loadEvents() {
-    const eventTypesPromise = loadEventTypes();
-    const reservedEventsPromise = loadReservedEvents();
-    const sessionUser = await syncSessionFromBackend();
+    await syncSessionFromBackend();
+    await loadCurrentUser();
+    await loadEventTypes();
 
-    renderAll();
-
-    await Promise.allSettled([
-        loadCurrentUser(sessionUser),
-        eventTypesPromise,
-        reservedEventsPromise,
-        loadAttendees()
-    ]);
-
-    renderAll();
-}
-
-async function loadEventTypes() {
-    try {
-        eventTypes = await getEventTypes();
-    } catch (error) {
-        console.error("Error loading event types:", error);
-        eventTypes = [];
-    }
-
-    renderEventTypeOptions(elements.facultyReservationType, eventTypes);
-}
-
-async function loadReservedEvents() {
     try {
         reservedEvents = await getEvents();
 
@@ -171,16 +146,21 @@ async function loadReservedEvents() {
         reservedEvents = [];
     }
 
-    renderAll();
+    await loadAttendees();
+
+    init();
 }
 
-async function loadCurrentUser(sessionUser = null) {
-    if (!isFacultyLoggedIn || isCurrentSessionAdmin() || !currentUserId) {
-        return;
-    }
+async function loadEventTypes() {
+    eventTypes = await getEventTypes();
 
-    if (sessionUser && String(sessionUser.id) === String(currentUserId)) {
-        currentUser = sessionUser;
+    renderEventTypeOptions(elements.facultyReservationType, eventTypes);
+}
+
+loadEvents();
+
+async function loadCurrentUser() {
+    if (!isFacultyLoggedIn || isCurrentSessionAdmin() || !currentUserId) {
         return;
     }
 
@@ -472,20 +452,16 @@ async function syncSessionFromBackend() {
         const sessionUser = await getCurrentSession();
 
         if (!sessionUser?.id) {
-            return null;
+            return;
         }
 
         storeSessionUser(sessionUser);
 
         currentUser = sessionUser;
-
-        return sessionUser;
     } catch (error) {
         if (error.status === 401) {
             clearStoredSession();
         }
-
-        return null;
     }
 }
 
@@ -1374,18 +1350,9 @@ function bindEvents() {
 }
 
 function init() {
-    if (appInitialized) {
-        return;
-    }
-
-    appInitialized = true;
-
     syncCalendarToSelectedDate();
 
     bindEvents();
 
     renderAll();
 }
-
-init();
-loadEvents();
