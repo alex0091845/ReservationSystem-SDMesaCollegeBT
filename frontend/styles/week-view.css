@@ -41,6 +41,11 @@
     border-bottom: none;
 }
 
+.week-end-boundary-row {
+    min-height: var(--week-boundary-row-height, 32px);
+    background: #fafafa;
+}
+
 /* Week View Header/Time/Cells */
 
 .week-day-header {
@@ -72,6 +77,11 @@
     line-height: 1.1;
 }
 
+.week-end-boundary-row .week-time-label {
+    align-items: center;
+    padding-top: 0;
+}
+
 .week-cell {
     position: relative;
     min-width: 0;
@@ -80,6 +90,20 @@
     cursor: pointer;
     overflow: visible;
     transition: background-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.week-end-boundary-row .week-cell {
+    min-height: 0;
+    padding: 0;
+    background: #fafafa;
+}
+
+.week-end-boundary-row .week-cell.current-day-column {
+    background-color: rgba(15, 54, 163, 0.12);
+}
+
+.week-end-boundary-row .week-cell:hover {
+    filter: none;
 }
 
 .week-day-header:last-child,

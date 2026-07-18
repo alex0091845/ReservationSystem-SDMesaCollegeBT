@@ -1,4 +1,5 @@
 import {
+    CALENDAR_END_LABEL,
     CALENDAR_END_HOUR,
     convertHourLabelTo24,
     formatShortDateRange,
@@ -224,7 +225,59 @@ export function renderWeekView({
         weekViewWrapper.appendChild(row);
     });
 
+    weekViewWrapper.appendChild(createEndBoundaryRow({
+        weekDates,
+        selectedYear,
+        selectedMonth,
+        selectedDay,
+        onSelectDate
+    }));
+
     centerSelectedDateColumn(weekViewWrapper);
+}
+
+function createEndBoundaryRow({
+    weekDates,
+    selectedYear,
+    selectedMonth,
+    selectedDay,
+    onSelectDate
+}) {
+    const row = document.createElement("div");
+    const timeLabel = document.createElement("div");
+
+    row.classList.add("week-row", "week-end-boundary-row");
+    timeLabel.classList.add("week-time-label");
+    timeLabel.textContent = CALENDAR_END_LABEL;
+    row.appendChild(timeLabel);
+
+    weekDates.forEach(dateObj => {
+        const cell = document.createElement("div");
+        const isSelected =
+            dateObj.getFullYear() === selectedYear &&
+            dateObj.getMonth() === selectedMonth &&
+            dateObj.getDate() === selectedDay;
+
+        cell.classList.add("week-cell");
+
+        if (isSelected) {
+            cell.classList.add("current-day-column");
+        }
+
+        cell.addEventListener("click", () => {
+            onSelectDate(
+                new Date(
+                    dateObj.getFullYear(),
+                    dateObj.getMonth(),
+                    dateObj.getDate()
+                )
+            );
+        });
+
+        row.appendChild(cell);
+    });
+
+    return row;
 }
 
 function getWeekHourRowHeight(weekViewWrapper) {

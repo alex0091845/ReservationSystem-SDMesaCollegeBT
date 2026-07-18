@@ -166,6 +166,7 @@
         --week-hour-row-height: 52px;
         --week-header-height: 50px;
         --week-time-column-width: 54px;
+        --week-boundary-row-height: 28px;
         overflow-x: hidden;
     }
 
@@ -292,6 +293,7 @@
         --week-time-column-width: 40px;
         --week-min-event-height: 24px;
         --week-day-column-min: 78px;
+        --week-boundary-row-height: 24px;
         overflow-x: auto;
         overflow-y: hidden;
         -webkit-overflow-scrolling: touch;
@@ -427,6 +429,7 @@
         --week-time-column-width: 34px;
         --week-min-event-height: 22px;
         --week-day-column-min: 58px;
+        --week-boundary-row-height: 22px;
     }
 
     .week-day-name,
