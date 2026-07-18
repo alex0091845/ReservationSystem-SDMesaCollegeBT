@@ -299,12 +299,24 @@
                         <button type="button" class="reservation-danger-btn" id="facultyReservationClearBtn">
                             Clear Form
                         </button>
-                        <button type="button" class="reservation-danger-btn" id="facultyReservationDeleteBtn">
-                            Delete Reservation
-                        </button>
-                        <button type="button" class="reservation-danger-btn" id="facultyReservationDeleteSeriesBtn" hidden>
-                            Delete Recurring Series
-                        </button>
+                        <div class="reservation-delete-menu">
+                            <button type="button" class="reservation-danger-btn" id="facultyReservationDeleteMenuBtn"
+                                aria-haspopup="menu" aria-expanded="false"
+                                aria-controls="facultyReservationDeleteOptions">
+                                Delete
+                            </button>
+                            <div class="reservation-delete-options" id="facultyReservationDeleteOptions" role="menu"
+                                aria-labelledby="facultyReservationDeleteMenuBtn" hidden>
+                                <button type="button" class="reservation-delete-option" role="menuitem"
+                                    id="facultyReservationDeleteBtn">
+                                    Delete Reservation
+                                </button>
+                                <button type="button" class="reservation-delete-option" role="menuitem"
+                                    id="facultyReservationDeleteSeriesBtn" hidden>
+                                    Delete Recurring Series
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="reservation-action-group">
