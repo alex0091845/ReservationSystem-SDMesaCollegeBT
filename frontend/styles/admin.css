@@ -165,7 +165,6 @@
 .faculty-user-card.selected {
     border-color: var(--mesa-blue);
     background: #eff6ff;
-    box-shadow: inset 4px 0 0 var(--mesa-blue);
 }
 
 .faculty-user-card.disabled {
