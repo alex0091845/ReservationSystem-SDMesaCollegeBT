@@ -25,6 +25,7 @@ CREATE TABLE public.events (
   title text,
   department text,
   is_public boolean,
+  recurrence_group_id text,
   CONSTRAINT events_pkey PRIMARY KEY (id),
   CONSTRAINT reservations_user_id_fkey FOREIGN KEY (host_user_id) REFERENCES public.users(id),
   CONSTRAINT events_event_type_fkey FOREIGN KEY (event_type) REFERENCES public.event_types(event_type)

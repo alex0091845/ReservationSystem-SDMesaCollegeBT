@@ -51,6 +51,7 @@ const adminReservationModalOverlay = document.getElementById("adminReservationMo
 const adminReservationModalCloseBtn = document.getElementById("adminReservationModalCloseBtn");
 const adminReservationCancelBtn = document.getElementById("adminReservationCancelBtn");
 const adminReservationDeleteBtn = document.getElementById("adminReservationDeleteBtn");
+const adminReservationDeleteSeriesBtn = document.getElementById("adminReservationDeleteSeriesBtn");
 const adminReservationForm = document.getElementById("adminReservationForm");
 const adminReservationSubmitBtn = document.getElementById("adminReservationSubmitBtn");
 const adminReservationStatus = document.getElementById("adminReservationStatus");
@@ -526,6 +527,7 @@ function openReservationEditModal(reservation) {
     }
 
     renderAdminReservationAttendees(reservation);
+    updateAdminReservationSeriesDeleteButton(reservation);
 
     setAdminReservationStatus("");
     setAdminReservationSubmitting(false);
@@ -542,6 +544,15 @@ function renderAdminReservationAttendees(reservation) {
     });
 }
 
+function updateAdminReservationSeriesDeleteButton(reservation) {
+    if (!adminReservationDeleteSeriesBtn) {
+        return;
+    }
+
+    adminReservationDeleteSeriesBtn.hidden =
+        getReservationSeries(reservation, reservations).length < 2;
+}
+
 function closeReservationEditModal() {
     adminReservationModalOverlay.classList.remove("active");
     adminReservationModalOverlay.setAttribute("aria-hidden", "true");
@@ -549,6 +560,7 @@ function closeReservationEditModal() {
     selectedReservation = null;
     adminReservationForm.reset();
     adminReservationTimePicker.clear();
+    updateAdminReservationSeriesDeleteButton(null);
     setAdminReservationStatus("");
     setAdminReservationSubmitting(false);
     setAdminReservationDeleting(false);
@@ -609,17 +621,28 @@ function setAdminReservationSubmitting(isSubmitting) {
     if (adminReservationDeleteBtn) {
         adminReservationDeleteBtn.disabled = isSubmitting;
     }
+
+    if (adminReservationDeleteSeriesBtn) {
+        adminReservationDeleteSeriesBtn.disabled = isSubmitting;
+    }
 }
 
-function setAdminReservationDeleting(isDeleting) {
+function setAdminReservationDeleting(isDeleting, deleteMode = "reservation") {
     if (!adminReservationDeleteBtn) {
         return;
     }
 
     adminReservationDeleteBtn.disabled = isDeleting;
     adminReservationDeleteBtn.textContent = isDeleting
-        ? "Deleting..."
+        ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
         : "Delete Reservation";
+
+    if (adminReservationDeleteSeriesBtn) {
+        adminReservationDeleteSeriesBtn.disabled = isDeleting;
+        adminReservationDeleteSeriesBtn.textContent = isDeleting
+            ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
+            : "Delete Recurring Series";
+    }
 
     if (adminReservationSubmitBtn) {
         adminReservationSubmitBtn.disabled = isDeleting;
@@ -831,14 +854,7 @@ async function handleAdminReservationDelete() {
 
     try {
         await deleteEvent(selectedReservation);
-
-        reservations = reservations.filter(reservation => {
-            return String(reservation.id) !== String(selectedReservation.id);
-        });
-
-        attendees = attendees.filter(attendee => {
-            return String(attendee.event_id) !== String(selectedReservation.id);
-        });
+        removeReservationsFromAdminState([selectedReservation]);
 
         renderUserDetails();
         closeReservationEditModal();
@@ -851,6 +867,78 @@ async function handleAdminReservationDelete() {
     } finally {
         setAdminReservationDeleting(false);
     }
+}
+
+async function handleAdminReservationDeleteSeries() {
+    if (!selectedReservation) {
+        return;
+    }
+
+    const seriesReservations = getReservationSeries(selectedReservation, reservations);
+
+    if (seriesReservations.length < 2) {
+        return;
+    }
+
+    const reservationTitle = selectedReservation.title || "this recurring reservation";
+    const shouldDelete = window.confirm(
+        `Delete all ${seriesReservations.length} reservations in "${reservationTitle}"? This cannot be undone.`
+    );
+
+    if (!shouldDelete) {
+        return;
+    }
+
+    setAdminReservationStatus("");
+    setAdminReservationDeleting(true, "series");
+
+    try {
+        await deleteReservations(seriesReservations);
+        removeReservationsFromAdminState(seriesReservations);
+
+        renderUserDetails();
+        closeReservationEditModal();
+    } catch (error) {
+        console.error("Could not delete recurring reservation series:", error);
+        setAdminReservationStatus(
+            error.message || "Could not delete recurring reservation series. Please try again.",
+            "error"
+        );
+    } finally {
+        setAdminReservationDeleting(false);
+    }
+}
+
+function getReservationSeries(reservation, reservationList) {
+    const recurrenceGroupId = reservation?.recurrence_group_id;
+
+    if (!recurrenceGroupId) {
+        return [];
+    }
+
+    return reservationList.filter(candidate => {
+        return candidate.recurrence_group_id === recurrenceGroupId;
+    });
+}
+
+async function deleteReservations(reservationsToDelete) {
+    for (const reservation of reservationsToDelete) {
+        await deleteEvent(reservation);
+    }
+}
+
+function removeReservationsFromAdminState(reservationsToRemove) {
+    const deletedReservationIds = new Set(
+        reservationsToRemove.map(reservation => String(reservation.id))
+    );
+
+    reservations = reservations.filter(reservation => {
+        return !deletedReservationIds.has(String(reservation.id));
+    });
+
+    attendees = attendees.filter(attendee => {
+        return !deletedReservationIds.has(String(attendee.event_id));
+    });
 }
 
 async function handleConfirmUserStatusChange() {
@@ -929,6 +1017,7 @@ disableUserConfirmBtn.addEventListener("click", handleConfirmUserStatusChange);
 adminReservationModalCloseBtn.addEventListener("click", closeReservationEditModal);
 adminReservationCancelBtn.addEventListener("click", closeReservationEditModal);
 adminReservationDeleteBtn.addEventListener("click", handleAdminReservationDelete);
+adminReservationDeleteSeriesBtn.addEventListener("click", handleAdminReservationDeleteSeries);
 
 bindBackdropClose(userModalOverlay, closeUserModal);
 bindBackdropClose(disableUserModalOverlay, closeDisableUserModal);

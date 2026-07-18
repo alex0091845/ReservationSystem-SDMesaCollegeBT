@@ -475,9 +475,16 @@ reservationForm.addEventListener("submit", async (event) => {
 
 function buildReservationOccurrences(eventData) {
     const durationWeeks = getReservationDurationWeeks();
+    const recurrenceGroupId =
+        durationWeeks > 1
+            ? createRecurrenceGroupId()
+            : null;
 
     return Array.from({ length: durationWeeks }, (_, index) => {
-        return offsetReservationByWeeks(eventData, index);
+        return {
+            ...offsetReservationByWeeks(eventData, index),
+            ...(recurrenceGroupId ? { recurrence_group_id: recurrenceGroupId } : {})
+        };
     });
 }
 
@@ -513,6 +520,14 @@ function offsetIsoDateByDays(value, dayOffset) {
     date.setDate(date.getDate() + dayOffset);
 
     return date.toISOString();
+}
+
+function createRecurrenceGroupId() {
+    if (window.crypto?.randomUUID) {
+        return window.crypto.randomUUID();
+    }
+
+    return `recurrence-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function buildCreatableReservationPlan(eventOccurrences, existingReservations) {

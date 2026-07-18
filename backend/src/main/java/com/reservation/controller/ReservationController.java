@@ -133,6 +133,7 @@ public class ReservationController {
             copyField(input, event, "title", "title");
             copyField(input, event, "department", "department");
             copyBooleanField(input, event, "is_public", "is_public");
+            copyField(input, event, "recurrence_group_id", "recurrence_group_id");
 
             validateEventBody(event);
 

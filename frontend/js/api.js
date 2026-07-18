@@ -218,7 +218,8 @@ function toBackendEvent(eventData) {
         description: eventData.description,
         title: eventData.title,
         department: eventData.department,
-        is_public: eventData.is_public
+        is_public: eventData.is_public,
+        recurrence_group_id: eventData.recurrence_group_id
     };
 }
 

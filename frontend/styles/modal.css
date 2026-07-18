@@ -563,6 +563,16 @@
     justify-content: space-between;
 }
 
+.reservation-danger-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.reservation-danger-group[hidden] {
+    display: none;
+}
+
 .reservation-action-group {
     display: flex;
     gap: 10px;
@@ -588,6 +598,11 @@
 
     .reservation-action-group {
         flex-direction: column-reverse;
+        width: 100%;
+    }
+
+    .reservation-danger-group {
+        flex-direction: column;
         width: 100%;
     }
 

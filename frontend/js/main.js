@@ -34,6 +34,7 @@ const elements = {
     facultyReservationModalCloseBtn: document.getElementById("facultyReservationModalCloseBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
+    facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
     facultyReservationForm: document.getElementById("facultyReservationForm"),
     facultyReservationSubmitBtn: document.getElementById("facultyReservationSubmitBtn"),
     facultyReservationStatus: document.getElementById("facultyReservationStatus"),
@@ -598,6 +599,7 @@ function openFacultyReservationEditModal(reservation) {
     }
 
     renderFacultyReservationAttendees(reservation);
+    updateFacultyReservationSeriesDeleteButton(reservation);
 
     setFacultyReservationStatus("");
     setFacultyReservationSubmitting(false);
@@ -614,6 +616,22 @@ function renderFacultyReservationAttendees(reservation) {
     });
 }
 
+function updateFacultyReservationSeriesDeleteButton(reservation) {
+    if (!elements.facultyReservationDeleteSeriesBtn) {
+        return;
+    }
+
+    const seriesReservations = getReservationSeries(
+        reservation,
+        reservedEvents
+    ).filter(seriesReservation => {
+        return canCurrentUserEditReservation(seriesReservation);
+    });
+
+    elements.facultyReservationDeleteSeriesBtn.hidden =
+        seriesReservations.length < 2;
+}
+
 function closeFacultyReservationEditModal() {
     blurFocusedElementInside(elements.facultyReservationModalOverlay);
 
@@ -623,6 +641,7 @@ function closeFacultyReservationEditModal() {
     selectedFacultyReservation = null;
     elements.facultyReservationForm.reset();
     facultyReservationTimePicker.clear();
+    updateFacultyReservationSeriesDeleteButton(null);
     setFacultyReservationStatus("");
     setFacultyReservationSubmitting(false);
     setFacultyReservationDeleting(false);
@@ -657,17 +676,28 @@ function setFacultyReservationSubmitting(isSubmitting) {
     if (elements.facultyReservationDeleteBtn) {
         elements.facultyReservationDeleteBtn.disabled = isSubmitting;
     }
+
+    if (elements.facultyReservationDeleteSeriesBtn) {
+        elements.facultyReservationDeleteSeriesBtn.disabled = isSubmitting;
+    }
 }
 
-function setFacultyReservationDeleting(isDeleting) {
+function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
     if (!elements.facultyReservationDeleteBtn) {
         return;
     }
 
     elements.facultyReservationDeleteBtn.disabled = isDeleting;
     elements.facultyReservationDeleteBtn.textContent = isDeleting
-        ? "Deleting..."
+        ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
         : "Delete Reservation";
+
+    if (elements.facultyReservationDeleteSeriesBtn) {
+        elements.facultyReservationDeleteSeriesBtn.disabled = isDeleting;
+        elements.facultyReservationDeleteSeriesBtn.textContent = isDeleting
+            ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
+            : "Delete Recurring Series";
+    }
 
     if (elements.facultyReservationSubmitBtn) {
         elements.facultyReservationSubmitBtn.disabled = isDeleting;
@@ -785,14 +815,7 @@ async function handleFacultyReservationDelete() {
 
     try {
         await deleteEvent(selectedFacultyReservation);
-
-        reservedEvents = reservedEvents.filter(reservation => {
-            return String(reservation.id) !== String(selectedFacultyReservation.id);
-        });
-
-        attendees = attendees.filter(attendee => {
-            return String(attendee.event_id) !== String(selectedFacultyReservation.id);
-        });
+        removeReservationsFromFacultyState([selectedFacultyReservation]);
 
         closeFacultyReservationEditModal();
         renderAll();
@@ -805,6 +828,83 @@ async function handleFacultyReservationDelete() {
     } finally {
         setFacultyReservationDeleting(false);
     }
+}
+
+async function handleFacultyReservationDeleteSeries() {
+    if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
+        return;
+    }
+
+    const seriesReservations = getReservationSeries(
+        selectedFacultyReservation,
+        reservedEvents
+    ).filter(reservation => {
+        return canCurrentUserEditReservation(reservation);
+    });
+
+    if (seriesReservations.length < 2) {
+        return;
+    }
+
+    const reservationTitle = selectedFacultyReservation.title || "this recurring reservation";
+    const shouldDelete = window.confirm(
+        `Delete all ${seriesReservations.length} reservations in "${reservationTitle}"? This cannot be undone.`
+    );
+
+    if (!shouldDelete) {
+        return;
+    }
+
+    setFacultyReservationStatus("");
+    setFacultyReservationDeleting(true, "series");
+
+    try {
+        await deleteReservations(seriesReservations);
+        removeReservationsFromFacultyState(seriesReservations);
+
+        closeFacultyReservationEditModal();
+        renderAll();
+    } catch (error) {
+        console.error("Could not delete recurring reservation series:", error);
+        setFacultyReservationStatus(
+            error.message || "Could not delete recurring reservation series. Please try again.",
+            "error"
+        );
+    } finally {
+        setFacultyReservationDeleting(false);
+    }
+}
+
+function getReservationSeries(reservation, reservations) {
+    const recurrenceGroupId = reservation?.recurrence_group_id;
+
+    if (!recurrenceGroupId) {
+        return [];
+    }
+
+    return reservations.filter(candidate => {
+        return candidate.recurrence_group_id === recurrenceGroupId;
+    });
+}
+
+async function deleteReservations(reservationsToDelete) {
+    for (const reservation of reservationsToDelete) {
+        await deleteEvent(reservation);
+    }
+}
+
+function removeReservationsFromFacultyState(reservationsToRemove) {
+    const deletedReservationIds = new Set(
+        reservationsToRemove.map(reservation => String(reservation.id))
+    );
+
+    reservedEvents = reservedEvents.filter(reservation => {
+        return !deletedReservationIds.has(String(reservation.id));
+    });
+
+    attendees = attendees.filter(attendee => {
+        return !deletedReservationIds.has(String(attendee.event_id));
+    });
 }
 
 function isReservationOwnedByUser(reservation, user) {
@@ -982,6 +1082,13 @@ function bindEvents() {
         "click",
         handleFacultyReservationDelete
     );
+
+    if (elements.facultyReservationDeleteSeriesBtn) {
+        elements.facultyReservationDeleteSeriesBtn.addEventListener(
+            "click",
+            handleFacultyReservationDeleteSeries
+        );
+    }
 
     elements.facultyReservationForm.addEventListener(
         "submit",

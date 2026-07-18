@@ -263,9 +263,14 @@
                 <p class="reservation-status" id="adminReservationStatus" role="status" aria-live="polite"></p>
 
                 <div class="reservation-actions reservation-actions-split">
-                    <button type="button" class="reservation-danger-btn" id="adminReservationDeleteBtn">
-                        Delete Reservation
-                    </button>
+                    <div class="reservation-danger-group">
+                        <button type="button" class="reservation-danger-btn" id="adminReservationDeleteBtn">
+                            Delete Reservation
+                        </button>
+                        <button type="button" class="reservation-danger-btn" id="adminReservationDeleteSeriesBtn" hidden>
+                            Delete Recurring Series
+                        </button>
+                    </div>
 
                     <div class="reservation-action-group">
                         <button type="button" class="reservation-secondary-btn" id="adminReservationCancelBtn">
