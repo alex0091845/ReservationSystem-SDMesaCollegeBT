@@ -296,6 +296,9 @@
 
                 <div class="reservation-actions reservation-actions-split">
                     <div class="reservation-danger-group">
+                        <button type="button" class="reservation-danger-btn" id="facultyReservationClearBtn">
+                            Clear Form
+                        </button>
                         <button type="button" class="reservation-danger-btn" id="facultyReservationDeleteBtn">
                             Delete Reservation
                         </button>
@@ -305,14 +308,11 @@
                     </div>
 
                     <div class="reservation-action-group">
-                        <button type="button" class="reservation-secondary-btn" id="facultyReservationClearBtn">
-                            Clear Form
+                        <button type="button" class="reservation-secondary-btn" id="facultyReservationCancelBtn">
+                            Cancel
                         </button>
                         <button type="button" class="reservation-secondary-btn" id="facultyReservationSaveDraftBtn">
                             Save Draft
-                        </button>
-                        <button type="button" class="reservation-secondary-btn" id="facultyReservationCancelBtn">
-                            Cancel
                         </button>
                         <button type="submit" class="reservation-primary-btn" id="facultyReservationSubmitBtn">
                             Save Changes
@@ -427,15 +427,22 @@
 
                 <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
 
-                <div class="reservation-actions">
-                    <button type="button" class="reservation-secondary-btn" id="reservationClearBtn">
-                        Clear Form
-                    </button>
-                    <button type="button" class="reservation-secondary-btn" id="reservationSaveDraftBtn">
-                        Save Draft
-                    </button>
-                    <button type="button" class="reservation-secondary-btn" id="reservationCancelBtn">Cancel</button>
-                    <button type="submit" class="reservation-primary-btn">Create Reservation</button>
+                <div class="reservation-actions reservation-actions-split">
+                    <div class="reservation-danger-group">
+                        <button type="button" class="reservation-danger-btn" id="reservationClearBtn">
+                            Clear Form
+                        </button>
+                    </div>
+
+                    <div class="reservation-action-group">
+                        <button type="button" class="reservation-secondary-btn" id="reservationCancelBtn">
+                            Cancel
+                        </button>
+                        <button type="button" class="reservation-secondary-btn" id="reservationSaveDraftBtn">
+                            Save Draft
+                        </button>
+                        <button type="submit" class="reservation-primary-btn">Create Reservation</button>
+                    </div>
                 </div>
             </form>
         </div>
