@@ -201,7 +201,12 @@
             aria-labelledby="facultyReservationModalTitle">
             <div class="modal-topbar">
                 <div class="modal-title-group">
-                    <h2 class="modal-event-title" id="facultyReservationModalTitle">Edit Reservation</h2>
+                    <div class="modal-title-row">
+                        <h2 class="modal-event-title" id="facultyReservationModalTitle">Edit Reservation</h2>
+                        <span class="reservation-draft-badge" id="facultyReservationDraftBadge" hidden>
+                            Draft opened
+                        </span>
+                    </div>
                     <div class="modal-event-department">Update your reservation details</div>
                 </div>
 
@@ -300,6 +305,12 @@
                     </div>
 
                     <div class="reservation-action-group">
+                        <button type="button" class="reservation-secondary-btn" id="facultyReservationClearBtn">
+                            Clear Form
+                        </button>
+                        <button type="button" class="reservation-secondary-btn" id="facultyReservationSaveDraftBtn">
+                            Save Draft
+                        </button>
                         <button type="button" class="reservation-secondary-btn" id="facultyReservationCancelBtn">
                             Cancel
                         </button>
@@ -316,7 +327,12 @@
         <div class="modal reservation-modal" role="dialog" aria-modal="true" aria-labelledby="reservationModalTitle">
             <div class="modal-topbar">
                 <div class="modal-title-group">
-                    <h2 class="modal-event-title" id="reservationModalTitle">Create Reservation</h2>
+                    <div class="modal-title-row">
+                        <h2 class="modal-event-title" id="reservationModalTitle">Create Reservation</h2>
+                        <span class="reservation-draft-badge" id="reservationDraftBadge" hidden>
+                            Draft opened
+                        </span>
+                    </div>
                     <div class="modal-event-department">Reserve a study room event</div>
                 </div>
                 <button class="modal-close-btn" id="reservationModalCloseBtn"
@@ -412,6 +428,12 @@
                 <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
 
                 <div class="reservation-actions">
+                    <button type="button" class="reservation-secondary-btn" id="reservationClearBtn">
+                        Clear Form
+                    </button>
+                    <button type="button" class="reservation-secondary-btn" id="reservationSaveDraftBtn">
+                        Save Draft
+                    </button>
                     <button type="button" class="reservation-secondary-btn" id="reservationCancelBtn">Cancel</button>
                     <button type="submit" class="reservation-primary-btn">Create Reservation</button>
                 </div>

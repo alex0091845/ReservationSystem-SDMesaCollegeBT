@@ -12,8 +12,10 @@ import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import {
     applyReservationFormDraft,
+    clearReservationFormDraftFields,
     collectReservationFormDraft,
-    createReservationDraftAutosave
+    createReservationDraftAutosave,
+    showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
 
 
@@ -40,6 +42,9 @@ const elements = {
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
+    facultyReservationSaveDraftBtn: document.getElementById("facultyReservationSaveDraftBtn"),
+    facultyReservationClearBtn: document.getElementById("facultyReservationClearBtn"),
+    facultyReservationDraftBadge: document.getElementById("facultyReservationDraftBadge"),
     facultyReservationForm: document.getElementById("facultyReservationForm"),
     facultyReservationSubmitBtn: document.getElementById("facultyReservationSubmitBtn"),
     facultyReservationStatus: document.getElementById("facultyReservationStatus"),
@@ -88,6 +93,7 @@ let attendees = [];
 let eventTypes = [];
 let currentUser = null;
 let selectedFacultyReservation = null;
+let facultyReservationClosePromptOpen = false;
 const facultyReservationTimePicker = createReservationTimePicker({
     container: document.getElementById("facultyReservationTimePicker"),
     summaryElement: document.getElementById("facultyReservationTimeSummary"),
@@ -114,6 +120,14 @@ const facultyReservationDraftAutosave = createReservationDraftAutosave({
             facultyReservationTimePicker,
             payload
         );
+    },
+    badgeElement: elements.facultyReservationDraftBadge,
+    saveButton: elements.facultyReservationSaveDraftBtn,
+    onSaveSuccess: () => {
+        setFacultyReservationStatus("Draft saved.", "success");
+    },
+    onSaveError: () => {
+        setFacultyReservationStatus("Could not save this draft. Please try again.", "error");
     }
 });
 
@@ -695,6 +709,63 @@ function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
     setFacultyReservationDeleting(false);
 }
 
+async function requestCloseFacultyReservationEditModal() {
+    if (facultyReservationClosePromptOpen) {
+        return;
+    }
+
+    facultyReservationClosePromptOpen = true;
+
+    try {
+        const canClose = await resolveFacultyReservationDraftExit();
+
+        if (canClose) {
+            closeFacultyReservationEditModal({ flushDraft: false });
+        }
+    } finally {
+        facultyReservationClosePromptOpen = false;
+    }
+}
+
+async function resolveFacultyReservationDraftExit() {
+    if (!facultyReservationDraftAutosave.hasChanges()) {
+        return true;
+    }
+
+    const draftAction = await showDraftExitPrompt();
+
+    if (draftAction === "continue") {
+        return false;
+    }
+
+    if (draftAction === "discard") {
+        await facultyReservationDraftAutosave.discard();
+        return true;
+    }
+
+    try {
+        await facultyReservationDraftAutosave.saveNow({ force: true });
+        facultyReservationDraftAutosave.markClean();
+        setFacultyReservationStatus("Draft saved.", "success");
+        return true;
+    } catch (error) {
+        console.error("Could not save reservation draft before closing:", error);
+        setFacultyReservationStatus("Could not save this draft. Please try again.", "error");
+        return false;
+    }
+}
+
+async function clearFacultyReservationForm() {
+    clearReservationFormDraftFields(
+        elements.facultyReservationForm,
+        facultyReservationTimePicker,
+        { preserveNames: ["id", "host_user_id"] }
+    );
+    await facultyReservationDraftAutosave.discard();
+    facultyReservationDraftAutosave.markClean();
+    setFacultyReservationStatus("Form cleared.", "success");
+}
+
 function blurFocusedElementInside(container) {
     if (container?.contains(document.activeElement)) {
         document.activeElement.blur();
@@ -1171,13 +1242,20 @@ function bindEvents() {
 
     elements.facultyReservationModalCloseBtn.addEventListener(
         "click",
-        closeFacultyReservationEditModal
+        requestCloseFacultyReservationEditModal
     );
 
     elements.facultyReservationCancelBtn.addEventListener(
         "click",
-        closeFacultyReservationEditModal
+        requestCloseFacultyReservationEditModal
     );
+
+    if (elements.facultyReservationClearBtn) {
+        elements.facultyReservationClearBtn.addEventListener(
+            "click",
+            clearFacultyReservationForm
+        );
+    }
 
     elements.facultyReservationDeleteBtn.addEventListener(
         "click",
@@ -1216,7 +1294,7 @@ function bindEvents() {
     bindBackdropClose(elements.eventModalOverlay, closeEventModal);
     bindBackdropClose(
         elements.facultyReservationModalOverlay,
-        closeFacultyReservationEditModal
+        requestCloseFacultyReservationEditModal
     );
 
     // Allows event modal to be closed with escape key
@@ -1234,7 +1312,7 @@ function bindEvents() {
                 event.key === "Escape" &&
                 elements.facultyReservationModalOverlay.classList.contains("active")
             ) {
-                closeFacultyReservationEditModal();
+                requestCloseFacultyReservationEditModal();
             }
         }
     );

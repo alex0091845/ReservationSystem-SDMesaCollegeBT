@@ -170,7 +170,12 @@
         <div class="modal reservation-modal" role="dialog" aria-modal="true" aria-labelledby="adminReservationModalTitle">
             <div class="modal-topbar">
                 <div class="modal-title-group">
-                    <h2 class="modal-event-title" id="adminReservationModalTitle">Edit Reservation</h2>
+                    <div class="modal-title-row">
+                        <h2 class="modal-event-title" id="adminReservationModalTitle">Edit Reservation</h2>
+                        <span class="reservation-draft-badge" id="adminReservationDraftBadge" hidden>
+                            Draft opened
+                        </span>
+                    </div>
                     <div class="modal-event-department">Update reservation details</div>
                 </div>
 
@@ -273,6 +278,12 @@
                     </div>
 
                     <div class="reservation-action-group">
+                        <button type="button" class="reservation-secondary-btn" id="adminReservationClearBtn">
+                            Clear Form
+                        </button>
+                        <button type="button" class="reservation-secondary-btn" id="adminReservationSaveDraftBtn">
+                            Save Draft
+                        </button>
                         <button type="button" class="reservation-secondary-btn" id="adminReservationCancelBtn">
                             Cancel
                         </button>

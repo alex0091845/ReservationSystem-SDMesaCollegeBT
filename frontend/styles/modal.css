@@ -413,6 +413,7 @@
 
 .reservation-actions {
     display: flex;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 18px;
@@ -621,6 +622,7 @@
 
 .reservation-action-group {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
 }
 
@@ -882,6 +884,60 @@
     letter-spacing: 0.04em;
 }
 
+.reservation-draft-badge {
+    flex-shrink: 0;
+    border-radius: var(--radius-control);
+    padding: 4px 9px;
+    background: #eff6ff;
+    color: var(--mesa-blue);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.draft-exit-prompt {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(17, 24, 39, 0.52);
+}
+
+.draft-exit-card {
+    width: min(100%, 440px);
+    border-radius: var(--radius-modal);
+    padding: 22px;
+    background: #fff;
+    box-shadow: 0 22px 55px rgba(0, 0, 0, 0.28);
+}
+
+.draft-exit-card h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 22px;
+    line-height: 1.2;
+}
+
+.draft-exit-card p {
+    margin: 10px 0 0;
+    color: #4b5563;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.draft-exit-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}
+
 @media (max-width: 720px) {
     .modal-event-title {
         font-size: 21px;
@@ -893,6 +949,10 @@
 
     .modal-public-badge {
         font-size: 11px;
+    }
+
+    .draft-exit-actions {
+        flex-direction: column-reverse;
     }
 
     .modal-label {

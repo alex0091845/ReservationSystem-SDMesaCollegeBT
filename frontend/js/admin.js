@@ -20,8 +20,10 @@ import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import {
     applyReservationFormDraft,
+    clearReservationFormDraftFields,
     collectReservationFormDraft,
-    createReservationDraftAutosave
+    createReservationDraftAutosave,
+    showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
@@ -58,6 +60,9 @@ const adminReservationModalCloseBtn = document.getElementById("adminReservationM
 const adminReservationCancelBtn = document.getElementById("adminReservationCancelBtn");
 const adminReservationDeleteBtn = document.getElementById("adminReservationDeleteBtn");
 const adminReservationDeleteSeriesBtn = document.getElementById("adminReservationDeleteSeriesBtn");
+const adminReservationSaveDraftBtn = document.getElementById("adminReservationSaveDraftBtn");
+const adminReservationClearBtn = document.getElementById("adminReservationClearBtn");
+const adminReservationDraftBadge = document.getElementById("adminReservationDraftBadge");
 const adminReservationForm = document.getElementById("adminReservationForm");
 const adminReservationSubmitBtn = document.getElementById("adminReservationSubmitBtn");
 const adminReservationStatus = document.getElementById("adminReservationStatus");
@@ -71,6 +76,7 @@ let attendees = [];
 let eventTypes = [];
 let selectedUser = null;
 let selectedReservation = null;
+let adminReservationClosePromptOpen = false;
 let userPendingStatusChange = null;
 let pendingStatusAction = "disable";
 let modalMode = "create";
@@ -102,6 +108,14 @@ const adminReservationDraftAutosave = createReservationDraftAutosave({
             adminReservationTimePicker,
             payload
         );
+    },
+    badgeElement: adminReservationDraftBadge,
+    saveButton: adminReservationSaveDraftBtn,
+    onSaveSuccess: () => {
+        setAdminReservationStatus("Draft saved.", "success");
+    },
+    onSaveError: () => {
+        setAdminReservationStatus("Could not save this draft. Please try again.", "error");
     }
 });
 
@@ -598,6 +612,63 @@ function closeReservationEditModal({ flushDraft = true } = {}) {
     setAdminReservationStatus("");
     setAdminReservationSubmitting(false);
     setAdminReservationDeleting(false);
+}
+
+async function requestCloseReservationEditModal() {
+    if (adminReservationClosePromptOpen) {
+        return;
+    }
+
+    adminReservationClosePromptOpen = true;
+
+    try {
+        const canClose = await resolveAdminReservationDraftExit();
+
+        if (canClose) {
+            closeReservationEditModal({ flushDraft: false });
+        }
+    } finally {
+        adminReservationClosePromptOpen = false;
+    }
+}
+
+async function resolveAdminReservationDraftExit() {
+    if (!adminReservationDraftAutosave.hasChanges()) {
+        return true;
+    }
+
+    const draftAction = await showDraftExitPrompt();
+
+    if (draftAction === "continue") {
+        return false;
+    }
+
+    if (draftAction === "discard") {
+        await adminReservationDraftAutosave.discard();
+        return true;
+    }
+
+    try {
+        await adminReservationDraftAutosave.saveNow({ force: true });
+        adminReservationDraftAutosave.markClean();
+        setAdminReservationStatus("Draft saved.", "success");
+        return true;
+    } catch (error) {
+        console.error("Could not save reservation draft before closing:", error);
+        setAdminReservationStatus("Could not save this draft. Please try again.", "error");
+        return false;
+    }
+}
+
+async function clearAdminReservationForm() {
+    clearReservationFormDraftFields(
+        adminReservationForm,
+        adminReservationTimePicker,
+        { preserveNames: ["id", "host_user_id"] }
+    );
+    await adminReservationDraftAutosave.discard();
+    adminReservationDraftAutosave.markClean();
+    setAdminReservationStatus("Form cleared.", "success");
 }
 
 function bindBackdropClose(overlay, closeModal) {
@@ -1101,14 +1172,15 @@ disableUserModalCloseBtn.addEventListener("click", closeDisableUserModal);
 disableUserCancelBtn.addEventListener("click", closeDisableUserModal);
 disableUserConfirmBtn.addEventListener("click", handleConfirmUserStatusChange);
 
-adminReservationModalCloseBtn.addEventListener("click", closeReservationEditModal);
-adminReservationCancelBtn.addEventListener("click", closeReservationEditModal);
+adminReservationModalCloseBtn.addEventListener("click", requestCloseReservationEditModal);
+adminReservationCancelBtn.addEventListener("click", requestCloseReservationEditModal);
+adminReservationClearBtn.addEventListener("click", clearAdminReservationForm);
 adminReservationDeleteBtn.addEventListener("click", handleAdminReservationDelete);
 adminReservationDeleteSeriesBtn.addEventListener("click", handleAdminReservationDeleteSeries);
 
 bindBackdropClose(userModalOverlay, closeUserModal);
 bindBackdropClose(disableUserModalOverlay, closeDisableUserModal);
-bindBackdropClose(adminReservationModalOverlay, closeReservationEditModal);
+bindBackdropClose(adminReservationModalOverlay, requestCloseReservationEditModal);
 
 document.addEventListener("keydown", event => {
     if (
@@ -1129,7 +1201,7 @@ document.addEventListener("keydown", event => {
         event.key === "Escape" &&
         adminReservationModalOverlay.classList.contains("active")
     ) {
-        closeReservationEditModal();
+        requestCloseReservationEditModal();
     }
 });
 

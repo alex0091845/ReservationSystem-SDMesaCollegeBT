@@ -4,8 +4,10 @@ import { validateReservationData } from "../utils/reservationValidation.js";
 import { renderEventTypeOptions } from "./eventTypeOptions.js";
 import {
     applyReservationFormDraft,
+    clearReservationFormDraftFields,
     collectReservationFormDraft,
-    createReservationDraftAutosave
+    createReservationDraftAutosave,
+    showDraftExitPrompt
 } from "./reservationDrafts.js";
 import { createReservationTimePicker } from "./reservationTimePicker.js";
 
@@ -22,6 +24,9 @@ const reservationEndInput = document.getElementById("reservationEnd");
 const reservationRecurringInput = document.getElementById("reservationRecurring");
 const reservationRecurringControls = document.getElementById("reservationRecurringControls");
 const reservationRecurringDuration = document.getElementById("reservationRecurringDuration");
+const reservationSaveDraftBtn = document.getElementById("reservationSaveDraftBtn");
+const reservationClearBtn = document.getElementById("reservationClearBtn");
+const reservationDraftBadge = document.getElementById("reservationDraftBadge");
 const currentHostUserId = sessionStorage.getItem("currentUserId") || 1;
 const OVERLAP_VALIDATION_MESSAGE_PREFIX = "This reservation overlaps with";
 const reservationTimePicker = createReservationTimePicker({
@@ -46,10 +51,19 @@ const reservationDraftAutosave = createReservationDraftAutosave({
             payload
         );
         renderRecurringControls();
+    },
+    badgeElement: reservationDraftBadge,
+    saveButton: reservationSaveDraftBtn,
+    onSaveSuccess: () => {
+        setReservationStatus("Draft saved.", "success");
+    },
+    onSaveError: () => {
+        setReservationStatus("Could not save this draft. Please try again.", "error");
     }
 });
 let reservationEventTypes = [];
 let reservationPointerStartedOnBackdrop = false;
+let reservationClosePromptOpen = false;
 let eventModalReturnFocusElement = null;
 let reservationModalReturnFocusElement = null;
 let selectedCheckInEvent = null;
@@ -308,6 +322,60 @@ function closeReservationModal({ flushDraft = true } = {}) {
     reservationModalReturnFocusElement = null;
 }
 
+async function requestCloseReservationModal() {
+    if (reservationClosePromptOpen) {
+        return;
+    }
+
+    reservationClosePromptOpen = true;
+
+    try {
+        const canClose = await resolveReservationDraftExit();
+
+        if (canClose) {
+            closeReservationModal({ flushDraft: false });
+        }
+    } finally {
+        reservationClosePromptOpen = false;
+    }
+}
+
+async function resolveReservationDraftExit() {
+    if (!reservationDraftAutosave.hasChanges()) {
+        return true;
+    }
+
+    const draftAction = await showDraftExitPrompt();
+
+    if (draftAction === "continue") {
+        return false;
+    }
+
+    if (draftAction === "discard") {
+        await reservationDraftAutosave.discard();
+        return true;
+    }
+
+    try {
+        await reservationDraftAutosave.saveNow({ force: true });
+        reservationDraftAutosave.markClean();
+        setReservationStatus("Draft saved.", "success");
+        return true;
+    } catch (error) {
+        console.error("Could not save reservation draft before closing:", error);
+        setReservationStatus("Could not save this draft. Please try again.", "error");
+        return false;
+    }
+}
+
+async function clearReservationForm() {
+    clearReservationFormDraftFields(reservationForm, reservationTimePicker);
+    renderRecurringControls();
+    await reservationDraftAutosave.discard();
+    reservationDraftAutosave.markClean();
+    setReservationStatus("Form cleared.", "success");
+}
+
 function setReservationStatus(message, statusType = "") {
     if (!reservationStatus) {
         return;
@@ -386,15 +454,19 @@ if (reservationRecurringInput) {
     renderRecurringControls();
 }
 
+if (reservationClearBtn) {
+    reservationClearBtn.addEventListener("click", clearReservationForm);
+}
+
 // Close modal buttons
 reservationModalCloseBtn.addEventListener(
     "click",
-    closeReservationModal
+    requestCloseReservationModal
 );
 
 reservationCancelBtn.addEventListener(
     "click",
-    closeReservationModal
+    requestCloseReservationModal
 );
 
 // Close modal when clicking overlay
@@ -407,7 +479,7 @@ reservationModalOverlay.addEventListener("click", (event) => {
         reservationPointerStartedOnBackdrop &&
         event.target === reservationModalOverlay
     ) {
-        closeReservationModal();
+        requestCloseReservationModal();
     }
 
     reservationPointerStartedOnBackdrop = false;
@@ -419,7 +491,7 @@ document.addEventListener("keydown", (event) => {
         reservationModalOverlay.classList.contains("active");
 
     if (event.key === "Escape" && modalIsOpen) {
-        closeReservationModal();
+        requestCloseReservationModal();
     }
 });
 

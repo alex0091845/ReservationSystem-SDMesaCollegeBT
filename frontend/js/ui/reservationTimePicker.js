@@ -63,11 +63,13 @@ export function createReservationTimePicker({
         previousButton.addEventListener("click", () => {
             weekStart = addDays(weekStart, -7);
             render();
+            dispatchPickerChange();
         });
 
         nextButton.addEventListener("click", () => {
             weekStart = addDays(weekStart, 7);
             render();
+            dispatchPickerChange();
         });
 
         header.append(previousButton, title, nextButton);
@@ -289,11 +291,16 @@ export function createReservationTimePicker({
         }));
     }
 
+    function getWeekStart() {
+        return new Date(weekStart);
+    }
+
     function setWeekFromDate(dateValue) {
         const date = parseAnyDate(dateValue) || new Date();
 
         weekStart = getStartOfWeek(date);
         render();
+        dispatchPickerChange();
     }
 
     function clear() {
@@ -302,6 +309,7 @@ export function createReservationTimePicker({
         endInput.value = "";
         updateSelectionStyles();
         updateSummary();
+        dispatchPickerChange();
     }
 
     function syncInputs() {
@@ -323,6 +331,8 @@ export function createReservationTimePicker({
         if (endInput.value !== previousEndValue) {
             dispatchFieldChange(endInput);
         }
+
+        dispatchPickerChange();
     }
 
     function updateSelectionStyles() {
@@ -375,10 +385,16 @@ export function createReservationTimePicker({
         });
     }
 
+    function dispatchPickerChange() {
+        container.dispatchEvent(new Event("input", { bubbles: true }));
+        container.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
     render();
 
     return {
         clear,
+        getWeekStart,
         getRanges,
         render,
         setRange,
@@ -392,6 +408,9 @@ function createNoopTimePicker() {
         clear() {},
         getRanges() {
             return [];
+        },
+        getWeekStart() {
+            return null;
         },
         render() {},
         setRange() {},
