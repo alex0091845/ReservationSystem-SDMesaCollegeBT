@@ -24,6 +24,7 @@
         </div>
 
         <div class="nav-right">
+            <a class="login-btn admin-home-link" href="index.html">Home</a>
             <button class="login-btn admin-btn" id="logoutBtn">Sign Out</button>
         </div>
     </header>
@@ -262,11 +263,19 @@
 
                 <p class="reservation-status" id="adminReservationStatus" role="status" aria-live="polite"></p>
 
-                <div class="reservation-actions">
-                    <button type="button" class="reservation-secondary-btn" id="adminReservationCancelBtn">Cancel</button>
-                    <button type="submit" class="reservation-primary-btn" id="adminReservationSubmitBtn">
-                        Save Changes
+                <div class="reservation-actions reservation-actions-split">
+                    <button type="button" class="reservation-danger-btn" id="adminReservationDeleteBtn">
+                        Delete Reservation
                     </button>
+
+                    <div class="reservation-action-group">
+                        <button type="button" class="reservation-secondary-btn" id="adminReservationCancelBtn">
+                            Cancel
+                        </button>
+                        <button type="submit" class="reservation-primary-btn" id="adminReservationSubmitBtn">
+                            Save Changes
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

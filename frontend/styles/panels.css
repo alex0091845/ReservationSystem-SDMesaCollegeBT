@@ -7,7 +7,7 @@
 .week-view {
     width: 100%;
     background: #fff;
-    border-radius: 16px;
+    border-radius: var(--radius-panel);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
@@ -101,7 +101,7 @@
 
 .check-in-widget-empty {
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    border-radius: var(--radius-card);
     padding: 14px;
     background: #fafafa;
     color: #6b7280;
@@ -151,7 +151,7 @@
     height: 34px;
     padding: 0;
     border: none;
-    border-radius: 9px;
+    border-radius: var(--radius-control);
     background: var(--mesa-blue);
     color: #fff;
     font-size: 18px;

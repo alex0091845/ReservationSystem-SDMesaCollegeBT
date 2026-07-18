@@ -1,4 +1,4 @@
-import { getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
+import { deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
@@ -32,6 +32,7 @@ const elements = {
     facultyReservationModalOverlay: document.getElementById("facultyReservationModalOverlay"),
     facultyReservationModalCloseBtn: document.getElementById("facultyReservationModalCloseBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
+    facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationForm: document.getElementById("facultyReservationForm"),
     facultyReservationSubmitBtn: document.getElementById("facultyReservationSubmitBtn"),
     facultyReservationStatus: document.getElementById("facultyReservationStatus"),
@@ -273,14 +274,14 @@ function renderAll() {
         selectedDate: state.selectedDate,
         reservedEvents,
         onSelectDate: setSelectedDate,
-        openEventModal
+        openEventModal: openCalendarEvent
     });
 
     renderUpcomingEvents(
         elements.upcomingEventsList,
         today,
         reservedEvents,
-        openEventModal
+        openCalendarEvent
     );
 
     syncSideWidgetMaxHeight();
@@ -359,7 +360,7 @@ function selectReservationDate(reservation) {
 }
 
 async function loadAttendees() {
-    if (!isFacultyLoggedIn || isCurrentSessionAdmin()) {
+    if (!isFacultyLoggedIn) {
         attendees = [];
         return;
     }
@@ -382,9 +383,7 @@ async function syncSessionFromBackend() {
 
         storeSessionUser(sessionUser);
 
-        if (!isAdminUser(sessionUser)) {
-            currentUser = sessionUser;
-        }
+        currentUser = sessionUser;
     } catch (error) {
         if (error.status === 401) {
             clearStoredSession();
@@ -539,8 +538,17 @@ function formatSideWidgetDate(date) {
     });
 }
 
+function openCalendarEvent(reservation) {
+    if (canCurrentUserEditReservation(reservation)) {
+        openFacultyReservationEditModal(reservation);
+        return;
+    }
+
+    openEventModal(reservation);
+}
+
 function openFacultyReservationEditModal(reservation) {
-    if (!currentUser || !isReservationOwnedByUser(reservation, currentUser)) {
+    if (!canCurrentUserEditReservation(reservation)) {
         return;
     }
 
@@ -548,7 +556,7 @@ function openFacultyReservationEditModal(reservation) {
 
     document.getElementById("facultyReservationId").value = reservation.id ?? "";
     document.getElementById("facultyReservationHostUserId").value =
-        reservation.host_user_id ?? reservation.host_user?.id ?? currentUser.id ?? "";
+        reservation.host_user_id ?? reservation.host_user?.id ?? currentUser?.id ?? "";
     document.getElementById("facultyReservationTitle").value = reservation.title ?? "";
     renderEventTypeOptions(
         elements.facultyReservationType,
@@ -596,6 +604,7 @@ function closeFacultyReservationEditModal() {
     elements.facultyReservationForm.reset();
     setFacultyReservationStatus("");
     setFacultyReservationSubmitting(false);
+    setFacultyReservationDeleting(false);
 }
 
 function blurFocusedElementInside(container) {
@@ -623,6 +632,29 @@ function setFacultyReservationSubmitting(isSubmitting) {
     elements.facultyReservationSubmitBtn.textContent = isSubmitting
         ? "Saving..."
         : "Save Changes";
+
+    if (elements.facultyReservationDeleteBtn) {
+        elements.facultyReservationDeleteBtn.disabled = isSubmitting;
+    }
+}
+
+function setFacultyReservationDeleting(isDeleting) {
+    if (!elements.facultyReservationDeleteBtn) {
+        return;
+    }
+
+    elements.facultyReservationDeleteBtn.disabled = isDeleting;
+    elements.facultyReservationDeleteBtn.textContent = isDeleting
+        ? "Deleting..."
+        : "Delete Reservation";
+
+    if (elements.facultyReservationSubmitBtn) {
+        elements.facultyReservationSubmitBtn.disabled = isDeleting;
+    }
+
+    if (elements.facultyReservationCancelBtn) {
+        elements.facultyReservationCancelBtn.disabled = isDeleting;
+    }
 }
 
 function toIsoDateTimeValue(value) {
@@ -638,7 +670,7 @@ function toIsoDateTimeValue(value) {
 async function handleFacultyReservationSubmit(event) {
     event.preventDefault();
 
-    if (!selectedFacultyReservation || !currentUser) {
+    if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
         return;
     }
 
@@ -649,20 +681,21 @@ async function handleFacultyReservationSubmit(event) {
     const formData = new FormData(elements.facultyReservationForm);
     const startTime = toIsoDateTimeValue(formData.get("start"));
     const endTime = toIsoDateTimeValue(formData.get("end"));
-    const hostUserId = formData.get("host_user_id") || currentUser.id;
+    const existingHostUser = selectedFacultyReservation.host_user || {};
+    const hostUserId = formData.get("host_user_id") || existingHostUser.id || currentUser?.id;
 
     const reservationData = {
         ...selectedFacultyReservation,
         id: formData.get("id"),
         host_user_id: hostUserId,
         host_user: {
-            ...(selectedFacultyReservation.host_user || {}),
+            ...existingHostUser,
             id: hostUserId,
-            email: currentUser.email,
-            first_name: currentUser.first_name,
-            last_name: currentUser.last_name,
-            role_name: currentUser.role_name,
-            enabled: currentUser.enabled
+            email: existingHostUser.email ?? currentUser?.email,
+            first_name: existingHostUser.first_name ?? currentUser?.first_name,
+            last_name: existingHostUser.last_name ?? currentUser?.last_name,
+            role_name: existingHostUser.role_name ?? currentUser?.role_name,
+            enabled: existingHostUser.enabled ?? currentUser?.enabled
         },
         start_time: startTime,
         end_time: endTime,
@@ -712,6 +745,47 @@ async function handleFacultyReservationSubmit(event) {
     }
 }
 
+async function handleFacultyReservationDelete() {
+    if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
+        return;
+    }
+
+    const reservationTitle = selectedFacultyReservation.title || "this reservation";
+    const shouldDelete = window.confirm(
+        `Delete "${reservationTitle}"? This cannot be undone.`
+    );
+
+    if (!shouldDelete) {
+        return;
+    }
+
+    setFacultyReservationStatus("");
+    setFacultyReservationDeleting(true);
+
+    try {
+        await deleteEvent(selectedFacultyReservation);
+
+        reservedEvents = reservedEvents.filter(reservation => {
+            return String(reservation.id) !== String(selectedFacultyReservation.id);
+        });
+
+        attendees = attendees.filter(attendee => {
+            return String(attendee.event_id) !== String(selectedFacultyReservation.id);
+        });
+
+        closeFacultyReservationEditModal();
+        renderAll();
+    } catch (error) {
+        console.error("Could not delete reservation:", error);
+        setFacultyReservationStatus(
+            error.message || "Could not delete reservation. Please try again.",
+            "error"
+        );
+    } finally {
+        setFacultyReservationDeleting(false);
+    }
+}
+
 function isReservationOwnedByUser(reservation, user) {
     const reservationHostId =
         reservation.host_user_id ??
@@ -732,6 +806,18 @@ function isReservationOwnedByUser(reservation, user) {
         user.email &&
         reservationHostEmail.toLowerCase() === user.email.toLowerCase()
     );
+}
+
+function canCurrentUserEditReservation(reservation) {
+    if (!isFacultyLoggedIn || !currentUser) {
+        return false;
+    }
+
+    if (isCurrentSessionAdmin()) {
+        return true;
+    }
+
+    return currentUser && isReservationOwnedByUser(reservation, currentUser);
 }
 
 function formatDateTimeLocalValue(value) {
@@ -869,6 +955,11 @@ function bindEvents() {
     elements.facultyReservationCancelBtn.addEventListener(
         "click",
         closeFacultyReservationEditModal
+    );
+
+    elements.facultyReservationDeleteBtn.addEventListener(
+        "click",
+        handleFacultyReservationDelete
     );
 
     elements.facultyReservationForm.addEventListener(

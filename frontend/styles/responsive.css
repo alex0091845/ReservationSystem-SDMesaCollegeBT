@@ -49,7 +49,7 @@
     }
 
     .date {
-        border-radius: 7px;
+        border-radius: var(--radius-control);
         font-size: 12px;
     }
 
@@ -79,7 +79,7 @@
 
     .upcoming-event-card {
         padding: 10px 10px 10px 9px;
-        border-radius: 10px;
+        border-radius: var(--radius-card);
     }
 
     .upcoming-event-title {
@@ -347,7 +347,7 @@
         left: 1px;
         right: 1px;
         width: calc(100% - 2px);
-        border-radius: 5px;
+        border-radius: var(--radius-control);
         padding: 4px 3px;
         font-size: 10px;
         line-height: 1.1;
@@ -381,7 +381,7 @@
 
     .date {
         min-height: 30px;
-        border-radius: 8px;
+        border-radius: var(--radius-control);
         font-size: 12px;
     }
 

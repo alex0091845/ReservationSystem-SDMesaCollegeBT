@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
+import com.reservation.services.AuthService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,10 +16,12 @@ public class ReservationController {
 
     private final SupabaseClient supabase;
     private final ObjectMapper objectMapper;
+    private final AuthService authService;
 
-    public ReservationController(SupabaseClient supabase, ObjectMapper objectMapper) {
+    public ReservationController(SupabaseClient supabase, ObjectMapper objectMapper, AuthService authService) {
         this.supabase = supabase;
         this.objectMapper = objectMapper;
+        this.authService = authService;
     }
 
     @GetMapping
@@ -41,32 +45,66 @@ public class ReservationController {
     }
 
     @PostMapping
-    public ResponseEntity<String> create(@RequestBody String body) {
+    public ResponseEntity<String> create(@RequestBody String body, HttpServletRequest request) {
         try {
-            String eventBody = normalizeEventBody(body);
-            return fromSupabase(supabase.postResponse("events", eventBody));
+            ObjectNode eventBody = normalizeEventBody(body);
+
+            if (!canSaveWithRequestedHost(request, eventBody)) {
+                return jsonError(403, "You do not have permission to save this reservation for that host.");
+            }
+
+            return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBody)));
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
+        } catch (Exception error) {
+            throw new RuntimeException(error);
         }
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<String> update(@PathVariable int id, @RequestBody String body) {
+    public ResponseEntity<String> update(@PathVariable int id, @RequestBody String body, HttpServletRequest request) {
         try {
-            String eventBody = normalizeEventBody(body);
-            return fromSupabase(supabase.patchResponse("events?id=eq." + id, eventBody));
+            JsonNode existingEvent = getExistingEvent(id);
+
+            if (existingEvent == null) {
+                return jsonError(404, "Reservation not found.");
+            }
+
+            if (!canModifyExistingEvent(request, existingEvent)) {
+                return jsonError(403, "You do not have permission to modify this reservation.");
+            }
+
+            ObjectNode eventBody = normalizeEventBody(body);
+
+            if (!canSaveWithRequestedHost(request, eventBody)) {
+                return jsonError(403, "You do not have permission to save this reservation for that host.");
+            }
+
+            return fromSupabase(supabase.patchResponse("events?id=eq." + id, objectMapper.writeValueAsString(eventBody)));
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
+        } catch (Exception error) {
+            throw new RuntimeException(error);
         }
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable int id) {
+    public ResponseEntity<?> delete(@PathVariable int id, HttpServletRequest request) {
+        JsonNode existingEvent = getExistingEvent(id);
+
+        if (existingEvent == null) {
+            return jsonError(404, "Reservation not found.");
+        }
+
+        if (!canModifyExistingEvent(request, existingEvent)) {
+            return jsonError(403, "You do not have permission to delete this reservation.");
+        }
+
         supabase.delete("events?id=eq." + id);
         return ResponseEntity.noContent().build();
     }
 
-    private String normalizeEventBody(String body) {
+    private ObjectNode normalizeEventBody(String body) {
         try {
             JsonNode input = objectMapper.readTree(body);
 
@@ -87,12 +125,69 @@ public class ReservationController {
 
             validateEventBody(event);
 
-            return objectMapper.writeValueAsString(event);
+            return event;
         } catch (IllegalArgumentException error) {
             throw error;
         } catch (Exception error) {
             throw new IllegalArgumentException("Event body could not be parsed.");
         }
+    }
+
+    private JsonNode getExistingEvent(int id) {
+        try {
+            String response = supabase.get("events?id=eq." + id + "&select=id,host_user_id");
+            JsonNode events = objectMapper.readTree(response);
+
+            if (!events.isArray() || events.isEmpty()) {
+                return null;
+            }
+
+            return events.get(0);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not verify reservation ownership.");
+        }
+    }
+
+    private boolean canModifyExistingEvent(HttpServletRequest request, JsonNode existingEvent) {
+        JsonNode currentUser = getCurrentUser(request);
+
+        if (currentUser == null) {
+            return false;
+        }
+
+        if (authService.isAdmin(currentUser)) {
+            return true;
+        }
+
+        return userOwnsHostId(currentUser, existingEvent.path("host_user_id"));
+    }
+
+    private boolean canSaveWithRequestedHost(HttpServletRequest request, ObjectNode eventBody) {
+        JsonNode currentUser = getCurrentUser(request);
+
+        if (currentUser == null) {
+            return false;
+        }
+
+        if (authService.isAdmin(currentUser)) {
+            return true;
+        }
+
+        return userOwnsHostId(currentUser, eventBody.path("host_user_id"));
+    }
+
+    private JsonNode getCurrentUser(HttpServletRequest request) {
+        Object currentUser = request.getAttribute("currentUser");
+
+        return currentUser instanceof JsonNode ? (JsonNode) currentUser : null;
+    }
+
+    private boolean userOwnsHostId(JsonNode currentUser, JsonNode hostUserId) {
+        if (!hostUserId.canConvertToLong() || !currentUser.path("id").canConvertToLong()) {
+            return false;
+        }
+
+        return hostUserId.asLong() == currentUser.path("id").asLong();
     }
 
     private void copyField(JsonNode input, ObjectNode output, String outputField, String... inputFields) {

@@ -291,13 +291,19 @@
 
                 <p class="reservation-status" id="facultyReservationStatus" role="status" aria-live="polite"></p>
 
-                <div class="reservation-actions">
-                    <button type="button" class="reservation-secondary-btn" id="facultyReservationCancelBtn">
-                        Cancel
+                <div class="reservation-actions reservation-actions-split">
+                    <button type="button" class="reservation-danger-btn" id="facultyReservationDeleteBtn">
+                        Delete Reservation
                     </button>
-                    <button type="submit" class="reservation-primary-btn" id="facultyReservationSubmitBtn">
-                        Save Changes
-                    </button>
+
+                    <div class="reservation-action-group">
+                        <button type="button" class="reservation-secondary-btn" id="facultyReservationCancelBtn">
+                            Cancel
+                        </button>
+                        <button type="submit" class="reservation-primary-btn" id="facultyReservationSubmitBtn">
+                            Save Changes
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>

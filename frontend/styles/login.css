@@ -14,7 +14,7 @@ body {
 .login-container {
   background-color: white;
   padding: 42px;
-  border-radius: 10px;
+  border-radius: var(--radius-panel);
   width: min(100%, 380px);
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.18);
 }
@@ -43,6 +43,7 @@ label {
 
 input {
   width: 100%;
+  border-radius: var(--radius-control);
   padding: 12px;
   margin-bottom: 14px;
   box-sizing: border-box;
@@ -74,7 +75,7 @@ button {
   background-color: var(--mesa-blue);
   color: white;
   border: none;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 

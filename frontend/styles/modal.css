@@ -20,7 +20,7 @@
     max-width: 700px;
     max-height: 85vh;
     overflow-y: auto;
-    border-radius: 18px;
+    border-radius: var(--radius-modal);
     background: #fff;
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
     animation: modalPop 0.18s ease-out;
@@ -70,7 +70,7 @@
     width: 38px;
     height: 38px;
     border: none;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     background: #f3f4f6;
     color: #374151;
     font-size: 20px;
@@ -130,7 +130,7 @@
 .reservation-input {
     width: 100%;
     border: 1px solid #d1d5db;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     padding: 10px 12px;
     font-size: 14px;
     color: #111827;
@@ -216,7 +216,7 @@
 .reservation-attendee-item,
 .reservation-attendees-empty {
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     padding: 12px;
     background: #fafafa;
 }
@@ -298,9 +298,10 @@
 }
 
 .reservation-primary-btn,
-.reservation-secondary-btn {
+.reservation-secondary-btn,
+.reservation-danger-btn {
     border: none;
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     padding: 10px 16px;
     font-weight: 600;
     cursor: pointer;
@@ -325,6 +326,32 @@
     background: #d1d5db;
 }
 
+.reservation-danger-btn {
+    background: var(--mesa-maroon);
+    color: #fff;
+}
+
+.reservation-danger-btn:hover:not(:disabled) {
+    background: var(--mesa-maroon-dark);
+}
+
+.reservation-primary-btn:disabled,
+.reservation-secondary-btn:disabled,
+.reservation-danger-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.72;
+}
+
+.reservation-actions-split {
+    align-items: center;
+    justify-content: space-between;
+}
+
+.reservation-action-group {
+    display: flex;
+    gap: 10px;
+}
+
 @media (max-width: 720px) {
     .reservation-grid {
         grid-template-columns: 1fr;
@@ -343,8 +370,14 @@
         flex-direction: column;
     }
 
+    .reservation-action-group {
+        flex-direction: column-reverse;
+        width: 100%;
+    }
+
     .reservation-primary-btn,
-    .reservation-secondary-btn {
+    .reservation-secondary-btn,
+    .reservation-danger-btn {
         width: 100%;
     }
 }
@@ -405,7 +438,7 @@
     min-height: 100%;
     padding: 14px 16px;
     border: 1px solid #d1d5db;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     background: #fff;
     transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }

@@ -23,7 +23,7 @@
     display: inline-flex;
     align-items: center;
     flex: 0 0 auto;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
     padding: 6px 8px;
     background: #fff;
 }
@@ -103,7 +103,7 @@
     justify-content: center;
     min-height: 36px;
     border: 1px solid var(--mesa-blue);
-    border-radius: 6px;
+    border-radius: var(--radius-control);
     padding: 8px 16px;
     background-color: var(--mesa-blue);
     color: #fff;

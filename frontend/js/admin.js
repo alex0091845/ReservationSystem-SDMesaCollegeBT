@@ -6,6 +6,7 @@ import {
     createUser,
     updateUser,
     updateEvent,
+    deleteEvent,
     disableUser,
     enableUser,
     logoutUser,
@@ -48,6 +49,7 @@ const disableUserWarning = document.getElementById("disableUserWarning");
 const adminReservationModalOverlay = document.getElementById("adminReservationModalOverlay");
 const adminReservationModalCloseBtn = document.getElementById("adminReservationModalCloseBtn");
 const adminReservationCancelBtn = document.getElementById("adminReservationCancelBtn");
+const adminReservationDeleteBtn = document.getElementById("adminReservationDeleteBtn");
 const adminReservationForm = document.getElementById("adminReservationForm");
 const adminReservationSubmitBtn = document.getElementById("adminReservationSubmitBtn");
 const adminReservationStatus = document.getElementById("adminReservationStatus");
@@ -539,6 +541,7 @@ function closeReservationEditModal() {
     adminReservationForm.reset();
     setAdminReservationStatus("");
     setAdminReservationSubmitting(false);
+    setAdminReservationDeleting(false);
 }
 
 function bindBackdropClose(overlay, closeModal) {
@@ -592,6 +595,29 @@ function setAdminReservationSubmitting(isSubmitting) {
     adminReservationSubmitBtn.textContent = isSubmitting
         ? "Saving..."
         : "Save Changes";
+
+    if (adminReservationDeleteBtn) {
+        adminReservationDeleteBtn.disabled = isSubmitting;
+    }
+}
+
+function setAdminReservationDeleting(isDeleting) {
+    if (!adminReservationDeleteBtn) {
+        return;
+    }
+
+    adminReservationDeleteBtn.disabled = isDeleting;
+    adminReservationDeleteBtn.textContent = isDeleting
+        ? "Deleting..."
+        : "Delete Reservation";
+
+    if (adminReservationSubmitBtn) {
+        adminReservationSubmitBtn.disabled = isDeleting;
+    }
+
+    if (adminReservationCancelBtn) {
+        adminReservationCancelBtn.disabled = isDeleting;
+    }
 }
 
 function toIsoDateTimeValue(value) {
@@ -776,6 +802,47 @@ adminReservationForm.addEventListener("submit", async event => {
     }
 });
 
+async function handleAdminReservationDelete() {
+    if (!selectedReservation) {
+        return;
+    }
+
+    const reservationTitle = selectedReservation.title || "this reservation";
+    const shouldDelete = window.confirm(
+        `Delete "${reservationTitle}"? This cannot be undone.`
+    );
+
+    if (!shouldDelete) {
+        return;
+    }
+
+    setAdminReservationStatus("");
+    setAdminReservationDeleting(true);
+
+    try {
+        await deleteEvent(selectedReservation);
+
+        reservations = reservations.filter(reservation => {
+            return String(reservation.id) !== String(selectedReservation.id);
+        });
+
+        attendees = attendees.filter(attendee => {
+            return String(attendee.event_id) !== String(selectedReservation.id);
+        });
+
+        renderUserDetails();
+        closeReservationEditModal();
+    } catch (error) {
+        console.error("Could not delete reservation:", error);
+        setAdminReservationStatus(
+            error.message || "Could not delete reservation. Please try again.",
+            "error"
+        );
+    } finally {
+        setAdminReservationDeleting(false);
+    }
+}
+
 async function handleConfirmUserStatusChange() {
     if (!userPendingStatusChange) {
         return;
@@ -851,6 +918,7 @@ disableUserConfirmBtn.addEventListener("click", handleConfirmUserStatusChange);
 
 adminReservationModalCloseBtn.addEventListener("click", closeReservationEditModal);
 adminReservationCancelBtn.addEventListener("click", closeReservationEditModal);
+adminReservationDeleteBtn.addEventListener("click", handleAdminReservationDelete);
 
 bindBackdropClose(userModalOverlay, closeUserModal);
 bindBackdropClose(disableUserModalOverlay, closeDisableUserModal);

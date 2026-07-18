@@ -4,9 +4,18 @@
     --font-tertiary: Arial, Helvetica, sans-serif;
     --font-secondary: "URW DIN", "DIN 2014", "DIN Alternate", var(--font-tertiary);
     --font-primary: Optima, "Optima Nova", "URW Classico", var(--font-secondary);
-    --mesa-blue: #0a55a4;
-    --mesa-blue-dark: #073f78;
+    --mesa-blue: #1f3c7b;
+    --mesa-blue-dark: #0e223f;
     --district-cyan: #2fa9e0;
+    --mesa-green: #699446;
+    --mesa-orange: #f37725;
+    --mesa-purple: #523993;
+    --mesa-maroon: #643c48;
+    --mesa-maroon-dark: #48182c;
+    --radius-panel: 8px;
+    --radius-card: 6px;
+    --radius-control: 4px;
+    --radius-modal: 8px;
 }
 
 * {

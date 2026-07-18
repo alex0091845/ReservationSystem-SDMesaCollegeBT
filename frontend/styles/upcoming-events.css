@@ -16,7 +16,7 @@
     width: 100%;
     border: 1px solid #e5e7eb;
     border-left-width: 6px;
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     padding: 12px 12px 12px 10px;
     background: #fafafa;
     text-align: left;

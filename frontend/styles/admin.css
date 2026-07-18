@@ -10,7 +10,7 @@
 
 .admin-panel {
     background: #fff;
-    border-radius: 8px;
+    border-radius: var(--radius-panel);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     padding: 24px;
 }
@@ -29,7 +29,7 @@
     justify-content: center;
     min-height: 336px;
     border: 1px dashed #d1d5db;
-    border-radius: 6px;
+    border-radius: var(--radius-card);
     padding: 18px;
     color: #6b7280;
     background: #fafafa;
@@ -117,7 +117,7 @@
     width: 100%;
     min-height: 36px;
     border: 1px solid #d1d5db;
-    border-radius: 6px;
+    border-radius: var(--radius-control);
     padding: 8px 10px;
     color: #111827;
     background: #fff;
@@ -147,7 +147,7 @@
     gap: 12px;
     width: 100%;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border-radius: var(--radius-card);
     padding: 9px 10px;
     background: #fff;
     text-align: left;
@@ -237,7 +237,7 @@
 
 .faculty-user-empty {
     border: 1px dashed #d1d5db;
-    border-radius: 6px;
+    border-radius: var(--radius-card);
     padding: 18px 12px;
     color: #6b7280;
     background: #fafafa;
@@ -327,7 +327,7 @@
 .selected-user-reservation-item,
 .selected-user-empty-reservations {
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border-radius: var(--radius-card);
     background: #fafafa;
     padding: 10px;
 }
