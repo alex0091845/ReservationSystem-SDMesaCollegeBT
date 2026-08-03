@@ -159,6 +159,7 @@ All routes are under `/api`. Sessions are cookie-based (`session_id`).
 | `POST`                 | `/api/logout`                 | Invalidate the session           |
 | `GET`                  | `/api/session`                | Current logged-in user           |
 | `GET/POST/PATCH/DELETE`| `/api/events`                 | Reservations / events            |
+| `POST`                 | `/api/events/recurring`       | Compact recurring reservations   |
 | `GET/POST/DELETE`      | `/api/reservation-drafts`     | Autosaved reservation drafts     |
 | `GET`                  | `/api/events/public`          | Publicly visible events          |
 | `GET/POST/…`           | `/api/attendees`              | Attendees (incl. `/by-event/{id}`, `/by-user/{id}`) |
