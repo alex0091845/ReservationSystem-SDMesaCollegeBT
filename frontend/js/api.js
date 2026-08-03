@@ -656,14 +656,87 @@ async function createEventsIndividually(validatedEvents, validationUsers) {
             index,
             index + EVENT_CREATE_FALLBACK_CONCURRENCY
         );
-        const chunkResults = await Promise.all(chunk.map(eventForBackend => {
+        const chunkResults = await Promise.allSettled(chunk.map(eventForBackend => {
             return createValidatedEvent(eventForBackend, validationUsers);
         }));
 
-        createdEvents.push(...chunkResults);
+        for (const chunkResult of chunkResults) {
+            if (chunkResult.status === "fulfilled") {
+                createdEvents.push(chunkResult.value);
+            }
+        }
+
+        const failedResult = chunkResults.find(chunkResult => {
+            return chunkResult.status === "rejected";
+        });
+
+        if (failedResult) {
+            const abandonedEvents = await rollBackCreatedEvents(createdEvents);
+
+            if (abandonedEvents.length > 0) {
+                throw buildAbandonedReservationsError(abandonedEvents);
+            }
+
+            throw failedResult.reason;
+        }
     }
 
     return createdEvents;
+}
+
+function toReservationId(value) {
+    if (value === null || value === undefined || value === "") {
+        return null;
+    }
+
+    const numberValue = Number(value);
+
+    return Number.isInteger(numberValue) && numberValue > 0 ? numberValue : null;
+}
+
+async function rollBackCreatedEvents(createdEvents) {
+    const abandonedEvents = [];
+
+    for (const createdEvent of createdEvents) {
+        const eventId = toReservationId(createdEvent?.id);
+
+        if (eventId === null) {
+            abandonedEvents.push(createdEvent);
+            continue;
+        }
+
+        try {
+            await deleteEvent({ id: eventId });
+        } catch (error) {
+            console.error(
+                "Could not roll back reservation after a failed batch:",
+                eventId,
+                error
+            );
+            abandonedEvents.push(createdEvent);
+        }
+    }
+
+    return abandonedEvents;
+}
+
+function buildAbandonedReservationsError(abandonedEvents) {
+    const identifiers = abandonedEvents
+        .map(abandonedEvent => toReservationId(abandonedEvent?.id))
+        .filter(eventId => eventId !== null);
+    const identifierSummary = identifiers.length > 0
+        ? ` (reservation ${identifiers.length === 1 ? "ID" : "IDs"}: ${identifiers.join(", ")})`
+        : "";
+    const error = new Error(
+        `Only part of this booking could be saved, and ${abandonedEvents.length} ` +
+        `${abandonedEvents.length === 1 ? "reservation" : "reservations"} could not be ` +
+        `removed automatically${identifierSummary}. Please delete ` +
+        `${abandonedEvents.length === 1 ? "it" : "them"} before trying again.`
+    );
+
+    error.data = { error: error.message };
+
+    return error;
 }
 
 async function createValidatedEvent(eventForBackend, validationUsers) {
