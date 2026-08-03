@@ -391,7 +391,7 @@ export function showDraftExitPrompt() {
         discardButton.type = "button";
         continueButton.type = "button";
         saveButton.type = "button";
-        discardButton.className = "reservation-secondary-btn";
+        discardButton.className = "reservation-danger-btn";
         continueButton.className = "reservation-secondary-btn";
         saveButton.className = "reservation-primary-btn";
         discardButton.textContent = "Discard Changes";

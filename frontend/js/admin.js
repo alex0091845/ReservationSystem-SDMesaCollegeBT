@@ -18,6 +18,7 @@ import { renderEventAttendees } from "./ui/attendees.js";
 import { createEventCard } from "./ui/eventCards.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
+import { createActionMenu } from "./ui/actionMenu.js";
 import {
     applyReservationFormDraft,
     clearReservationFormDraftFields,
@@ -60,6 +61,8 @@ const adminReservationModalCloseBtn = document.getElementById("adminReservationM
 const adminReservationCancelBtn = document.getElementById("adminReservationCancelBtn");
 const adminReservationDeleteBtn = document.getElementById("adminReservationDeleteBtn");
 const adminReservationDeleteSeriesBtn = document.getElementById("adminReservationDeleteSeriesBtn");
+const adminReservationDeleteMenuBtn = document.getElementById("adminReservationDeleteMenuBtn");
+const adminReservationDeleteOptions = document.getElementById("adminReservationDeleteOptions");
 const adminReservationSaveDraftBtn = document.getElementById("adminReservationSaveDraftBtn");
 const adminReservationClearBtn = document.getElementById("adminReservationClearBtn");
 const adminReservationDraftBadge = document.getElementById("adminReservationDraftBadge");
@@ -69,6 +72,10 @@ const adminReservationStatus = document.getElementById("adminReservationStatus")
 const adminReservationAttendeesList = document.getElementById("adminReservationAttendeesList");
 const adminReservationAttendeesCount = document.getElementById("adminReservationAttendeesCount");
 const adminReservationType = document.getElementById("adminReservationType");
+const adminReservationDeleteMenu = createActionMenu({
+    trigger: adminReservationDeleteMenuBtn,
+    menu: adminReservationDeleteOptions
+});
 
 let users = [];
 let reservations = [];
@@ -175,31 +182,43 @@ function clearStoredSession() {
 }
 
 async function loadDashboardData() {
-    try {
-        users = await getUsers();
-    } catch (error) {
-        console.error("Could not load users for admin dashboard:", error);
+    const [
+        usersResult,
+        reservationsResult,
+        attendeesResult,
+        eventTypesResult
+    ] = await Promise.allSettled([
+        getUsers(),
+        getEvents(),
+        getAttendees(),
+        getEventTypes()
+    ]);
+
+    if (usersResult.status === "fulfilled") {
+        users = usersResult.value;
+    } else {
+        console.error("Could not load users for admin dashboard:", usersResult.reason);
         users = [];
     }
 
-    try {
-        reservations = await getEvents();
-    } catch (error) {
-        console.error("Could not load reservations for admin dashboard:", error);
+    if (reservationsResult.status === "fulfilled") {
+        reservations = reservationsResult.value;
+    } else {
+        console.error("Could not load reservations for admin dashboard:", reservationsResult.reason);
         reservations = [];
     }
 
-    try {
-        attendees = await getAttendees();
-    } catch (error) {
-        console.error("Could not load attendees for admin dashboard:", error);
+    if (attendeesResult.status === "fulfilled") {
+        attendees = attendeesResult.value;
+    } else {
+        console.error("Could not load attendees for admin dashboard:", attendeesResult.reason);
         attendees = [];
     }
 
-    try {
-        eventTypes = await getEventTypes();
-    } catch (error) {
-        console.error("Could not load event types for admin dashboard:", error);
+    if (eventTypesResult.status === "fulfilled") {
+        eventTypes = eventTypesResult.value;
+    } else {
+        console.error("Could not load event types for admin dashboard:", eventTypesResult.reason);
         eventTypes = [];
     }
 
@@ -596,6 +615,8 @@ function updateAdminReservationSeriesDeleteButton(reservation) {
 }
 
 function closeReservationEditModal({ flushDraft = true } = {}) {
+    adminReservationDeleteMenu.close();
+
     if (flushDraft) {
         adminReservationDraftAutosave.deactivate({ flush: true });
     } else {
@@ -730,6 +751,14 @@ function setAdminReservationSubmitting(isSubmitting) {
     if (adminReservationDeleteSeriesBtn) {
         adminReservationDeleteSeriesBtn.disabled = isSubmitting;
     }
+
+    if (adminReservationDeleteMenuBtn) {
+        adminReservationDeleteMenuBtn.disabled = isSubmitting;
+    }
+
+    if (isSubmitting) {
+        adminReservationDeleteMenu.close();
+    }
 }
 
 function setAdminReservationDeleting(isDeleting, deleteMode = "reservation") {
@@ -738,15 +767,22 @@ function setAdminReservationDeleting(isDeleting, deleteMode = "reservation") {
     }
 
     adminReservationDeleteBtn.disabled = isDeleting;
-    adminReservationDeleteBtn.textContent = isDeleting
-        ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-        : "Delete Reservation";
+    adminReservationDeleteBtn.textContent = "Delete Reservation";
 
     if (adminReservationDeleteSeriesBtn) {
         adminReservationDeleteSeriesBtn.disabled = isDeleting;
-        adminReservationDeleteSeriesBtn.textContent = isDeleting
+        adminReservationDeleteSeriesBtn.textContent = "Delete Recurring Series";
+    }
+
+    if (adminReservationDeleteMenuBtn) {
+        adminReservationDeleteMenuBtn.disabled = isDeleting;
+        adminReservationDeleteMenuBtn.textContent = isDeleting
             ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-            : "Delete Recurring Series";
+            : "Delete";
+    }
+
+    if (isDeleting) {
+        adminReservationDeleteMenu.close();
     }
 
     if (adminReservationSubmitBtn) {

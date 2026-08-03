@@ -3,6 +3,17 @@ import { validateReservationData } from "./utils/reservationValidation.js";
 const API_ORIGIN = window.RESERVATION_API_ORIGIN || window.location.origin;
 const BASE_URL = `${API_ORIGIN}/api`;
 const REQUEST_TIMEOUT_MS = 8000;
+const EVENT_CREATE_FALLBACK_CONCURRENCY = 8;
+const RESERVATION_TIME_ZONE = "America/Los_Angeles";
+const RESERVATION_DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
+    timeZone: RESERVATION_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+});
 const EVENT_TYPE_VALUE_ALIASES = {
     meeting: "Meeting",
     office_hours: "Other",
@@ -202,10 +213,13 @@ function normalizeCollection(responseData, collectionKeys = []) {
 }
 
 function getRequestFailureMessage(error, fallbackMessage) {
+    const textResponse = typeof error?.data === "string"
+        ? error.data.trim()
+        : "";
     const responseMessage =
         error?.data?.error ||
         error?.data?.message ||
-        (typeof error?.data === "string" ? error.data : "");
+        (!isHtmlErrorResponse(textResponse) ? textResponse : "");
 
     if (responseMessage) {
         return responseMessage;
@@ -222,6 +236,28 @@ function getRequestFailureMessage(error, fallbackMessage) {
     return fallbackMessage;
 }
 
+function isHtmlErrorResponse(responseText) {
+    if (!responseText) {
+        return false;
+    }
+
+    return /^<!doctype\s+html/i.test(responseText) ||
+        /^<html[\s>]/i.test(responseText) ||
+        /<title>/i.test(responseText);
+}
+
+function shouldUseLegacyEventCreationFallback(error) {
+    const status = error?.status;
+
+    return status === 404 ||
+        status === 405 ||
+        status === 501 ||
+        status === 502 ||
+        status === 503 ||
+        status === 504 ||
+        (status === 403 && isHtmlErrorResponse(String(error?.data || "").trim()));
+}
+
 function toBackendEvent(eventData) {
     return {
         host_user_id: normalizeInteger(
@@ -236,6 +272,125 @@ function toBackendEvent(eventData) {
         is_public: eventData.is_public,
         recurrence_group_id: eventData.recurrence_group_id
     };
+}
+
+function toRecurringEventTemplate(eventData) {
+    const eventTemplate = toBackendEvent(eventData);
+
+    delete eventTemplate.start_time;
+    delete eventTemplate.end_time;
+
+    return eventTemplate;
+}
+
+function buildRecurringCreateRequest(events) {
+    if (events.length < 2) {
+        return null;
+    }
+
+    const eventTemplate = toRecurringEventTemplate(events[0]);
+    const recurrenceGroupId = eventTemplate.recurrence_group_id;
+
+    if (!recurrenceGroupId) {
+        return null;
+    }
+
+    const serializedTemplate = JSON.stringify(eventTemplate);
+    const rangeGroups = new Map();
+
+    for (const event of events) {
+        const candidateTemplate = toRecurringEventTemplate(event);
+
+        if (
+            candidateTemplate.recurrence_group_id !== recurrenceGroupId ||
+            JSON.stringify(candidateTemplate) !== serializedTemplate
+        ) {
+            return null;
+        }
+
+        const start = new Date(event.start_time ?? event.start);
+        const end = new Date(event.end_time ?? event.end);
+
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return null;
+        }
+
+        const startParts = getReservationDateTimeParts(start);
+        const durationMilliseconds = end.getTime() - start.getTime();
+        const groupKey = [
+            getReservationWeekday(startParts),
+            startParts.hour,
+            startParts.minute,
+            durationMilliseconds
+        ].join("|");
+
+        if (!rangeGroups.has(groupKey)) {
+            rangeGroups.set(groupKey, []);
+        }
+
+        rangeGroups.get(groupKey).push({
+            event,
+            start,
+            end,
+            startParts
+        });
+    }
+
+    const ranges = [];
+
+    for (const groupedEvents of rangeGroups.values()) {
+        groupedEvents.sort((first, second) => first.start - second.start);
+
+        const baseOccurrence = groupedEvents[0];
+        const baseDateNumber = getReservationDateNumber(baseOccurrence.startParts);
+        const weekOffsets = [];
+
+        for (const occurrence of groupedEvents) {
+            const dayDifference =
+                getReservationDateNumber(occurrence.startParts) - baseDateNumber;
+
+            if (dayDifference < 0 || dayDifference % 7 !== 0) {
+                return null;
+            }
+
+            weekOffsets.push(dayDifference / 7);
+        }
+
+        const weekCount = weekOffsets[weekOffsets.length - 1] + 1;
+        const includedWeekOffsets = new Set(weekOffsets);
+        const excludedWeekOffsets = Array.from(
+            { length: weekCount },
+            (_, weekOffset) => weekOffset
+        ).filter(weekOffset => !includedWeekOffsets.has(weekOffset));
+
+        ranges.push({
+            start_time: baseOccurrence.start.toISOString(),
+            end_time: baseOccurrence.end.toISOString(),
+            week_count: weekCount,
+            excluded_week_offsets: excludedWeekOffsets
+        });
+    }
+
+    return {
+        event: eventTemplate,
+        ranges
+    };
+}
+
+function getReservationDateTimeParts(date) {
+    return Object.fromEntries(
+        RESERVATION_DATE_TIME_FORMATTER.formatToParts(date)
+            .filter(part => part.type !== "literal")
+            .map(part => [part.type, Number(part.value)])
+    );
+}
+
+function getReservationDateNumber(parts) {
+    return Date.UTC(parts.year, parts.month - 1, parts.day) / 86400000;
+}
+
+function getReservationWeekday(parts) {
+    return new Date(Date.UTC(parts.year, parts.month - 1, parts.day)).getUTCDay();
 }
 
 function parseJsonValue(value) {
@@ -412,11 +567,36 @@ export async function createEvents(eventsToCreate, {
     }
 
     try {
-        const createResponse = await request(
-            "/events/batch",
-            "POST",
-            validatedEvents.map(toBackendEvent)
-        );
+        const recurringRequest = buildRecurringCreateRequest(validatedEvents);
+        let createResponse;
+
+        if (recurringRequest) {
+            try {
+                createResponse = await request(
+                    "/events/recurring",
+                    "POST",
+                    recurringRequest
+                );
+            } catch (error) {
+                if (!shouldUseLegacyEventCreationFallback(error)) {
+                    throw error;
+                }
+
+                console.warn(
+                    "Compact recurring reservation endpoint unavailable; retrying with the batch endpoint.",
+                    error
+                );
+            }
+        }
+
+        if (!createResponse) {
+            createResponse = await request(
+                "/events/batch",
+                "POST",
+                validatedEvents.map(toBackendEvent)
+            );
+        }
+
         const createdEvents = normalizeCollection(
             createResponse,
             ["events", "data", "items", "records"]
@@ -432,6 +612,28 @@ export async function createEvents(eventsToCreate, {
             }, validationUsers);
         });
     } catch (error) {
+        if (shouldUseLegacyEventCreationFallback(error)) {
+            console.warn(
+                "Batch reservation creation failed; retrying with individual reservation requests.",
+                error
+            );
+
+            try {
+                return await createEventsIndividually(
+                    validatedEvents,
+                    validationUsers
+                );
+            } catch (fallbackError) {
+                console.error("Could not create events with fallback requests:", fallbackError);
+                throw new Error(
+                    getRequestFailureMessage(
+                        fallbackError,
+                        "Could not save the reservations to the backend."
+                    )
+                );
+            }
+        }
+
         console.error("Could not create events on backend:", error);
         throw new Error(
             getRequestFailureMessage(
@@ -440,6 +642,47 @@ export async function createEvents(eventsToCreate, {
             )
         );
     }
+}
+
+async function createEventsIndividually(validatedEvents, validationUsers) {
+    const createdEvents = [];
+
+    for (
+        let index = 0;
+        index < validatedEvents.length;
+        index += EVENT_CREATE_FALLBACK_CONCURRENCY
+    ) {
+        const chunk = validatedEvents.slice(
+            index,
+            index + EVENT_CREATE_FALLBACK_CONCURRENCY
+        );
+        const chunkResults = await Promise.all(chunk.map(eventForBackend => {
+            return createValidatedEvent(eventForBackend, validationUsers);
+        }));
+
+        createdEvents.push(...chunkResults);
+    }
+
+    return createdEvents;
+}
+
+async function createValidatedEvent(eventForBackend, validationUsers) {
+    const createResponse = await request(
+        "/events",
+        "POST",
+        toBackendEvent(eventForBackend)
+    );
+    const createdEvent = normalizeCollection(
+        createResponse,
+        ["events", "data", "items", "records"]
+    ).map(normalizeEvent).filter(Boolean)[0] ||
+        normalizeEvent(createResponse);
+
+    return attachHostUser({
+        ...eventForBackend,
+        ...createdEvent,
+        id: createdEvent?.id ?? eventForBackend.id
+    }, validationUsers);
 }
 
 export async function deleteEvent(eventData) {

@@ -10,6 +10,7 @@ import { renderEventAttendees } from "./ui/attendees.js";
 import { createModalController } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
+import { createActionMenu } from "./ui/actionMenu.js";
 import {
     applyReservationFormDraft,
     clearReservationFormDraftFields,
@@ -42,6 +43,8 @@ const elements = {
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
+    facultyReservationDeleteMenuBtn: document.getElementById("facultyReservationDeleteMenuBtn"),
+    facultyReservationDeleteOptions: document.getElementById("facultyReservationDeleteOptions"),
     facultyReservationSaveDraftBtn: document.getElementById("facultyReservationSaveDraftBtn"),
     facultyReservationClearBtn: document.getElementById("facultyReservationClearBtn"),
     facultyReservationDraftBadge: document.getElementById("facultyReservationDraftBadge"),
@@ -74,6 +77,11 @@ const elements = {
     navUserName: document.getElementById("navUserName")
 };
 
+const facultyReservationDeleteMenu = createActionMenu({
+    trigger: elements.facultyReservationDeleteMenuBtn,
+    menu: elements.facultyReservationDeleteOptions
+});
+
 let isFacultyLoggedIn =
     sessionStorage.getItem("facultyLoggedIn") === "true";
 let currentUserId = sessionStorage.getItem("currentUserId");
@@ -94,6 +102,7 @@ let eventTypes = [];
 let currentUser = null;
 let selectedFacultyReservation = null;
 let facultyReservationClosePromptOpen = false;
+let appInitialized = false;
 const facultyReservationTimePicker = createReservationTimePicker({
     container: document.getElementById("facultyReservationTimePicker"),
     summaryElement: document.getElementById("facultyReservationTimeSummary"),
@@ -132,10 +141,34 @@ const facultyReservationDraftAutosave = createReservationDraftAutosave({
 });
 
 async function loadEvents() {
-    await syncSessionFromBackend();
-    await loadCurrentUser();
-    await loadEventTypes();
+    const eventTypesPromise = loadEventTypes();
+    const reservedEventsPromise = loadReservedEvents();
+    const sessionUser = await syncSessionFromBackend();
 
+    renderAll();
+
+    await Promise.allSettled([
+        loadCurrentUser(sessionUser),
+        eventTypesPromise,
+        reservedEventsPromise,
+        loadAttendees()
+    ]);
+
+    renderAll();
+}
+
+async function loadEventTypes() {
+    try {
+        eventTypes = await getEventTypes();
+    } catch (error) {
+        console.error("Error loading event types:", error);
+        eventTypes = [];
+    }
+
+    renderEventTypeOptions(elements.facultyReservationType, eventTypes);
+}
+
+async function loadReservedEvents() {
     try {
         reservedEvents = await getEvents();
 
@@ -146,21 +179,16 @@ async function loadEvents() {
         reservedEvents = [];
     }
 
-    await loadAttendees();
-
-    init();
+    renderAll();
 }
 
-async function loadEventTypes() {
-    eventTypes = await getEventTypes();
-
-    renderEventTypeOptions(elements.facultyReservationType, eventTypes);
-}
-
-loadEvents();
-
-async function loadCurrentUser() {
+async function loadCurrentUser(sessionUser = null) {
     if (!isFacultyLoggedIn || isCurrentSessionAdmin() || !currentUserId) {
+        return;
+    }
+
+    if (sessionUser && String(sessionUser.id) === String(currentUserId)) {
+        currentUser = sessionUser;
         return;
     }
 
@@ -452,16 +480,20 @@ async function syncSessionFromBackend() {
         const sessionUser = await getCurrentSession();
 
         if (!sessionUser?.id) {
-            return;
+            return null;
         }
 
         storeSessionUser(sessionUser);
 
         currentUser = sessionUser;
+
+        return sessionUser;
     } catch (error) {
         if (error.status === 401) {
             clearStoredSession();
         }
+
+        return null;
     }
 }
 
@@ -689,6 +721,8 @@ function updateFacultyReservationSeriesDeleteButton(reservation) {
 }
 
 function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
+    facultyReservationDeleteMenu.close();
+
     if (flushDraft) {
         facultyReservationDraftAutosave.deactivate({ flush: true });
     } else {
@@ -799,6 +833,14 @@ function setFacultyReservationSubmitting(isSubmitting) {
     if (elements.facultyReservationDeleteSeriesBtn) {
         elements.facultyReservationDeleteSeriesBtn.disabled = isSubmitting;
     }
+
+    if (elements.facultyReservationDeleteMenuBtn) {
+        elements.facultyReservationDeleteMenuBtn.disabled = isSubmitting;
+    }
+
+    if (isSubmitting) {
+        facultyReservationDeleteMenu.close();
+    }
 }
 
 function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
@@ -807,15 +849,22 @@ function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
     }
 
     elements.facultyReservationDeleteBtn.disabled = isDeleting;
-    elements.facultyReservationDeleteBtn.textContent = isDeleting
-        ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-        : "Delete Reservation";
+    elements.facultyReservationDeleteBtn.textContent = "Delete Reservation";
 
     if (elements.facultyReservationDeleteSeriesBtn) {
         elements.facultyReservationDeleteSeriesBtn.disabled = isDeleting;
-        elements.facultyReservationDeleteSeriesBtn.textContent = isDeleting
+        elements.facultyReservationDeleteSeriesBtn.textContent = "Delete Recurring Series";
+    }
+
+    if (elements.facultyReservationDeleteMenuBtn) {
+        elements.facultyReservationDeleteMenuBtn.disabled = isDeleting;
+        elements.facultyReservationDeleteMenuBtn.textContent = isDeleting
             ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-            : "Delete Recurring Series";
+            : "Delete";
+    }
+
+    if (isDeleting) {
+        facultyReservationDeleteMenu.close();
     }
 
     if (elements.facultyReservationSubmitBtn) {
@@ -1350,9 +1399,18 @@ function bindEvents() {
 }
 
 function init() {
+    if (appInitialized) {
+        return;
+    }
+
+    appInitialized = true;
+
     syncCalendarToSelectedDate();
 
     bindEvents();
 
     renderAll();
 }
+
+init();
+loadEvents();
