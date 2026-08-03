@@ -10,6 +10,7 @@ import { renderEventAttendees } from "./ui/attendees.js";
 import { createModalController } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
+import { createActionMenu } from "./ui/actionMenu.js";
 import {
     applyReservationFormDraft,
     clearReservationFormDraftFields,
@@ -42,6 +43,8 @@ const elements = {
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
+    facultyReservationDeleteMenuBtn: document.getElementById("facultyReservationDeleteMenuBtn"),
+    facultyReservationDeleteOptions: document.getElementById("facultyReservationDeleteOptions"),
     facultyReservationSaveDraftBtn: document.getElementById("facultyReservationSaveDraftBtn"),
     facultyReservationClearBtn: document.getElementById("facultyReservationClearBtn"),
     facultyReservationDraftBadge: document.getElementById("facultyReservationDraftBadge"),
@@ -73,6 +76,11 @@ const elements = {
     navUserInitials: document.getElementById("navUserInitials"),
     navUserName: document.getElementById("navUserName")
 };
+
+const facultyReservationDeleteMenu = createActionMenu({
+    trigger: elements.facultyReservationDeleteMenuBtn,
+    menu: elements.facultyReservationDeleteOptions
+});
 
 let isFacultyLoggedIn =
     sessionStorage.getItem("facultyLoggedIn") === "true";
@@ -689,6 +697,8 @@ function updateFacultyReservationSeriesDeleteButton(reservation) {
 }
 
 function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
+    facultyReservationDeleteMenu.close();
+
     if (flushDraft) {
         facultyReservationDraftAutosave.deactivate({ flush: true });
     } else {
@@ -799,6 +809,14 @@ function setFacultyReservationSubmitting(isSubmitting) {
     if (elements.facultyReservationDeleteSeriesBtn) {
         elements.facultyReservationDeleteSeriesBtn.disabled = isSubmitting;
     }
+
+    if (elements.facultyReservationDeleteMenuBtn) {
+        elements.facultyReservationDeleteMenuBtn.disabled = isSubmitting;
+    }
+
+    if (isSubmitting) {
+        facultyReservationDeleteMenu.close();
+    }
 }
 
 function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
@@ -807,15 +825,22 @@ function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
     }
 
     elements.facultyReservationDeleteBtn.disabled = isDeleting;
-    elements.facultyReservationDeleteBtn.textContent = isDeleting
-        ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-        : "Delete Reservation";
+    elements.facultyReservationDeleteBtn.textContent = "Delete Reservation";
 
     if (elements.facultyReservationDeleteSeriesBtn) {
         elements.facultyReservationDeleteSeriesBtn.disabled = isDeleting;
-        elements.facultyReservationDeleteSeriesBtn.textContent = isDeleting
+        elements.facultyReservationDeleteSeriesBtn.textContent = "Delete Recurring Series";
+    }
+
+    if (elements.facultyReservationDeleteMenuBtn) {
+        elements.facultyReservationDeleteMenuBtn.disabled = isDeleting;
+        elements.facultyReservationDeleteMenuBtn.textContent = isDeleting
             ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-            : "Delete Recurring Series";
+            : "Delete";
+    }
+
+    if (isDeleting) {
+        facultyReservationDeleteMenu.close();
     }
 
     if (elements.facultyReservationSubmitBtn) {

@@ -110,7 +110,7 @@
 }
 
 .reservation-modal {
-    max-width: 680px;
+    max-width: 860px;
 }
 
 .reservation-form {
@@ -219,8 +219,8 @@
 .reservation-time-picker-grid {
     display: grid;
     grid-template-columns: 88px repeat(7, minmax(56px, 1fr));
-    max-height: 340px;
-    overflow: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
     user-select: none;
     touch-action: none;
 }
@@ -412,10 +412,13 @@
 
 .reservation-actions {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 18px;
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 2px 0;
 }
 
 .reservation-status {
@@ -619,7 +622,9 @@
 
 .reservation-danger-group {
     display: flex;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
     gap: 8px;
     margin-right: auto;
 }
@@ -630,10 +635,59 @@
 
 .reservation-action-group {
     display: flex;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    align-items: center;
     justify-content: flex-end;
     gap: 10px;
     margin-left: auto;
+}
+
+.reservation-delete-menu {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.reservation-delete-options {
+    position: fixed;
+    z-index: 1100;
+    display: grid;
+    min-width: 220px;
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-control);
+    padding: 4px;
+    background: #fff;
+    box-shadow: 0 10px 24px rgba(17, 24, 39, 0.18);
+}
+
+.reservation-delete-options[hidden] {
+    display: none;
+}
+
+.reservation-delete-option {
+    width: 100%;
+    border: 0;
+    border-radius: var(--radius-control);
+    padding: 10px 12px;
+    background: transparent;
+    color: #b91c1c;
+    font: inherit;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.reservation-delete-option:hover,
+.reservation-delete-option:focus-visible {
+    background: #fee2e2;
+    outline: none;
+}
+
+.reservation-delete-option:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
 }
 
 @media (max-width: 720px) {
@@ -645,29 +699,16 @@
         grid-column: auto;
     }
 
-    .reservation-actions {
-        flex-direction: column-reverse;
-    }
-
     .check-in-actions {
         align-items: stretch;
         flex-direction: column;
     }
 
-    .reservation-action-group {
-        flex-direction: column-reverse;
-        width: 100%;
-    }
-
-    .reservation-danger-group {
-        flex-direction: column;
-        width: 100%;
-    }
-
-    .reservation-primary-btn,
-    .reservation-secondary-btn,
-    .reservation-danger-btn {
-        width: 100%;
+    .reservation-actions .reservation-primary-btn,
+    .reservation-actions .reservation-secondary-btn,
+    .reservation-actions .reservation-danger-btn {
+        flex: 0 0 auto;
+        width: auto;
     }
 
     .reservation-time-label-row {
@@ -681,7 +722,6 @@
 
     .reservation-time-picker-grid {
         grid-template-columns: 72px repeat(7, minmax(46px, 1fr));
-        max-height: 310px;
     }
 
     .reservation-time-picker-time {
@@ -962,7 +1002,8 @@
     }
 
     .draft-exit-actions {
-        flex-direction: column-reverse;
+        overflow-x: auto;
+        padding-bottom: 2px;
     }
 
     .modal-label {
