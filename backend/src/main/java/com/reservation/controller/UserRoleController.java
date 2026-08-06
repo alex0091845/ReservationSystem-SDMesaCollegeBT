@@ -32,8 +32,10 @@ public class UserRoleController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable int id) {
-        supabase.delete("user_roles?id=eq." + id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> delete(@PathVariable int id) {
+        return DeleteOutcome.toResponse(
+            supabase.delete("user_roles?id=eq." + id),
+            "This role is still assigned to at least one user, so it cannot be deleted."
+        );
     }
 }

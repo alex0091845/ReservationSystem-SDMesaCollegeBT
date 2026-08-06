@@ -44,9 +44,11 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable int id) {
-        supabase.delete("users?id=eq." + id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> delete(@PathVariable int id) {
+        return DeleteOutcome.toResponse(
+            supabase.delete("users?id=eq." + id),
+            "This user still has reservations or sessions on record, so the account cannot be deleted."
+        );
     }
 
     /**

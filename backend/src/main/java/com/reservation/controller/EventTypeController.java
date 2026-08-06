@@ -32,8 +32,10 @@ public class EventTypeController {
     }
 
     @DeleteMapping("/{eventType}")
-    public ResponseEntity<Void> delete(@PathVariable String eventType) {
-        supabase.delete("event_types?event_type=eq." + eventType);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> delete(@PathVariable String eventType) {
+        return DeleteOutcome.toResponse(
+            supabase.delete("event_types?event_type=eq." + eventType),
+            "Reservations are still using this event type, so it cannot be deleted."
+        );
     }
 }

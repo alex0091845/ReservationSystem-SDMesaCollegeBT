@@ -50,9 +50,11 @@ public class AttendeeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable long id) {
-        supabase.delete("attendees?id=eq." + id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<?> delete(@PathVariable long id) {
+        return DeleteOutcome.toResponse(
+            supabase.delete("attendees?id=eq." + id),
+            "This check-in is still referenced elsewhere, so it cannot be deleted."
+        );
     }
 
     /**
