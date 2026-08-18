@@ -6,6 +6,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +15,24 @@ import org.springframework.stereotype.Component;
 @Component
 public class SupabaseClient {
     public record SupabaseResponse(int statusCode, String body) {
+        private static final ObjectMapper RESPONSE_MAPPER = new ObjectMapper();
+        private static final String POSTGRES_FOREIGN_KEY_VIOLATION = "23503";
+
         public boolean isSuccessful() {
             return statusCode >= 200 && statusCode < 300;
+        }
+
+        // PostgREST reports a refused write as a JSON body carrying the Postgres
+        // SQLSTATE. 23503 means another table still references this row, which is
+        // what a delete hits when child records exist.
+        public boolean isForeignKeyViolation() {
+            try {
+                return POSTGRES_FOREIGN_KEY_VIOLATION.equals(
+                    RESPONSE_MAPPER.readTree(body).path("code").asText()
+                );
+            } catch (Exception ignored) {
+                return false;
+            }
         }
     }
 
@@ -107,7 +125,10 @@ public class SupabaseClient {
     }
 
     // DELETE at /rest/v1/{endpoint}
-    public void delete(String endpoint) {
+    // Returns the response so callers can tell a real delete from a rejected one.
+    // Postgres refuses deletes that violate a foreign key, and that arrives here as
+    // a 4xx with a body — discarding it reports success for a row that still exists.
+    public SupabaseResponse delete(String endpoint) {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
@@ -118,7 +139,9 @@ public class SupabaseClient {
                 .DELETE()
                 .build();
 
-            http.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+            return new SupabaseResponse(response.statusCode(), response.body());
 
         } catch (Exception e) {
             throw new RuntimeException("Supabase request failed: " + e.getMessage());

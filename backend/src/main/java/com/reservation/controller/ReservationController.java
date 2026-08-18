@@ -230,8 +230,24 @@ public class ReservationController {
             return jsonError(403, "You do not have permission to delete this reservation.");
         }
 
-        supabase.delete("events?id=eq." + id);
-        return ResponseEntity.noContent().build();
+        // attendees.event_id carries no ON DELETE rule, so Postgres refuses to remove an
+        // event while check-ins still point at it. Clear them first: deleting a
+        // reservation is taken to discard its check-in records along with it.
+        SupabaseClient.SupabaseResponse checkInCleanup =
+            supabase.delete("attendees?event_id=eq." + id);
+
+        if (!checkInCleanup.isSuccessful()) {
+            return jsonError(
+                502,
+                "The check-in records for this reservation could not be removed, " +
+                    "so the reservation was left in place."
+            );
+        }
+
+        return DeleteOutcome.toResponse(
+            supabase.delete("events?id=eq." + id),
+            "This reservation is still referenced by other records, so it cannot be deleted."
+        );
     }
 
     private ObjectNode normalizeEventBody(String body) {
