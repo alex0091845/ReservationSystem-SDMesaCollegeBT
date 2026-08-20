@@ -68,6 +68,12 @@ function getReservationValidationMessage({
         return "End time must be after start time.";
     }
 
+    // Only new reservations are held to this. Editing an existing reservation stays
+    // allowed once it is in the past, so past records can still be corrected.
+    if (!requireId && !isInFuture(startDate)) {
+        return "Reservations cannot be scheduled in the past.";
+    }
+
     const timeWindowMessage = getReservationTimeWindowMessage(startDate, endDate);
 
     if (timeWindowMessage) {
@@ -184,6 +190,10 @@ function getReservationTimeWindowMessage(startDate, endDate) {
     }
 
     return "";
+}
+
+function isInFuture(date) {
+    return date.getTime() > Date.now();
 }
 
 function isBeforeDailyEnd(date) {
