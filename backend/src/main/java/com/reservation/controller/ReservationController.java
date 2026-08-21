@@ -61,7 +61,7 @@ public class ReservationController {
     @PostMapping
     public ResponseEntity<String> create(@RequestBody String body, HttpServletRequest request) {
         try {
-            ObjectNode eventBody = normalizeEventBody(body);
+            ObjectNode eventBody = normalizeNewEventBody(body);
 
             if (!canSaveWithRequestedHost(request, eventBody)) {
                 return jsonError(403, "You do not have permission to save this reservation for that host.");
@@ -91,7 +91,7 @@ public class ReservationController {
                 ObjectNode eventBody;
 
                 try {
-                    eventBody = normalizeEventInput(inputEvents.get(index));
+                    eventBody = normalizeNewEventInput(inputEvents.get(index));
                 } catch (IllegalArgumentException error) {
                     return jsonError(400, "Reservation " + (index + 1) + ": " + error.getMessage());
                 }
@@ -166,7 +166,7 @@ public class ReservationController {
                     ObjectNode eventBody;
 
                     try {
-                        eventBody = normalizeEventInput(occurrenceInput);
+                        eventBody = normalizeNewEventInput(occurrenceInput);
                     } catch (IllegalArgumentException error) {
                         return jsonError(
                             400,
@@ -260,6 +260,24 @@ public class ReservationController {
         } catch (Exception error) {
             throw new IllegalArgumentException("Event body could not be parsed.");
         }
+    }
+
+    // New reservations may not start in the past. Updates deliberately skip this check so
+    // an already-past reservation stays correctable (fixing a title, host, or attendees).
+    private ObjectNode normalizeNewEventBody(String body) {
+        ObjectNode event = normalizeEventBody(body);
+
+        validateStartsInFuture(event);
+
+        return event;
+    }
+
+    private ObjectNode normalizeNewEventInput(JsonNode input) {
+        ObjectNode event = normalizeEventInput(input);
+
+        validateStartsInFuture(event);
+
+        return event;
     }
 
     private ObjectNode normalizeEventInput(JsonNode input) {
@@ -489,6 +507,17 @@ public class ReservationController {
 
         if (endTime.toLocalTime().isAfter(RESERVATION_DAY_END)) {
             throw new IllegalArgumentException("Reservations must end by 5:00 PM.");
+        }
+    }
+
+    private void validateStartsInFuture(ObjectNode event) {
+        ZonedDateTime startTime = parseReservationDateTime(
+            event.path("start_time").asText(),
+            "start_time"
+        );
+
+        if (!startTime.isAfter(ZonedDateTime.now(RESERVATION_TIME_ZONE))) {
+            throw new IllegalArgumentException("Reservations cannot be scheduled in the past.");
         }
     }
 

@@ -310,6 +310,21 @@
         inset -1px 0 0 rgba(255, 255, 255, 0.26);
 }
 
+/* Slots that have already started cannot be booked. Declared after .selected so a
+   past slot reads as unavailable, with .past.selected keeping an existing
+   reservation visible when an earlier booking is opened for editing. */
+.reservation-time-picker-slot.past,
+.reservation-time-picker-slot.past:hover {
+    background: #f1f2f4;
+    color: #9aa1a9;
+    cursor: not-allowed;
+}
+
+.reservation-time-picker-slot.past.selected,
+.reservation-time-picker-slot.past.selected:hover {
+    background: rgba(2, 56, 103, 0.38);
+}
+
 .reservation-time-picker-boundary-label,
 .reservation-time-picker-boundary-cell {
     min-height: 18px;

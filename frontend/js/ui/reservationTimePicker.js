@@ -177,6 +177,16 @@ export function createReservationTimePicker({
             `${formatDayLabel(slotStart)}, ${formatSlotRangeLabel(slotStart, slotEnd)}`
         );
 
+        // Past slots stay in the grid so an existing reservation still shows its
+        // selection, but they cannot start a drag or be dragged over.
+        if (isPastSlot(slotStart)) {
+            cell.classList.add("past");
+            cell.dataset.pickerPast = "true";
+            cell.disabled = true;
+
+            return cell;
+        }
+
         cell.addEventListener("pointerdown", event => {
             if (event.pointerType === "mouse" && event.button !== 0) {
                 return;
@@ -210,7 +220,11 @@ export function createReservationTimePicker({
             .elementFromPoint(event.clientX, event.clientY)
             ?.closest("[data-picker-cell='true']");
 
-        if (hoveredCell && container.contains(hoveredCell)) {
+        if (
+            hoveredCell &&
+            container.contains(hoveredCell) &&
+            hoveredCell.dataset.pickerPast !== "true"
+        ) {
             applyDragRange(hoveredCell);
         }
     }
@@ -532,6 +546,12 @@ function subtractRange(selectedRanges, removalRange) {
 function rangesOverlap(firstRange, secondRange) {
     return firstRange.start < secondRange.end &&
         firstRange.end > secondRange.start;
+}
+
+// Matches the save-time rule: a reservation must start after the current moment,
+// so a slot counts as past as soon as its start time has been reached.
+function isPastSlot(slotStart) {
+    return slotStart.getTime() <= Date.now();
 }
 
 function normalizeRanges(ranges = []) {
