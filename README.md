@@ -4,7 +4,9 @@ A room reservation system for the Business & Technology (BT) building at **San D
 
 The app lets users browse and reserve rooms/events, manage attendees and event types, and gives admins a management view. It has a static frontend and a Spring Boot backend backed by Supabase (PostgreSQL).
 
-> **New to the project?** Start with the handover docs:
+> **New to the project?** If you are new to web development, start with
+> [`docs/LEARNING.md`](docs/LEARNING.md) — prerequisites, learning resources, good first
+> tasks, and the traps specific to this codebase. Otherwise start with the handover docs:
 > [`docs/BACKEND.md`](docs/BACKEND.md) and [`docs/FRONTEND.md`](docs/FRONTEND.md) — how each half
 > works, how to run it, common tasks, and known gaps. Endpoint-level detail (request bodies,
 > responses, error codes, curl examples) lives in [`docs/API.md`](docs/API.md).
