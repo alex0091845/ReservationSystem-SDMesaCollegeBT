@@ -1,0 +1,161 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# TEMPLATE — NOT ACTIVE.
+#
+# GitHub Actions only reads `.yml` / `.yaml` files in this directory, so the
+# `.example` suffix keeps this inert. To activate it:
+#
+#     git mv .github/workflows/deploy.yml.example .github/workflows/deploy.yml
+#
+# Do NOT activate it before creating the secrets and variables below — the run
+# would fail on every push to main. As of writing, the repo has ZERO secrets,
+# variables and environments configured, so this would fail immediately.
+#
+# ── Required repository secrets ──────────────────────────────────────────────
+#   EC2_HOST                 hostname / IP of the backend instance
+#   EC2_USER                 ssh user (e.g. ec2-user, ubuntu)
+#   EC2_SSH_KEY              private key with access to that user
+#   SUPABASE_URL             Supabase project URL
+#   SUPABASE_API_KEY         Supabase anon key (RLS on, NOT service-role)
+#   AWS_ACCESS_KEY_ID        deploy user with S3 + CloudFront permissions
+#   AWS_SECRET_ACCESS_KEY
+#
+# ── Required repository variables ────────────────────────────────────────────
+#   APP_CORS_ALLOWED_ORIGIN_PATTERNS   REQUIRED — the backend refuses to start
+#                                      if unset (fail closed), so an empty value
+#                                      makes the container crash-loop
+#   CLOUDFRONT_DISTRIBUTION_ID         distribution to invalidate
+#
+# ── Assumption this file makes, which is NOT how README.md describes the deploy
+#
+# It assumes ONE CloudFront distribution fronts both halves (default behavior ->
+# S3, /api/* -> EC2), which is why RESERVATION_API_ORIGIN can stay "" and the
+# session cookie can use the default SameSite=Lax.
+#
+# README.md and docs/FRONTEND.md instead describe a SPLIT deploy: S3 frontend
+# calling an EC2 backend on another origin, which needs RESERVATION_API_ORIGIN
+# hand-set in the three HTML files, plus AUTH_COOKIE_SAME_SITE=None and
+# AUTH_COOKIE_SECURE=true. Confirm which setup actually exists before using
+# this, and verify the hardcoded bucket (reservation-room-frontend) and region
+# (us-east-2) below are real.
+#
+# ── Known gaps, worth fixing before relying on it ────────────────────────────
+#   1. The `test` job gates nothing. The repo has no test sources, so
+#      `mvn verify` only compiles.
+#   2. No rollback, and a downtime gap: stop -> rm -> run leaves a window with
+#      no container, and a failed `docker run` takes the API down with no
+#      automatic recovery (--restart unless-stopped covers crashes, not bad
+#      deploys).
+#   3. `frontend` and `backend` run in parallel, so a backend failure still
+#      ships the frontend — you can end up with a new frontend against an old
+#      backend.
+#   4. GITHUB_TOKEN is piped to the EC2 box for `docker login`. It expires when
+#      the job ends, leaving a dead credential in ~/.docker/config.json; manual
+#      pulls on the box will fail later if the ghcr package is private.
+#   5. `aws s3 sync --delete` removes anything in the bucket not in frontend/.
+#   6. Long-lived AWS keys and an SSH private key are stored as secrets. OIDC
+#      plus SSM Send-Command would remove both, at the cost of one-time IAM
+#      setup (an OIDC provider, a role trusting this repo, and an instance
+#      profile with AmazonSSMManagedInstanceCore).
+#   7. SUPABASE_API_KEY ends up visible in `docker inspect` on the instance.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build and test backend
+        working-directory: backend
+        run: mvn -B verify
+
+  backend:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # ghcr.io requires a lowercase image name; github.repository may contain
+      # uppercase characters (ReservationSystem-SDMesaCollegeBT).
+      - name: Compute image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            docker pull ${{ steps.image.outputs.name }}:${{ github.sha }}
+            docker stop reservations || true
+            docker rm reservations || true
+            docker run -d --name reservations --restart unless-stopped \
+              -p 80:8080 \
+              -e SUPABASE_URL="${{ secrets.SUPABASE_URL }}" \
+              -e SUPABASE_API_KEY="${{ secrets.SUPABASE_API_KEY }}" \
+              -e APP_CORS_ALLOWED_ORIGIN_PATTERNS="${{ vars.APP_CORS_ALLOWED_ORIGIN_PATTERNS }}" \
+              -e AUTH_COOKIE_SECURE=true \
+              ${{ steps.image.outputs.name }}:${{ github.sha }}
+            docker image prune -f
+
+  frontend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No build step: the site is plain HTML/JS/CSS. window.RESERVATION_API_ORIGIN
+      # stays "" because frontend and backend share one CloudFront distribution
+      # (default behavior -> S3, /api/* -> EC2), so API calls are same-origin.
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Sync to S3
+        run: aws s3 sync frontend/ s3://reservation-room-frontend --delete
+
+      - name: Invalidate CloudFront cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*"
