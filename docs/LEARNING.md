@@ -38,8 +38,8 @@ cd frontend
 python3 -m http.server 5500      # then open http://localhost:5500
 ```
 
-The page will load and the calendar will render. Every network call will fail, because there is no
-backend yet — that is expected, and it is already a useful place to work on CSS and layout.
+The page will load and the calendar will render. Every network call will fail, because the
+backend is not up yet — that is expected, and it is already a useful place to work on CSS and layout.
 
 **Three things that will block a beginner on the backend, in the order you will hit them:**
 
@@ -54,7 +54,7 @@ backend yet — that is expected, and it is already a useful place to work on CS
 
 Also check your Java version. The project targets **Java 17**; Spring Boot 3.2.4 officially supports
 17–21. If `mvn -v` reports a much newer JDK, install 17 or 21 and point `JAVA_HOME` at it rather
-than fighting warnings.
+than trying to make a newer or older version work.
 
 ---
 
@@ -64,19 +64,19 @@ Whatever you work on, these four come first.
 
 ### Git and the GitHub flow
 
-We work on short-lived branches cut from `main` and merge back through pull requests. If
+We work on short-lived branches from `main` and merge back through pull requests. If
 `git rebase` or "detached HEAD" scares you, that is normal and worth fixing early.
 
 - [Pro Git, chapters 2–3](https://git-scm.com/book/en/v2) — free, official, and the only Git book
   you need. Chapter 3 (branching) is the one that makes it click.
 - [GitHub flow](https://docs.github.com/en/get-started/using-github/github-flow) — the exact
   branch → PR → merge cycle this project uses.
-- Video: search **"Git and GitHub for Beginners — Crash Course"** on the *freeCodeCamp.org*
+- Video: check [this link](https://www.youtube.com/watch?v=mAFoROnOfHs) or search **"Git & GitHub Crash Course for Beginners \[2026\]"** on the *freeCodeCamp.org*
   channel. About an hour, and covers everything we do day to day.
 
 ### How the web actually works
 
-Every bug you will chase is a request that did not do what you expected.
+Many bugs you will encounter are requests that did not do what you expected.
 
 - [MDN: HTTP overview](https://developer.mozilla.org/en-US/docs/Web/HTTP) — skim the overview, then
   read the pages on methods and status codes properly.

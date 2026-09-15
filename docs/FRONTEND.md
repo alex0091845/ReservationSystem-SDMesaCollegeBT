@@ -11,19 +11,32 @@ about this project.
 no `node_modules`, no bundler.** The browser loads `js/main.js` as `<script type="module">` and the
 import graph does the rest.
 
+"Vanilla" JavaScript just refers to the fact that we don't use other heavy frameworks like React or
+Vue. While the downside is that you may have to write more code for some customizable things, the upside
+is that everything remains simple, and there is no need to install anything.
+
 That has two practical consequences:
 
-- **To run it, serve the folder.** Editing a file and refreshing is the entire dev loop.
-- **Every import must be a real relative path with a `.js` extension** (`"./ui/modal.js"`, not
+- **To run it, serve the project folder.** Editing a file and refreshing is the entire dev loop.
+  - To serve means to run the frontend code on a server. Any computer can be a server--even your own computer!
+  - A server actually usually refers to the software that serves content. Just like how, if you go to Google Docs,
+    you're basically contacting Google's servers, which decide whether you can access certain content (like 
+    permissions on a Google Doc), and then serve (give back to you) the right thing to you. If you don't have permission,
+    maybe you get a 404 page. If you do, you'll probably just get a webpage in html format with the content you're looking for :)
+  - Once you serve the project folder, you'll be able to go to your browser, type in `http://localhost:\<port number\>`
+    and you'll see your webpage live. After you edit, you should save and the website should automatically refresh. If it doesn't,
+    just hit refresh on your browser!
+
+- **Every import must be a real relative path with a `.js` extension** (e.g., `"./ui/modal.js"`, not
   `"./ui/modal"`). There's no resolver to be clever for you.
 
 Three pages, three entry points:
 
 | Page | Entry script | Who it's for |
 |---|---|---|
-| `index.html` | `js/main.js` | Everyone — the calendar. Anonymous visitors see public events and can check in; logged-in faculty see and manage their reservations |
-| `login.html` | `js/login.js` | Sign in |
-| `admin.html` | `js/admin.js` | Admins — manage users and any reservation |
+| `index.html` | `js/main.js` | Everyone. This is the calendar. Anonymous visitors see public events and can check in; logged-in faculty see and manage their reservations. |
+| `login.html` | `js/login.js` | Sign in if you have an account. |
+| `admin.html` | `js/admin.js` | Admins. This is the admin page to manage users and any reservation. |
 
 ---
 
@@ -35,7 +48,7 @@ python -m http.server 5500        # → http://localhost:5500
 ```
 
 (Or the VS Code **Live Server** extension.) Opening `index.html` with `file://` will **not** work —
-ES modules require http.
+ES modules require http (aka, a server).
 
 You also need the backend running (see `docs/BACKEND.md`), and the backend's
 `APP_CORS_ALLOWED_ORIGIN_PATTERNS` must include `http://localhost:5500`.
@@ -49,7 +62,7 @@ const API_ORIGIN = window.RESERVATION_API_ORIGIN || window.location.origin;
 const BASE_URL = `${API_ORIGIN}/api`;
 ```
 
-Each of the three HTML files sets that global just before loading its module:
+Each of the three HTML files mentioned above (`index`, `login`, `admin.html`) sets that global just before loading its module:
 
 ```html
 <script>window.RESERVATION_API_ORIGIN = "";</script>
