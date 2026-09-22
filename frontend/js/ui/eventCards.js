@@ -68,15 +68,11 @@ export function createWeekEventCard({
 }
 
 function isPrivateEventForCurrentUser(event) {
-    const role = sessionStorage.getItem("currentUserRole")?.toLowerCase();
-    const isLoggedIn = sessionStorage.getItem("facultyLoggedIn") === "true";
-
-    if (!isLoggedIn) {
-        sessionStorage.removeItem("currentUserRole");
-    }
+    const role = sessionStorage.getItem("currentUserRole")?.trim().toLowerCase();
 
     return event.is_public === false &&
-        (!isLoggedIn || (role !== "faculty" && role !== "admin"));
+        role !== "faculty" &&
+        role !== "admin";
 }
 
 export function formatEventDate(event) {
