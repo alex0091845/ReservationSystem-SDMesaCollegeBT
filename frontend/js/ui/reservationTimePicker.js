@@ -23,6 +23,7 @@ export function createReservationTimePicker({
         start: parseLocalDateTimeInput(startInput.value),
         end: parseLocalDateTimeInput(endInput.value)
     }]);
+    let unavailableRanges = [];
     let dragAnchor = null;
     let dragPreviewRanges = [];
     let dragShouldSelect = true;
@@ -172,6 +173,11 @@ export function createReservationTimePicker({
         cell.dataset.pickerCell = "true";
         cell.dataset.start = String(slotStart.getTime());
         cell.dataset.end = String(slotEnd.getTime());
+        if (unavailableRanges.some(range => {
+            return rangesOverlap({ start: slotStart, end: slotEnd }, range);
+        })) {
+            cell.classList.add("booked");
+        }
         cell.setAttribute(
             "aria-label",
             `${formatDayLabel(slotStart)}, ${formatSlotRangeLabel(slotStart, slotEnd)}`
@@ -291,6 +297,11 @@ export function createReservationTimePicker({
         render();
     }
 
+    function setUnavailableRanges(ranges = []) {
+        unavailableRanges = normalizeRanges(ranges);
+        render();
+    }
+
     function getRanges() {
         return selectedRanges.map(range => ({
             start: new Date(range.start),
@@ -400,6 +411,7 @@ export function createReservationTimePicker({
         render,
         setRange,
         setRanges,
+        setUnavailableRanges,
         setWeekFromDate
     };
 }
@@ -416,6 +428,7 @@ function createNoopTimePicker() {
         render() {},
         setRange() {},
         setRanges() {},
+        setUnavailableRanges() {},
         setWeekFromDate() {}
     };
 }

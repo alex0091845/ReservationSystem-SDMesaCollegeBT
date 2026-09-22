@@ -570,6 +570,11 @@ async function openReservationEditModal(reservation) {
         { selectedValue: reservation.event_type ?? "" }
     );
     document.getElementById("adminReservationDescription").value = reservation.description ?? "";
+    adminReservationTimePicker.setUnavailableRanges(
+        reservations
+            .filter(existing => String(existing.id) !== String(reservation.id))
+            .map(existing => ({ start: existing.start_time, end: existing.end_time }))
+    );
     adminReservationTimePicker.setRange(
         reservation.start_time,
         reservation.end_time
