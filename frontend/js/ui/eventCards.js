@@ -13,25 +13,30 @@ export function createEventCard({
     onClick
 }) {
     const card = document.createElement("button");
+    const privateEvent = isPrivateEventForCurrentUser(event);
 
     card.type = "button";
     card.className = [
         "upcoming-event-card",
         ...normalizeClassNames(classNames),
-        getEventColorClass(event.event_type)
+        privateEvent ? "private-event-card" : getEventColorClass(event.event_type)
     ].join(" ");
 
-    card.append(
-        createEventCardText("upcoming-event-title", event.title || titleFallback),
-        createEventCardText("upcoming-event-date", formatEventDate(event)),
-        createEventCardText("upcoming-event-time", formatEventTime(event))
-    );
+    if (privateEvent) {
+        card.appendChild(createEventCardText("upcoming-event-title", "Private event"));
+    } else {
+        card.append(
+            createEventCardText("upcoming-event-title", event.title || titleFallback),
+            createEventCardText("upcoming-event-date", formatEventDate(event)),
+            createEventCardText("upcoming-event-time", formatEventTime(event))
+        );
+    }
 
-    if (showAttendeeCount) {
+    if (showAttendeeCount && !privateEvent) {
         card.appendChild(createAttendeeCountBadge(event, attendees));
     }
 
-    if (onClick) {
+    if (onClick && !privateEvent) {
         card.addEventListener("click", () => onClick(event));
     }
 
@@ -43,15 +48,16 @@ export function createWeekEventCard({
     onClick
 }) {
     const card = document.createElement("button");
+    const privateEvent = isPrivateEventForCurrentUser(event);
 
     card.type = "button";
     card.className = [
         "week-event",
-        getEventColorClass(event.event_type)
+        privateEvent ? "private-event-card" : getEventColorClass(event.event_type)
     ].join(" ");
-    card.textContent = event.title || "Untitled event";
+    card.textContent = privateEvent ? "Private event" : (event.title || "Untitled event");
 
-    if (onClick) {
+    if (onClick && !privateEvent) {
         card.addEventListener("click", clickEvent => {
             clickEvent.stopPropagation();
             onClick(event, clickEvent);
@@ -59,6 +65,12 @@ export function createWeekEventCard({
     }
 
     return card;
+}
+
+function isPrivateEventForCurrentUser(event) {
+    const isLoggedIn = sessionStorage.getItem("facultyLoggedIn") === "true";
+
+    return event.is_public === false && !isLoggedIn;
 }
 
 export function formatEventDate(event) {

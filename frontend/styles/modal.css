@@ -325,6 +325,11 @@
     background: rgba(2, 56, 103, 0.38);
 }
 
+.reservation-time-picker-slot.booked,
+.reservation-time-picker-slot.booked:hover {
+    background: #d1d5db;
+}
+
 .reservation-time-picker-boundary-label,
 .reservation-time-picker-boundary-cell {
     min-height: 18px;

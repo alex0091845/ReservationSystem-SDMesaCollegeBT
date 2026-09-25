@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,14 +34,22 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<String> create(@RequestBody String body) {
-        String payload = buildUserPayload(body, true);
-        return ResponseEntity.ok(sanitizeUserResponse(supabase.post("users", payload)));
+        try {
+            String payload = buildUserPayload(body, true);
+            return fromSupabase(supabase.postResponse("users", payload));
+        } catch (IllegalArgumentException error) {
+            return jsonError(400, error.getMessage());
+        }
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<String> update(@PathVariable int id, @RequestBody String body) {
-        String payload = buildUserPayload(body, false);
-        return ResponseEntity.ok(sanitizeUserResponse(supabase.patch("users?id=eq." + id, payload)));
+        try {
+            String payload = buildUserPayload(body, false);
+            return fromSupabase(supabase.patchResponse("users?id=eq." + id, payload));
+        } catch (IllegalArgumentException error) {
+            return jsonError(400, error.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")
@@ -74,6 +83,8 @@ public class UserController {
 
         if (input.hasNonNull("enabled")) {
             payload.put("enabled", input.path("enabled").asBoolean());
+        } else if (isCreate) {
+            payload.put("enabled", true);
         }
 
         String password = input.path("password").asText("");
@@ -124,5 +135,20 @@ public class UserController {
         }
 
         node.elements().forEachRemaining(this::removePasswordHashes);
+    }
+
+    private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response) {
+        return ResponseEntity.status(response.statusCode())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(sanitizeUserResponse(response.body()));
+    }
+
+    private ResponseEntity<String> jsonError(int status, String message) {
+        ObjectNode error = mapper.createObjectNode();
+        error.put("error", message);
+
+        return ResponseEntity.status(status)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(error.toString());
     }
 }

@@ -284,6 +284,13 @@ async function openReservationModal() {
 
     reservationModalOverlay.classList.add("active");
     reservationModalOverlay.setAttribute("aria-hidden", "false");
+    const existingReservations = await getEvents();
+    reservationTimePicker.setUnavailableRanges(
+        existingReservations.map(reservation => ({
+            start: reservation.start_time,
+            end: reservation.end_time
+        }))
+    );
     reservationTimePicker.setWeekFromDate(new Date());
     await reservationDraftAutosave.activate();
 }
