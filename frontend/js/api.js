@@ -19,8 +19,8 @@ const EVENT_TYPE_VALUE_ALIASES = {
     office_hours: "Other",
     other: "Other",
     social: "Social",
-    study: "Study_Group",
-    study_group: "Study_Group",
+    study: "Study Group",
+    study_group: "Study Group",
     work: "Workshop",
     workshop: "Workshop"
 };
