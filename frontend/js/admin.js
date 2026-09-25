@@ -910,7 +910,7 @@ function getUserFormErrorMessage(error, fallback) {
         return "You do not have permission to manage users.";
     }
 
-    return error?.data?.error || error?.data?.message || fallback;
+    return error?.data?.error || error?.data?.message || error?.message || fallback;
 }
 
 createUserBtn.addEventListener("click", openCreateUserModal);

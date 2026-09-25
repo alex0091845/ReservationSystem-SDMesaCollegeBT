@@ -833,7 +833,27 @@ export async function updateEvent(eventData) {
 }
 
 export async function createUser(userData) {
-    return request("/users", "POST", userData);
+    const response = await request("/users", "POST", userData);
+
+    // Older backend deployments wrap PostgREST errors in HTTP 200 responses.
+    // Reject those responses so the form cannot report a failed insert as success.
+    if (response?.code || response?.error) {
+        const error = new Error(response.message || response.error || "Could not create the user.");
+        error.data = response;
+        throw error;
+    }
+
+    const createdUsers = normalizeCollection(
+        response,
+        ["users", "data", "items", "records"]
+    ).map(normalizeUser);
+    const createdUser = createdUsers[0] || normalizeUser(response);
+
+    if (!createdUser?.id) {
+        throw new Error("The server did not return the newly created user.");
+    }
+
+    return createdUser;
 }
 
 export async function loginUser(email, password) {
