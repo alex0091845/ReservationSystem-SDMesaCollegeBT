@@ -67,7 +67,7 @@ export function bindBackdropClose(overlay, closeModal) {
     });
 }
 
-export function removeReservationsFromAdminState(reservationsToRemove, reservationList, attendees) {
+export function removeReservations(reservationsToRemove, reservationList, attendees) {
     const deletedReservationIds = new Set(
         reservationsToRemove.map(reservation => String(reservation.id))
     );
