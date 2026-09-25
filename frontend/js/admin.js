@@ -849,6 +849,7 @@ userForm.addEventListener("submit", async event => {
 
     if (modalMode === "create") {
         delete userData.id;
+        userData.enabled = true;
 
         if (!password) {
             userFormMessage.textContent = "A password is required for new users.";

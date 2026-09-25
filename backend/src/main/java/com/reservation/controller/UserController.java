@@ -83,6 +83,8 @@ public class UserController {
 
         if (input.hasNonNull("enabled")) {
             payload.put("enabled", input.path("enabled").asBoolean());
+        } else if (isCreate) {
+            payload.put("enabled", true);
         }
 
         String password = input.path("password").asText("");
