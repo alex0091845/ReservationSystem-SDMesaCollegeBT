@@ -988,7 +988,7 @@ async function handleFacultyReservationDelete() {
     try {
         await deleteEvent(selectedFacultyReservation);
         await facultyReservationDraftAutosave.discard();
-        removeReservations([selectedFacultyReservation, reservedEvents, attendees]);
+        removeReservations([selectedFacultyReservation], reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
