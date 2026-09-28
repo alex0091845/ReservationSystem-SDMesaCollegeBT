@@ -18,6 +18,13 @@ import {
     createReservationDraftAutosave,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
+import {
+    validateEditedReservations,
+    getReservationSeries,
+    deleteReservations,
+    bindBackdropClose,
+    removeReservations
+} from "./utils/reservationEditing.js";
 
 
 // Makes all page elements accessible in one place
@@ -240,28 +247,6 @@ const {
     openEventModal,
     closeEventModal
 } = createModalController(elements);
-
-function bindBackdropClose(overlay, closeModal) {
-    let pointerStartedOnBackdrop = false;
-
-    overlay.addEventListener(
-        "pointerdown",
-        event => {
-            pointerStartedOnBackdrop = event.target === overlay;
-        }
-    );
-
-    overlay.addEventListener(
-        "click",
-        event => {
-            if (pointerStartedOnBackdrop && event.target === overlay) {
-                closeModal();
-            }
-
-            pointerStartedOnBackdrop = false;
-        }
-    );
-}
 
 // Syncs calendar widget date with week-view widget date
 function syncCalendarToSelectedDate() {
@@ -988,38 +973,6 @@ async function handleFacultyReservationSubmit(event) {
     }
 }
 
-function validateEditedReservations({
-    reservationsToSave,
-    existingReservations,
-    selectedReservation,
-    users
-}) {
-    const selectedReservationId = String(selectedReservation?.id ?? "");
-    const reservationsToCheck = existingReservations.filter(reservation => {
-        return String(reservation.id) !== selectedReservationId;
-    });
-
-    for (const [index, reservationData] of reservationsToSave.entries()) {
-        const validation = validateReservationData({
-            reservationData,
-            existingReservations: reservationsToCheck,
-            users,
-            requireId: index === 0
-        });
-
-        if (!validation.isValid) {
-            return validation;
-        }
-
-        reservationsToCheck.push(reservationData);
-    }
-
-    return {
-        isValid: true,
-        message: ""
-    };
-}
-
 async function handleFacultyReservationDelete() {
     if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
         return;
@@ -1040,7 +993,7 @@ async function handleFacultyReservationDelete() {
     try {
         await deleteEvent(selectedFacultyReservation);
         await facultyReservationDraftAutosave.discard();
-        removeReservationsFromFacultyState([selectedFacultyReservation]);
+        removeReservations([selectedFacultyReservation], reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
@@ -1086,7 +1039,7 @@ async function handleFacultyReservationDeleteSeries() {
     try {
         await deleteReservations(seriesReservations);
         await facultyReservationDraftAutosave.discard();
-        removeReservationsFromFacultyState(seriesReservations);
+        removeReservations(seriesReservations, reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
@@ -1099,38 +1052,6 @@ async function handleFacultyReservationDeleteSeries() {
     } finally {
         setFacultyReservationDeleting(false);
     }
-}
-
-function getReservationSeries(reservation, reservations) {
-    const recurrenceGroupId = reservation?.recurrence_group_id;
-
-    if (!recurrenceGroupId) {
-        return [];
-    }
-
-    return reservations.filter(candidate => {
-        return candidate.recurrence_group_id === recurrenceGroupId;
-    });
-}
-
-async function deleteReservations(reservationsToDelete) {
-    for (const reservation of reservationsToDelete) {
-        await deleteEvent(reservation);
-    }
-}
-
-function removeReservationsFromFacultyState(reservationsToRemove) {
-    const deletedReservationIds = new Set(
-        reservationsToRemove.map(reservation => String(reservation.id))
-    );
-
-    reservedEvents = reservedEvents.filter(reservation => {
-        return !deletedReservationIds.has(String(reservation.id));
-    });
-
-    attendees = attendees.filter(attendee => {
-        return !deletedReservationIds.has(String(attendee.event_id));
-    });
 }
 
 function isReservationOwnedByUser(reservation, user) {
