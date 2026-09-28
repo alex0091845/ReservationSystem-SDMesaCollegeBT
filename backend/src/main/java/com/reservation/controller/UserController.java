@@ -1,8 +1,8 @@
 package com.reservation.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.MediaType;
@@ -24,12 +24,16 @@ public class UserController {
 
     @GetMapping
     public ResponseEntity<String> getAll() {
-        return ResponseEntity.ok(sanitizeUserResponse(supabase.get("users?select=*,user_roles(name)")));
+        return ResponseEntity.ok(sanitizeUserResponse(
+            supabase.get("users?select=id,email,first_name,last_name,phone,role_name,enabled,user_roles(name)")
+        ));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<String> getById(@PathVariable int id) {
-        return ResponseEntity.ok(sanitizeUserResponse(supabase.get("users?id=eq." + id + "&select=*,user_roles(name)")));
+        return ResponseEntity.ok(sanitizeUserResponse(supabase.get(
+            "users?id=eq." + id + "&select=id,email,first_name,last_name,phone,role_name,enabled,user_roles(name)"
+        )));
     }
 
     @PostMapping
@@ -81,6 +85,14 @@ public class UserController {
         copyTextIfPresent(input, payload, "phone");
         copyTextIfPresent(input, payload, "role_name");
 
+        if (payload.has("email")) {
+            String email = payload.path("email").asText("").trim().toLowerCase(java.util.Locale.ROOT);
+            if (email.isBlank() || email.length() > 254) {
+                throw new IllegalArgumentException("email must be between 1 and 254 characters");
+            }
+            payload.put("email", email);
+        }
+
         if (input.hasNonNull("enabled")) {
             payload.put("enabled", input.path("enabled").asBoolean());
         } else if (isCreate) {
@@ -88,12 +100,16 @@ public class UserController {
         }
 
         String password = input.path("password").asText("");
-        if (!password.isBlank()) {
+        if (!password.isEmpty()) {
+            int passwordBytes = password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+            if (passwordBytes < 12 || passwordBytes > 72) {
+                throw new IllegalArgumentException("password must be between 12 and 72 UTF-8 bytes");
+            }
             payload.put("password_hash", encoder.encode(password));
         }
 
         if (isCreate) {
-            if (payload.path("email").asText("").isBlank()) {
+            if (!payload.has("email")) {
                 throw new IllegalArgumentException("email is required");
             }
             if (!payload.has("password_hash")) {
@@ -134,10 +150,13 @@ public class UserController {
             ((ObjectNode) node).remove("password_hash");
         }
 
-        node.elements().forEachRemaining(this::removePasswordHashes);
+        node.forEach(this::removePasswordHashes);
     }
 
     private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response) {
+        if (!response.isSuccessful()) {
+            return jsonError(502, "The database could not complete this request.");
+        }
         return ResponseEntity.status(response.statusCode())
             .contentType(MediaType.APPLICATION_JSON)
             .body(sanitizeUserResponse(response.body()));

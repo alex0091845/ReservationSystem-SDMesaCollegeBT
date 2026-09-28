@@ -1,8 +1,9 @@
 package com.reservation.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,6 +19,9 @@ import com.reservation.config.SupabaseClient;
 @RestController
 @RequestMapping("/api/attendees")
 public class AttendeeController {
+
+    private static final int MAX_NAME_LENGTH = 100;
+    private static final int MAX_EMAIL_LENGTH = 254;
 
     private final SupabaseClient supabase;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -41,12 +45,14 @@ public class AttendeeController {
 
     @PostMapping
     public ResponseEntity<String> create(@RequestBody String body) {
-        return ResponseEntity.ok(supabase.post("attendees", buildAttendeePayload(body, true)));
+        return fromSupabase(supabase.postResponse("attendees", buildAttendeePayload(body, true)));
     }
 
     @PatchMapping("/{id}")
     public ResponseEntity<String> update(@PathVariable long id, @RequestBody String body) {
-        return ResponseEntity.ok(supabase.patch("attendees?id=eq." + id, buildAttendeePayload(body, false)));
+        return fromSupabase(supabase.patchResponse(
+            "attendees?id=eq." + id, buildAttendeePayload(body, false)
+        ));
     }
 
     @DeleteMapping("/{id}")
@@ -71,17 +77,21 @@ public class AttendeeController {
             throw new IllegalArgumentException("Malformed request body");
         }
 
+        if (input == null || !input.isObject()) {
+            throw new IllegalArgumentException("Attendee body must be a JSON object");
+        }
+
         ObjectNode payload = mapper.createObjectNode();
 
         if (input.hasNonNull("event_id")) {
-            payload.put("event_id", input.path("event_id").asInt());
+            payload.put("event_id", readPositiveInteger(input.get("event_id"), "event_id"));
         }
         if (input.hasNonNull("sdccd_id")) {
-            payload.put("sdccd_id", input.path("sdccd_id").asInt());
+            payload.put("sdccd_id", readPositiveInteger(input.get("sdccd_id"), "sdccd_id"));
         }
-        copyTextIfPresent(input, payload, "first_name");
-        copyTextIfPresent(input, payload, "last_name");
-        copyTextIfPresent(input, payload, "email");
+        copyTextIfPresent(input, payload, "first_name", MAX_NAME_LENGTH);
+        copyTextIfPresent(input, payload, "last_name", MAX_NAME_LENGTH);
+        copyTextIfPresent(input, payload, "email", MAX_EMAIL_LENGTH);
 
         if (isCreate) {
             if (!payload.has("event_id")) {
@@ -99,9 +109,31 @@ public class AttendeeController {
         return payload.toString();
     }
 
-    private void copyTextIfPresent(JsonNode input, ObjectNode payload, String field) {
+    private void copyTextIfPresent(JsonNode input, ObjectNode payload, String field, int maxLength) {
         if (input.hasNonNull(field)) {
-            payload.put(field, input.path(field).asText());
+            String value = input.path(field).asText();
+            if (value.length() > maxLength) {
+                throw new IllegalArgumentException(field + " must be at most " + maxLength + " characters");
+            }
+            payload.put(field, value.trim());
         }
+    }
+
+    private int readPositiveInteger(JsonNode value, String field) {
+        if (value == null || !value.canConvertToInt() || value.asInt() < 1) {
+            throw new IllegalArgumentException(field + " must be a positive integer");
+        }
+        return value.asInt();
+    }
+
+    private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response) {
+        if (!response.isSuccessful()) {
+            return ResponseEntity.status(502)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body("{\"error\":\"The database could not complete this request.\"}");
+        }
+        return ResponseEntity.status(response.statusCode())
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(response.body());
     }
 }

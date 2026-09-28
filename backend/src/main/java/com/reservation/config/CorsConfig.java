@@ -7,6 +7,9 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.net.URI;
+import java.util.Arrays;
+
 //@Configure scans for @Bean and registers its return
 @Configuration
 public class CorsConfig {
@@ -15,7 +18,7 @@ public class CorsConfig {
     // No default: an unset value fails startup (fail closed) rather than silently
     // allowing all origins with credentials.
     @Value("${app.cors.allowed-origin-patterns}")
-    private String[] allowedOriginPatterns;
+    private String[] configuredOrigins;
 
     public CorsConfig(AuthInterceptor authInterceptor) {
         this.authInterceptor = authInterceptor;
@@ -51,13 +54,23 @@ public class CorsConfig {
     */
     @Bean
     public WebMvcConfigurer corsConfigurer() {
+        String[] allowedOrigins = Arrays.stream(configuredOrigins)
+            .map(String::trim)
+            .filter(origin -> !origin.isEmpty())
+            .peek(this::validateOrigin)
+            .toArray(String[]::new);
+
+        if (allowedOrigins.length == 0) {
+            throw new IllegalStateException("At least one exact CORS origin must be configured");
+        }
+
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/api/**")
-                        .allowedOriginPatterns(allowedOriginPatterns)
+                        .allowedOrigins(allowedOrigins)
                         .allowedMethods("GET", "POST", "PATCH", "DELETE", "OPTIONS")
-                        .allowedHeaders("*")
+                        .allowedHeaders("Content-Type")
                         .allowCredentials(true);
             }
 
@@ -67,5 +80,19 @@ public class CorsConfig {
                         .addPathPatterns("/api/**");
             }
         };
+    }
+
+    private void validateOrigin(String origin) {
+        try {
+            URI uri = URI.create(origin);
+            boolean validScheme = "https".equalsIgnoreCase(uri.getScheme()) ||
+                "http".equalsIgnoreCase(uri.getScheme());
+            if (!validScheme || uri.getHost() == null || uri.getRawPath() != null && !uri.getRawPath().isEmpty() ||
+                uri.getQuery() != null || uri.getFragment() != null || origin.contains("*")) {
+                throw new IllegalStateException("CORS entries must be exact origins without paths or wildcards");
+            }
+        } catch (IllegalArgumentException error) {
+            throw new IllegalStateException("Invalid CORS origin configuration", error);
+        }
     }
 }

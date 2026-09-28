@@ -244,7 +244,9 @@ There is a short version of this in [`BACKEND.md` §9](BACKEND.md).
 ### Row Level Security
 
 - [Supabase: Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
-  — matters because we use the **anon** key, not the service-role key.
+  matters as a database boundary. The EC2 backend uses a server-only `sb_secret` key that bypasses
+  RLS, so backend authorization must protect each request. The hardening migration removes direct
+  table access for the `anon` and `authenticated` API roles. See [`SECURITY.md`](SECURITY.md).
 
 ---
 

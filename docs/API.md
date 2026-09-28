@@ -29,7 +29,8 @@ Base URL: `<backend origin>/api` — e.g. `http://localhost:8080/api`.
 
 Cookie-based. `POST /api/login` returns a `Set-Cookie: session_id=…` header; every subsequent
 request must send it back. The cookie is `HttpOnly` (JavaScript cannot read it), and `Secure` /
-`SameSite` come from the backend's env vars.
+`SameSite` come from the backend's env vars. The database stores a SHA-256 hash of the cookie token,
+not the token itself.
 
 In the browser this means **every** request needs `credentials: "include"` — `js/api.js` does this
 in one place. With curl, use a cookie jar:
@@ -50,6 +51,7 @@ There are three access levels, enforced by `AuthInterceptor` before any controll
 |---|---|
 | **public** | No cookie needed |
 | **login** | Any valid session |
+| **faculty/admin** | Session whose role is `faculty` or `admin` |
 | **admin** | Session whose role is `admin` (case-insensitive) |
 
 Some endpoints add an **ownership** check inside the controller on top of `login`: you may only
@@ -82,8 +84,10 @@ hostnames and stack traces can't leak. When you get a 500, the real cause is in 
 
 ### Response shapes
 
-Reads pass PostgREST's response through untouched, so **`GET` always returns a JSON array**, even
-when you fetch by id. A missing row is `[]`, not a 404.
+Most reads return a JSON array, even when you fetch by id. A missing row is `[]`, not a 404. Private
+events are filtered on the server for callers without a faculty or admin session. The public
+calendar receives the event ID, start/end time, `is_public: false`, and generic title only. The
+schedule interval remains visible so it can still mark the room as occupied.
 
 ```bash
 GET /api/events/999   →   200 []
@@ -93,32 +97,24 @@ Writes send `Prefer: return=representation` to PostgREST, so a successful `POST`
 **an array containing the row(s) written**, not a bare object. The one exception is
 `POST /api/login`, which returns a single user object.
 
-`?select=…` joins mean some responses carry a nested object — events carry `users`, attendees carry
-`events`, users carry `user_roles`.
+`?select=…` joins mean some responses carry a nested object. Public event data for private events
+does not include the host join.
 
-### ⚠️ Status codes are not uniform
+### Status codes and error bodies
 
-This is the single most surprising thing about this API, so it is worth learning up front. Some
-endpoints pass the database's status code through; others always answer `200` and put the database's
-error in the body.
+The API does not return PostgREST error bodies. Database failures are mapped to generic server
+errors so constraint details and database messages are not exposed to clients.
 
 | Endpoint group | Behaviour |
 |---|---|
-| `POST`/`PATCH` on `/events`, `/events/batch`, `/events/recurring`, `/reservation-drafts` | **Status propagated.** A rejected write returns the real 4xx. |
+| `POST`/`PATCH` on `/events`, `/events/batch`, `/events/recurring`, `/reservation-drafts`, `/users` | Input errors return 400; database errors use a generic 502 response. |
 | All `DELETE` except `/reservation-drafts/{id}` | **Inspected properly** — 204 / 409 / 502 (see `DeleteOutcome`). |
-| Every `GET` | **Always `200`**, even if the database errored. |
-| `POST`/`PATCH` on `/users`, `/attendees`, `/event-types`, `/roles` | **Always `200`**, even if the write was rejected. |
+| Every `GET` | Successful reads return 200; database failures return a generic 500. |
+| `POST` on `/attendees`, `/event-types`, `/roles` | Successful writes return 201; database rejections return a generic 502. |
+| `PATCH` on `/attendees`, `/event-types`, `/roles` | Successful writes return 200; database rejections return a generic 502. |
 
-So on those last two rows, "did it work?" must be answered by **looking at the body**, not the
-status. A rejected write comes back as `200` with a PostgREST error object:
-
-```json
-{ "code": "23505", "details": null, "hint": null,
-  "message": "duplicate key value violates unique constraint \"users_email_key\"" }
-```
-
-A successful write is always an **array**. So: *if the body is an object with a `code` field, the
-write failed.* See [Cross-cutting gotchas](#cross-cutting-gotchas).
+Database error bodies are not returned to clients. Error responses contain a generic message so
+table names, constraint details, and database configuration are not exposed.
 
 ---
 
@@ -132,7 +128,7 @@ write failed.* See [Cross-cutting gotchas](#cross-cutting-gotchas).
 | `POST` | `/api/login` | public | Log in, set session cookie |
 | `POST` | `/api/logout` | public | Invalidate session, clear cookie |
 | `GET` | `/api/session` | public | Who am I |
-| `GET` | `/api/events` | public | All events |
+| `GET` | `/api/events` | public | Public event details and masked private event schedule blocks |
 | `GET` | `/api/events/{id}` | public | One event |
 | `GET` | `/api/events/by-user/{userId}` | public | Events hosted by a user |
 | `GET` | `/api/events/public` | public | Only `is_public=true` |
@@ -144,12 +140,12 @@ write failed.* See [Cross-cutting gotchas](#cross-cutting-gotchas).
 | `GET` | `/api/reservation-drafts` | login | Your drafts |
 | `POST` | `/api/reservation-drafts` | login ★ | Save/update a draft |
 | `DELETE` | `/api/reservation-drafts/{id}` | login | Discard a draft |
-| `GET` | `/api/attendees` | login | All check-ins |
-| `GET` | `/api/attendees/{id}` | login | One check-in |
-| `GET` | `/api/attendees/by-event/{eventId}` | login | Check-ins for an event |
+| `GET` | `/api/attendees` | faculty/admin | All check-ins |
+| `GET` | `/api/attendees/{id}` | faculty/admin | One check-in |
+| `GET` | `/api/attendees/by-event/{eventId}` | faculty/admin | Check-ins for an event |
 | `POST` | `/api/attendees` | **public** | Check in to an event |
-| `PATCH` | `/api/attendees/{id}` | login | Update a check-in |
-| `DELETE` | `/api/attendees/{id}` | login | Delete a check-in |
+| `PATCH` | `/api/attendees/{id}` | faculty/admin | Update a check-in |
+| `DELETE` | `/api/attendees/{id}` | faculty/admin | Delete a check-in |
 | `GET` | `/api/event-types` | public | All event types |
 | `GET` | `/api/event-types/{eventType}` | public | One event type |
 | `POST` | `/api/event-types` | admin | Create |
@@ -161,10 +157,10 @@ write failed.* See [Cross-cutting gotchas](#cross-cutting-gotchas).
 | `PATCH` | `/api/users/{id}` | admin | Update user / disable / enable |
 | `DELETE` | `/api/users/{id}` | admin | Delete user |
 | `GET` | `/api/roles` | public | All roles |
-| `GET` | `/api/roles/{id}` | public | ⚠️ broken — see [Roles](#roles) |
+| `GET` | `/api/roles/{name}` | public | Find a role by primary key |
 | `POST` | `/api/roles` | admin | Create role |
-| `PATCH` | `/api/roles/{id}` | admin | ⚠️ broken |
-| `DELETE` | `/api/roles/{id}` | admin | ⚠️ broken |
+| `PATCH` | `/api/roles/{name}` | admin | Update a role |
+| `DELETE` | `/api/roles/{name}` | admin | Delete a role |
 
 ---
 
@@ -180,8 +176,8 @@ write failed.* See [Cross-cutting gotchas](#cross-cutting-gotchas).
 { "email": "ada@sdmesa.edu", "password": "secret" }
 ```
 
-Both fields required. Email is matched exactly as sent — the frontend lowercases it first
-(`login.js`), so store emails lowercase.
+Both fields are required. Email is trimmed and lowercased before lookup. Passwords over 72 UTF-8
+bytes are rejected to match BCrypt's input limit. Disabled users cannot log in.
 
 **Success — `200`**
 
@@ -216,8 +212,7 @@ user **as a single object** (the only endpoint that does):
   matches — a plaintext password in the database cannot be used to log in.
 - The same `401` is returned for "no such user" and "wrong password", so the endpoint doesn't reveal
   which emails exist.
-- ⚠️ **`enabled` is not checked.** A disabled user can still log in and use the API. Disabling is
-  enforced only in the browser. See [gotcha 2](#2-disabled-users-are-only-disabled-in-the-browser).
+- Disabled accounts cannot log in. Existing sessions are rejected after the account is disabled.
 
 ```bash
 curl -i -c jar -X POST http://localhost:8080/api/login \
@@ -698,15 +693,15 @@ A check-in: one person recording that they attended an event. Attendees do **not
 
 ### `GET /api/attendees`
 
-**Auth:** login. Every check-in in the system, each with its event's title.
+**Auth:** faculty/admin. Every check-in in the system, each with its event's title.
 
 ### `GET /api/attendees/{id}`
 
-**Auth:** login. Array with 0 or 1 element.
+**Auth:** faculty/admin. Array with 0 or 1 element.
 
 ### `GET /api/attendees/by-event/{eventId}`
 
-**Auth:** login. All check-ins for one event — this is what the attendee list in the reservation
+**Auth:** faculty/admin. All check-ins for one event, which is what the attendee list in the reservation
 modal uses.
 
 ---
@@ -735,7 +730,7 @@ Because this endpoint is public, the body is **strictly whitelisted** — those 
 nothing else reach the database. `check_in_time` is set by the table default (`now()`) and cannot be
 supplied.
 
-**Success — `200`** with the created row.
+**Success: `201`** with the created row.
 
 **Errors**
 
@@ -745,9 +740,8 @@ supplied.
 | `400` | `{"error":"first_name is required"}` |
 | `400` | `{"error":"Malformed request body"}` |
 
-⚠️ A database-level rejection (e.g. `event_id` pointing at a nonexistent event) still returns
-`200` with a PostgREST error object in the body. See
-[gotcha 4](#4-some-writes-report-200-even-when-they-failed).
+Database rejections return a generic `502` error. PostgREST error details are not sent to the
+caller.
 
 ```bash
 curl -X POST http://localhost:8080/api/attendees \
@@ -762,12 +756,12 @@ and anyone who knows an event id can post check-ins to it.
 
 ### `PATCH /api/attendees/{id}`
 
-**Auth:** login. Same whitelist as create; nothing is required, but the payload can't be empty
+**Auth:** faculty/admin. Same whitelist as create; nothing is required, but the payload can't be empty
 (`400 {"error":"No updatable fields provided"}`). Returns `200` with the updated row.
 
 ### `DELETE /api/attendees/{id}`
 
-**Auth:** login. `204` on success.
+**Auth:** faculty/admin. `204` on success.
 
 | Status | Body |
 |---|---|
@@ -799,14 +793,14 @@ saved on an event.
 
 **Auth:** admin
 
-⚠️ **The body is not whitelisted** — it is forwarded to PostgREST exactly as received, unlike every
-other write endpoint. Send only real columns:
+The body is whitelisted to `event_type` and `description`:
 
 ```json
 { "event_type": "Lecture", "description": "Scheduled class" }
 ```
 
-Both return `200` with the written row **and also `200` if the write was rejected** — check the body.
+Successful creates return `201`; successful updates return `200`. Database rejections return a
+generic `502`.
 
 ### `DELETE /api/event-types/{eventType}`
 
@@ -820,8 +814,7 @@ Both return `200` with the written row **and also `200` if the write was rejecte
 The `409` is the common case: you cannot remove a type while any event references it. Repoint or
 delete those events first.
 
-**Note:** `{eventType}` is interpolated into the query string without URL-encoding, so a type
-containing spaces or `&` will misbehave. Stick to simple identifiers like `Study_Group`.
+The route value is URL-encoded before it is sent to PostgREST.
 
 ---
 
@@ -877,8 +870,8 @@ which is why the frontend can safely PATCH a whole user object back).
 | `400` | `{"error":"password is required"}` |
 | `400` | `{"error":"Malformed request body"}` |
 
-⚠️ **A duplicate email returns `200`**, not a conflict — with a PostgREST `23505` error object in the
-body. See [gotcha 4](#4-some-writes-report-200-even-when-they-failed).
+Duplicate email or other database rejections return a generic `502`. The database error body is not
+sent to the caller.
 
 ### `PATCH /api/users/{id}`
 
@@ -892,8 +885,8 @@ curl -b jar -X PATCH http://localhost:8080/api/users/5 \
   -H 'Content-Type: application/json' -d '{"enabled":false}'
 ```
 
-⚠️ Setting `enabled: false` stops the **browser** from letting that user book. It does not stop the
-API. See [gotcha 2](#2-disabled-users-are-only-disabled-in-the-browser).
+Setting `enabled: false` blocks new logins and invalidates the user's existing session on its next
+request.
 
 ### `DELETE /api/users/{id}`
 
@@ -904,9 +897,8 @@ API. See [gotcha 2](#2-disabled-users-are-only-disabled-in-the-browser).
 | `409` | `{"error":"This user still has reservations or sessions on record, so the account cannot be deleted."}` |
 | `502` | `{"error":"The delete could not be completed. Please try again."}` |
 
-In practice the `409` is what you get for any user who has ever logged in, because their `sessions`
-rows reference them and sessions are never purged. **The admin UI does not offer delete at all** —
-it disables accounts instead, which is the intended workflow.
+In practice the `409` is what you get for a user whose `sessions` rows still reference them. The
+admin UI does not offer delete, and disabling accounts is the intended workflow.
 
 ---
 
@@ -922,61 +914,30 @@ The role that matters is `admin`; the check is `role_name == "admin"`, case-inse
 
 **Auth:** public. Array of all roles. This one works.
 
-### ⚠️ `GET`/`PATCH`/`DELETE` `/api/roles/{id}` are broken
-
-These build the query `user_roles?id=eq.{id}`, but **`user_roles` has no `id` column**. PostgREST
-rejects the query with `42703 column user_roles.id does not exist`. Observed behaviour:
-
-| Request | Result |
-|---|---|
-| `GET /api/roles/1` | `200` with `{"code":"42703","message":"column user_roles.id does not exist"}` |
-| `PATCH /api/roles/1` | `200` with the same error object |
-| `DELETE /api/roles/1` | `502 {"error":"The delete could not be completed. Please try again."}` |
-
-The delete at least fails loudly, because it goes through `DeleteOutcome`; the other two look like
-successes to any client checking only the status code.
-
-Nothing in the frontend calls them, which is why this has gone unnoticed. **To fix**, change the
-path variable to the role name and the filter to `name=eq.`, e.g.:
-
-```java
-@GetMapping("/{name}")
-public ResponseEntity<String> getByName(@PathVariable String name) {
-    return ResponseEntity.ok(supabase.get("user_roles?name=eq." + name));
-}
-```
+`user_roles.name` is the primary key, so individual role routes use `/api/roles/{name}`.
 
 ### `POST /api/roles`
 
-**Auth:** admin. Body is **not whitelisted** — forwarded as-is. Send `{"name":"…","description":"…"}`.
+**Auth:** admin. The body is whitelisted to `name` and `description`. Send
+`{"name":"faculty","description":"Teaching staff"}`.
 
 ---
 
 ## Cross-cutting gotchas
 
-Behaviours that surprise people. All of these are current as of this writing and verified against a
-running instance.
+Current server behavior and known limitations. Automated tests cover the security cases listed in
+the test section below. Production database permissions and AWS settings still require live checks.
 
-### 1. Private events are readable by anyone
+### 1. Private events are masked by the API
 
-`GET /api/events`, `/events/{id}` and `/events/by-user/{id}` are public and return **every** event,
-including `is_public: false` ones, with host names attached. `is_public` is respected by the UI, not
-by the API. `/api/events/public` exists and filters correctly, but nothing calls it.
+All three public event reads mask private details unless a valid faculty or admin session is
+present. The public response still contains the reservation ID and time interval so the calendar can
+display occupied time. Verify with a production request after deployment.
 
-*Fix:* either point the anonymous calendar at `/api/events/public`, or remove `/api/events` from the
-`GET` allowlist in `AuthInterceptor.isPublicEndpoint`.
+### 2. Disabled users cannot start or continue a session
 
-### 2. Disabled users are only disabled in the browser
-
-Nothing on the backend reads `users.enabled` — it is written by `UserController` and never read
-again. A user with `enabled: false` can still log in and still create, edit and delete their own
-reservations. The restriction lives in `frontend/js/utils/reservationValidation.js` and in the
-disabled Create button.
-
-Verified: logging in as a user with `"enabled": false` returns `200` with a valid session cookie,
-and that session can create events.
-
-*Fix:* reject in `AuthService.authenticate`, or in `AuthInterceptor` after the session resolves.
+Login rejects disabled accounts. Session resolution reloads the enabled account record and
+invalidates sessions whose account is missing or disabled.
 
 ### 3. Double-booking is only prevented in the browser
 
@@ -987,63 +948,42 @@ between two people booking simultaneously — can double-book.
 *Fix:* an exclusion constraint on `events` (Postgres `EXCLUDE USING gist` on a `tstzrange`) is the
 robust answer; a server-side check in `ReservationController` would catch the common case.
 
-### 4. Some writes report `200` even when they failed
+### 4. Database errors are not returned to clients
 
-`POST`/`PATCH` on `/users`, `/attendees`, `/event-types` and `/roles` discard the database's status
-code and always answer `200`. A rejected write therefore looks successful to any client that only
-checks the status — which is exactly what `frontend/js/api.js` does. The visible symptom: creating a
-user with a duplicate email appears to succeed in the admin UI and the row is added to the list,
-until you reload.
+Reads and writes use generic error responses when Supabase fails. This avoids returning Postgres
+constraint messages, table details, or Supabase response bodies to the browser.
 
-**How to tell:** a successful write returns an **array**; a failure returns an **object** with
-`code` / `message` / `details` / `hint`.
-
-*Fix:* switch those controllers to `postResponse` / `patchResponse` and the `fromSupabase` helper,
-the way `ReservationController` already does.
-
-### 5. `GET` never reports database failures
-
-Every read is wrapped in `ResponseEntity.ok(...)`, so if Supabase returns an error the client gets
-`200` with an error object where it expected an array. The frontend's `normalizeCollection` turns
-that into `[]`, so **a database outage looks like "no data"** rather than an error.
-
-### 6. `PATCH /api/events/{id}` requires the whole object
+### 5. `PATCH /api/events/{id}` requires the whole object
 
 It re-validates as if it were a create. Send all eight required fields, not just what changed.
 
-### 7. Sessions accumulate forever
+### 6. Sessions accumulate until cleanup is configured
 
-Expired and invalidated rows are never purged from `sessions`. This also means `DELETE /api/users/{id}`
-will `409` for anyone who has ever logged in.
+Expired and invalidated rows are not automatically purged from `sessions`. Until a cleanup policy is
+added, a user's session rows can prevent account deletion. The database hardening migration removes
+old raw tokens once and signs users out.
 
-### 8. `GET` by id returns `[]`, not `404`
+### 7. `GET` by id returns `[]`, not `404`
 
 Only `PATCH` and `DELETE` on `/events/{id}` return a real `404`. Every other by-id read returns a
 `200` with an empty array. Check `array.length`, not the status.
 
-### 9. There is no `DELETE /api/events/series/{groupId}`
+### 8. There is no `DELETE /api/events/series/{groupId}`
 
 Series deletion is N sequential requests from the browser, and is not atomic.
 
-### 10. The 8 AM start of the day is not enforced
+### 9. The 8 AM start of the day is not enforced
 
 Only the 5:00 PM end is checked server-side. The API accepts a 6 AM booking; the UI just never
 offers one.
 
 ---
 
-## How this reference was verified
+## Verification
 
-Rather than reading the controllers and inferring, the behaviour above was observed against a
-running backend:
-
-- The jar was built (`mvn clean package`) and run against a stand-in PostgREST server that returns
-  controlled responses — successes, `23503` foreign-key violations, `23505` duplicate keys, `42703`
-  missing-column errors, and generic failures.
-- Every endpoint was then exercised with curl as an anonymous caller, a non-admin session, and an
-  admin session, and the observed status codes and bodies recorded.
-
-That is how the status-code caveats, the exact error strings, the check ordering, the 5 PM boundary
-behaviour, the DST handling, and gotchas 1–4 and 10 were confirmed rather than assumed. If you
-change a controller, the quickest way to re-check this document is to repeat that exercise.
+The backend test suite runs with `mvn clean verify`. It includes tests for private event masking,
+faculty/admin access, disabled-account login rejection, session token hashing, exact-origin request
+checks, and correct Supabase secret-key headers. These are local automated tests. Apply the database
+migration and exercise the production API before treating live permissions or deployment behavior
+as verified.
 

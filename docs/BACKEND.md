@@ -9,13 +9,15 @@ Everything you need to take over the Spring Boot API. Assumes you know Java but 
 
 ## 1. What the backend actually is
 
-It is a **thin REST API in front of Supabase**. That is the single most important thing to understand.
+It is a **REST API in front of Supabase**. The browser calls the CloudFront distribution; its
+`/api/*` behavior forwards those requests to this service on EC2. The backend calls Supabase
+PostgREST using a server-only API key.
 
 There is **no JPA, no Hibernate, no `@Entity` classes, no repositories, no SQL in Java**. Instead:
 
 ```
-Browser  ──HTTP──▶  Spring Boot (EC2)  ──HTTPS──▶  Supabase PostgREST  ──▶  PostgreSQL
-                    :8080 /api/...                  /rest/v1/<table>?<filters>
+Browser --HTTPS--> CloudFront --/api/*--> Spring Boot (EC2) --HTTPS--> Supabase PostgREST --> PostgreSQL
+                                        :8080 /api/...       /rest/v1/<table>?<filters>
 ```
 
 Every controller builds a **PostgREST query string** (e.g. `events?id=eq.5&select=*`), hands it to
@@ -40,7 +42,7 @@ The backend's real jobs are the four things Supabase can't do for us:
 cd backend
 
 export SUPABASE_URL="https://xxxx.supabase.co"
-export SUPABASE_API_KEY="<anon key>"
+export SUPABASE_API_KEY="<server-only sb_secret key>"
 export APP_CORS_ALLOWED_ORIGIN_PATTERNS="http://localhost:5500"
 export AUTH_COOKIE_SECURE=false        # required for plain http on localhost
 
@@ -53,7 +55,8 @@ Check it is alive:
 curl http://localhost:8080/api/health     # → {"status":"ok"}
 ```
 
-Requirements: Java 17+ and Maven. Build a jar with `mvn clean package` → `target/*.jar`.
+Requirements: Java 17+ and Maven. Run the automated checks with `mvn clean verify`, then build
+the jar at `target/*.jar`.
 There is also a multi-stage `backend/Dockerfile` (builds with Maven, runs on a JRE image as a
 non-root `appuser`).
 
@@ -64,12 +67,25 @@ Defined in `src/main/resources/application.properties`.
 | Variable | Required | Default | Notes |
 |---|:--:|---|---|
 | `SUPABASE_URL` | ✅ | — | Supabase project URL |
-| `SUPABASE_API_KEY` | ✅ | — | Use the **anon** key with RLS on, not the service-role key |
-| `APP_CORS_ALLOWED_ORIGIN_PATTERNS` | ✅ | — | Comma-separated frontend origins. **No default on purpose** — the app refuses to start if unset, so a misconfigured deploy can never silently allow all origins with credentials |
+| `SUPABASE_API_KEY` | ✅ | None | The current EC2 configuration uses an `sb_secret` key. It is server-only and bypasses RLS, so every API authorization check must be enforced by the backend. New `sb_*` keys are sent in the `apikey` header only. |
+| `APP_CORS_ALLOWED_ORIGIN_PATTERNS` | ✅ | None | Comma-separated frontend origins. **No default on purpose:** the app refuses to start if unset, so a misconfigured deploy can never silently allow all origins with credentials |
 | `SERVER_PORT` | | `8080` | |
 | `AUTH_COOKIE_SECURE` | | `true` | `false` only for local http |
-| `AUTH_COOKIE_SAME_SITE` | | `Lax` | Must be `None` for the split S3→EC2 deploy (and `None` requires `SECURE=true`) |
+| `AUTH_COOKIE_SAME_SITE` | | `Lax` | `Lax` works for the current CloudFront same-origin `/api/*` route. `None` requires `AUTH_COOKIE_SECURE=true` for direct cross-site API requests. |
 | `AUTH_SESSION_HOURS` | | `8` | Session lifetime |
+
+### EC2 environment file
+
+The production EC2 environment file is `/etc/reservation-backend.env`. Keep it on the server;
+do not add it to the repository or container image. To check which environment file the systemd
+service loads without printing its values, run:
+
+```bash
+sudo systemctl show reservation-backend -p FragmentPath -p DropInPaths -p EnvironmentFiles
+```
+
+The service unit must reference the file with `EnvironmentFile=/etc/reservation-backend.env` for
+systemd to load it.
 
 Error detail is suppressed globally (`server.error.include-message=never`, no stack traces) so
 Supabase URLs and internals never leak to a browser.
@@ -112,7 +128,8 @@ After those three, the rest is repetition of the same patterns.
 ### `SupabaseClient` — the database layer
 
 Wraps a plain JDK `HttpClient`. Four methods: `get`, `post`, `patch`, `delete`. Each sends the
-`apikey` + `Authorization: Bearer` headers and hits `${supabase.url}/rest/v1/<endpoint>`.
+`apikey` header to `${supabase.url}/rest/v1/<endpoint>`. New `sb_*` keys are not JWTs and are never
+sent in `Authorization: Bearer`; legacy JWT keys are still sent in both headers for compatibility.
 
 - 5-second connect timeout, 10-second per-request read timeout, so a hung Supabase call can't pin a
   servlet thread forever.
@@ -127,52 +144,57 @@ Wraps a plain JDK `HttpClient`. Four methods: `get`, `post`, `patch`, `delete`. 
 - `isForeignKeyViolation()` — parses the JSON body looking for Postgres SQLSTATE `23503`, i.e.
   "another table still references this row."
 
-### `AuthInterceptor` — the whole authorization policy
+### `AuthInterceptor`: request authorization
 
 Registered in `CorsConfig` against `/api/**`. It runs before every controller and does three things:
 
-1. **Lets some requests straight through** (`isPublicEndpoint`):
+1. **Lets some requests through without a session** (`isPublicEndpoint`):
    - `/api/login`, `/api/logout`, `/api/session`, `/api/health`
    - **any `GET`** on `/api/events`, `/api/event-types`, `/api/roles`
    - `POST /api/attendees` (public check-in — anyone attending an event can sign in without an account)
    - all `OPTIONS` requests (CORS preflight)
-2. Otherwise resolves the session cookie to a user; **401** if there isn't one. The user is stashed
-   as the request attribute `currentUser`, which is how controllers get the caller.
-3. Applies the admin rule (`requiresAdmin`); **403** if it fails:
+2. For event reads, resolves a presented session so the controller can decide whether to show
+   private details. Without a `faculty` or `admin` role, private events are masked server-side.
+3. Other protected requests resolve the session cookie; **401** if there is no active session. The
+   user is stored as request attribute `currentUser` for ownership checks.
+4. Applies role rules; **403** if they fail:
    - everything under `/api/users` is admin-only, **including GET**
    - non-GET on `/api/roles` and `/api/event-types` is admin-only
+   - attendee reads, updates, and deletes require faculty or admin
+   - state-changing requests with an unapproved `Origin` or `Sec-Fetch-Site: cross-site` are rejected
 
-Everything else (creating/editing/deleting your own reservations and drafts) is allowed for any
-logged-in user — the *ownership* check happens inside the controller, not here.
-
-> **Read this twice:** `GET /api/events` is public and returns **every** event, private ones
-> included, with host names attached. `/api/events/public` exists and filters to
-> `is_public=true`, but nothing currently calls it. If private reservations are meant to be
-> private from anonymous visitors, this is the line to change
-> (`AuthInterceptor.isPublicEndpoint`) — see §8.
+Creating, editing, and deleting reservations requires a valid session and controller-level
+ownership checks. Public event reads retain only the event ID, start time, end time, public flag,
+and generic title for private events. The schedule interval remains visible so the calendar can
+show the room is occupied.
 
 ### `AuthService` and `SessionService` — login
 
 `AuthService`:
 - `authenticate(email, password)` — looks the user up, verifies with BCrypt, returns a **sanitized**
   copy (`password_hash` removed).
+- Disabled accounts cannot log in. Existing sessions stop working on the next authenticated
+  request. Email is normalized to lowercase, and passwords over 72 UTF-8 bytes are rejected.
 - Password check **fails closed**: if the stored value isn't a `$2a$`/`$2b$`/`$2y$` BCrypt hash it is
   never a match, so a legacy plaintext password can't be used to log in.
-- `isAdmin(user)` — role name equals `"admin"`, case-insensitive. Role can arrive as `role_name`,
+- `isFacultyOrAdmin(user)` recognizes the `faculty` and `admin` roles for private event details
+  and attendee records. `isAdmin(user)` checks whether the role is `"admin"`, case-insensitive. Role can arrive as `role_name`,
   `role`, or nested `user_roles.name`; `getRoleName` tries all three.
 
 `SessionService`:
-- On login, generates 32 random bytes from `SecureRandom`, base64url-encodes them, inserts a row in
-  `sessions`, and returns an `HttpOnly` cookie.
+- On login, generates 32 random bytes from `SecureRandom`, base64url-encodes them for the cookie,
+  stores only their SHA-256 hash in `sessions`, and returns an `HttpOnly` cookie.
 - On every authenticated request, `getCurrentUser` reads the cookie, loads the session row, rejects
   it if `invalidated_at` is set or `expires_at` has passed (invalidating it on the way out), then
   updates `last_seen_at` and returns the user.
 - Logout sets `invalidated_at` and returns a cookie with `maxAge=0`.
 
 Cookie flags come from config: `HttpOnly` always, `Secure` and `SameSite` from env vars.
+The service rejects invalid SameSite values, requires `Secure` for `SameSite=None`, and limits the
+configured session duration to 1 through 24 hours.
 
-**Note:** sessions are never bulk-purged. The `sessions` table grows forever unless someone adds a
-cleanup job.
+The database migration deletes existing raw session tokens. Everyone will need to sign in again
+after it is applied. Expired sessions still need a scheduled cleanup policy.
 
 ### `ReservationController` — `/api/events`
 
@@ -198,9 +220,9 @@ Endpoints:
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/events` | all events + host first/last name |
-| GET | `/api/events/{id}` | |
-| GET | `/api/events/by-user/{userId}` | |
+| GET | `/api/events` | Public schedule; private details are masked unless caller is faculty/admin |
+| GET | `/api/events/{id}` | Same private-field masking rules |
+| GET | `/api/events/by-user/{userId}` | Same private-field masking rules |
 | GET | `/api/events/public` | `is_public=true` only |
 | POST | `/api/events` | one reservation |
 | POST | `/api/events/batch` | array of reservations, one insert |
@@ -271,6 +293,7 @@ device doesn't lose their work.
   is BCrypt-hashed here on the server.
 - On create, email and password are required. On update, a blank password means "keep the current
   one" (the frontend simply omits the field).
+- New or changed passwords must be 12 to 72 UTF-8 bytes.
 - `sanitizeUserResponse` walks the whole response tree and strips `password_hash` before returning,
   belt-and-braces with `AuthService`.
 - There is **no hard delete of users from the app** — the UI disables accounts by setting
@@ -279,18 +302,17 @@ device doesn't lose their work.
 
 ### `AttendeeController` — `/api/attendees`
 
-Check-ins. `POST` is **public and unauthenticated** — that is the point, attendees don't have
-accounts. Because raw client JSON must never reach PostgREST on a public endpoint,
+Check-ins. `POST` is **public and unauthenticated** because attendees do not have accounts. Reads,
+updates, and deletes require a faculty or admin session. Because raw client JSON must never reach
+PostgREST on a public endpoint,
 `buildAttendeePayload` whitelists `event_id`, `sdccd_id`, `first_name`, `last_name`, `email`, and
 lets `check_in_time` fall back to the table default `now()`. `event_id` and `first_name` are
-required on create. All the `GET`s require a login.
+required on create. Text fields are length-limited.
 
 ### `EventTypeController` / `UserRoleController`
 
-The thinnest controllers — near pass-throughs. GET is public, writes are admin-only (enforced by
-`AuthInterceptor`, not by code in the controller). **These two do *not* whitelist their request
-bodies**; whatever JSON you POST goes to PostgREST as-is. That's tolerable only because they're
-admin-only. See §8.
+GET is public and writes are admin-only. Both controllers whitelist request fields before they
+reach PostgREST. Role routes use the actual `user_roles.name` primary key.
 
 ### `GlobalExceptionHandler`
 
@@ -305,8 +327,9 @@ admin-only. See §8.
 > Quick orientation only. For request bodies, response shapes, every error message, curl examples
 > and per-endpoint caveats, see **[`API.md`](API.md)**.
 
-Auth column: **public** = no login needed; **login** = any authenticated user; **admin** = admin role
-required. Enforced in `AuthInterceptor`; ownership checks marked ★ happen inside the controller.
+Auth column: **public** = no login needed; **login** = any authenticated user; **faculty/admin** =
+staff role required; **admin** = admin role required. Enforced in `AuthInterceptor`; ownership
+checks marked ★ happen inside the controller.
 
 | Method | Path | Auth | Notes |
 |---|---|:--:|---|
@@ -314,7 +337,7 @@ required. Enforced in `AuthInterceptor`; ownership checks marked ★ happen insi
 | POST | `/api/login` | public | sets the `session_id` cookie |
 | POST | `/api/logout` | public | invalidates the session, clears the cookie |
 | GET | `/api/session` | public | 401 when there is no valid session |
-| GET | `/api/events` | public | **returns private events too** |
+| GET | `/api/events` | public | Private details are masked unless caller is faculty/admin |
 | GET | `/api/events/{id}` | public | |
 | GET | `/api/events/by-user/{userId}` | public | |
 | GET | `/api/events/public` | public | `is_public=true` only; currently unused |
@@ -326,18 +349,19 @@ required. Enforced in `AuthInterceptor`; ownership checks marked ★ happen insi
 | GET | `/api/reservation-drafts` | login | always scoped to the caller |
 | POST | `/api/reservation-drafts` | login ★ | upsert |
 | DELETE | `/api/reservation-drafts/{id}` | login | soft delete (`discarded_at`) |
-| GET | `/api/attendees` | login | |
-| GET | `/api/attendees/{id}` | login | |
-| GET | `/api/attendees/by-event/{eventId}` | login | |
+| GET | `/api/attendees` | faculty/admin | Contains attendee personal information |
+| GET | `/api/attendees/{id}` | faculty/admin | Contains attendee personal information |
+| GET | `/api/attendees/by-event/{eventId}` | faculty/admin | Contains attendee personal information |
 | POST | `/api/attendees` | **public** | the public check-in |
-| PATCH | `/api/attendees/{id}` | login | |
-| DELETE | `/api/attendees/{id}` | login | |
+| PATCH | `/api/attendees/{id}` | faculty/admin | |
+| DELETE | `/api/attendees/{id}` | faculty/admin | |
 | GET | `/api/event-types` | public | |
 | GET | `/api/event-types/{eventType}` | public | |
-| POST / PATCH / DELETE | `/api/event-types…` | admin | body not whitelisted |
+| POST / PATCH / DELETE | `/api/event-types…` | admin | request fields are whitelisted |
 | GET | `/api/roles` | public | |
-| GET / PATCH / DELETE | `/api/roles/{id}` | public / admin | **broken — see §8.2** |
-| POST | `/api/roles` | admin | body not whitelisted |
+| GET | `/api/roles/{name}` | public | `name` is the primary key |
+| PATCH / DELETE | `/api/roles/{name}` | admin | `name` is the primary key |
+| POST | `/api/roles` | admin | whitelisted request body |
 | GET / POST / PATCH / DELETE | `/api/users…` | admin | GET is admin-only too |
 
 Verified against a running instance: `/api/health` → 200; `GET /api/users`, `/api/attendees`,
@@ -357,7 +381,7 @@ Schema lives in `erd.sql` at the repo root; apply it in the Supabase SQL editor.
 | `events` | `id`, `host_user_id` → `users`, `start_time`, `end_time`, `event_type` → `event_types`, `title`, `description`, `department`, `is_public`, `recurrence_group_id` |
 | `event_types` | `event_type` is the primary key |
 | `attendees` | `id`, `event_id` → `events` (**no ON DELETE rule**), `sdccd_id`, name/email, `check_in_time` |
-| `sessions` | `session_id` (unique token), `user_id`, `expires_at`, `invalidated_at`, `last_seen_at` |
+| `sessions` | `session_id` (unique SHA-256 token hash), `user_id`, `expires_at`, `invalidated_at`, `last_seen_at` |
 | `reservation_drafts` | `user_id`, `draft_type` (`create`/`edit`), `source_event_id`, `payload` jsonb, `discarded_at` |
 
 `recurrence_group_id` is a free-text UUID generated by the **browser**; every occurrence of a
@@ -391,35 +415,49 @@ then reuse the cookie jar with `-b jar`. Remember that a generic 500 means the d
 
 ---
 
-## 8. Known gaps — please read before you change anything
+## 8. Security rollout and remaining work
 
-Things a new maintainer will otherwise discover the hard way. None of them is currently breaking
-the app; all are worth a decision.
+This branch adds backend controls and documents a database migration. The production Supabase project and
+CloudFront distribution still need an operator to apply or verify the items below. This checkout
+has not changed those live services.
 
-1. **`GET /api/events` is public and returns private events.** `is_public` is respected by the UI
-   but not by the API. `/api/events/public` exists but is unused. Anyone can `curl` the full
-   calendar with host names.
+### Apply the database migration
 
-   Three more rules likewise exist **only in the browser**: `users.enabled` is never read by the
-   backend (a disabled user can still log in and book), there is no overlap check so the API will
-   happily double-book the room, and the 8 AM start of day is not enforced. See
-   [`API.md`](API.md) gotchas 2, 3 and 10.
-2. **`/api/roles/{id}` is broken.** `UserRoleController` queries `user_roles?id=eq.{id}`, but
-   `user_roles` has no `id` column — its primary key is `name`. GET-by-id, PATCH, and DELETE on
-   roles will not work as written. Nothing in the frontend calls them, which is why nobody noticed.
-3. **`EventTypeController` and `UserRoleController` forward raw request bodies** to PostgREST with
-   no column whitelist, unlike every other controller. Admin-only, so not urgent, but inconsistent.
-4. **Sessions are never cleaned up.** Expired and invalidated rows accumulate in `sessions` forever.
-5. **No automated tests at all.** `mvn package` compiles; it verifies nothing. There is no test
-   directory.
-6. **No CI.** Deploys are manual (`git pull && mvn clean package && java -jar target/*.jar`, or
-   Docker). The root `README.md` has the commands.
-7. **`README.md` references `testData.sql`, which is not in the repo.** Only `erd.sql` exists — you
-   will need to write your own seed data (and at least one user row with a BCrypt `password_hash`,
-   or you cannot log in).
-8. **Batch inserts are not transactional across validation.** `POST /api/events/batch` validates
-   everything before inserting, so it's fine; but the frontend's *fallback* path creates events one
-   at a time and tries to roll back by deleting — see the frontend doc §4.
+Paste the SQL migration provided in the implementation handoff into the Supabase SQL Editor and
+run it once as the project database owner. It revokes public, anon, and authenticated grants on the
+application's tables and sequences, removes existing policies, enables RLS, blocks future default
+grants for the `postgres` owner, and deletes current session rows. All users will need to sign in
+again. The server-only key bypasses RLS, so the backend must enforce all caller authorization rules.
+
+After applying it, verify that the seven application tables report RLS enabled, every `anon_*` and
+`authenticated_*` table privilege is false, and the policy query returns no rows for those tables.
+Use the verification query in [`SECURITY.md`](SECURITY.md).
+
+### Verify AWS and runtime settings
+
+- Confirm the CloudFront `/api/*` behavior uses the EC2 origin, disables caching, forwards viewer
+  cookies, and uses HTTPS to the origin. The supplied screenshots confirm the EC2 origin and
+  `Managed-AllViewerExceptHostHeader` policy. Confirm the origin protocol and EC2 ingress rules in
+  AWS because those settings were not shown.
+- Restrict the EC2 backend port so it accepts traffic from CloudFront, not the public internet.
+- Add a CloudFront response headers policy for the static frontend and a rate-based WAF rule for
+  login and public check-in requests. These AWS resources are outside this repository and have not
+  been applied.
+- Keep `/etc/reservation-backend.env` readable only by root. Never paste or commit its values. Use
+  a separate key for this backend, and rotate it if the full key was exposed.
+- After deployment, confirm anonymous table REST requests are denied, public event responses do not
+  contain private fields, and faculty/admin sessions can read the intended records.
+
+### Known limitations
+
+- Private event start and end times remain in the public calendar response so the UI can show when
+  the room is occupied. Names, titles, descriptions, departments, event types, host IDs, and
+  recurrence IDs are removed for viewers without a faculty or admin session.
+- Expired and invalidated session rows still need a scheduled cleanup policy.
+- The backend still needs overlap validation and enforcement of the 8 AM opening time. These
+  reservation integrity controls remain server-side gaps.
+- Local tests cannot prove database grants or AWS behavior until the migration and runtime checks
+  are completed against production services.
 
 ---
 

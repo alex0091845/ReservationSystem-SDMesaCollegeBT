@@ -6,7 +6,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -59,13 +59,13 @@ public class SupabaseClient {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
                 .timeout(REQUEST_TIMEOUT)
-                .header("apikey", apiKey)
-                .header("Authorization", "Bearer " + apiKey)
+                .headers(authHeaders())
                 .header("Content-Type", "application/json")
                 .GET()
                 .build();
 
-            return http.send(request, HttpResponse.BodyHandlers.ofString()).body();
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+            return requireSuccessful(response);
 
         } catch (Exception e) {
             throw new RuntimeException("Supabase request failed: " + e.getMessage());
@@ -74,7 +74,7 @@ public class SupabaseClient {
 
     // POST at /rest/v1/{endpoint}
     public String post(String endpoint, String json) {
-        return postResponse(endpoint, json).body();
+        return requireSuccessful(postResponse(endpoint, json));
     }
 
     public SupabaseResponse postResponse(String endpoint, String json) {
@@ -82,8 +82,7 @@ public class SupabaseClient {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
                 .timeout(REQUEST_TIMEOUT)
-                .header("apikey", apiKey)
-                .header("Authorization", "Bearer " + apiKey)
+                .headers(authHeaders())
                 .header("Content-Type", "application/json")
                 .header("Prefer", "return=representation")
                 .POST(HttpRequest.BodyPublishers.ofString(json))
@@ -100,7 +99,7 @@ public class SupabaseClient {
 
     // PATCH at /rest/v1/{endpoint}
     public String patch(String endpoint, String json) {
-        return patchResponse(endpoint, json).body();
+        return requireSuccessful(patchResponse(endpoint, json));
     }
 
     public SupabaseResponse patchResponse(String endpoint, String json) {
@@ -108,8 +107,7 @@ public class SupabaseClient {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
                 .timeout(REQUEST_TIMEOUT)
-                .header("apikey", apiKey)
-                .header("Authorization", "Bearer " + apiKey)
+                .headers(authHeaders())
                 .header("Content-Type", "application/json")
                 .header("Prefer", "return=representation")
                 .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
@@ -133,8 +131,7 @@ public class SupabaseClient {
             HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
                 .timeout(REQUEST_TIMEOUT)
-                .header("apikey", apiKey)
-                .header("Authorization", "Bearer " + apiKey)
+                .headers(authHeaders())
                 .header("Content-Type", "application/json")
                 .DELETE()
                 .build();
@@ -146,5 +143,26 @@ public class SupabaseClient {
         } catch (Exception e) {
             throw new RuntimeException("Supabase request failed: " + e.getMessage());
         }
+    }
+
+    private String[] authHeaders() {
+        if (apiKey.startsWith("sb_")) {
+            return new String[] {"apikey", apiKey};
+        }
+        return new String[] {"apikey", apiKey, "Authorization", "Bearer " + apiKey};
+    }
+
+    private String requireSuccessful(HttpResponse<String> response) {
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new RuntimeException("Supabase request failed");
+        }
+        return response.body();
+    }
+
+    private String requireSuccessful(SupabaseResponse response) {
+        if (!response.isSuccessful()) {
+            throw new RuntimeException("Supabase request failed");
+        }
+        return response.body();
     }
 }

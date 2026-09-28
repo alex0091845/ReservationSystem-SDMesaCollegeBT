@@ -1,8 +1,8 @@
 package com.reservation.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
 import com.reservation.services.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -287,6 +287,9 @@ public class ReservationDraftController {
     }
 
     private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response) {
+        if (!response.isSuccessful()) {
+            return jsonError(502, "The database could not complete this request.");
+        }
         return ResponseEntity.status(response.statusCode())
             .contentType(MediaType.APPLICATION_JSON)
             .body(response.body());
