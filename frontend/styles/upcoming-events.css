@@ -32,6 +32,27 @@
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
 }
 
+.upcoming-event-card.private-event-card,
+.week-event.private-event-card {
+    border: 1px solid #7f8792;
+    background: #9ca3af;
+    color: #374151;
+    cursor: default;
+    box-shadow: none;
+}
+
+.upcoming-event-card.private-event-card:hover,
+.week-event.private-event-card:hover {
+    transform: none;
+    filter: none;
+    box-shadow: none;
+}
+
+.private-event-card .upcoming-event-title {
+    margin-bottom: 0;
+    color: #374151;
+}
+
 .upcoming-event-title {
     margin-bottom: 5px;
     color: #fff;

@@ -90,6 +90,8 @@ let modalMode = "create";
 let userSearchTerm = "";
 let userRoleValue = "all";
 let userSortValue = "name-asc";
+const ROLE_ADMIN = "admin";
+const ROLE_FACULTY = "faculty";
 const adminReservationTimePicker = createReservationTimePicker({
     container: document.getElementById("adminReservationTimePicker"),
     summaryElement: document.getElementById("adminReservationTimeSummary"),
@@ -273,7 +275,7 @@ function renderUsers() {
         userMeta.className = "faculty-user-meta";
 
         const role = document.createElement("span");
-        role.textContent = isUserEnabled(user) ? getUserRoleName(user) : "disabled";
+        role.textContent = isUserEnabled(user) ? getUserRoleLabel(user) : "disabled";
 
         userMeta.append(role);
         userCard.append(userDetails, userMeta);
@@ -447,7 +449,22 @@ function getUserFullName(user) {
 }
 
 function getUserRoleName(user) {
-    return user.role_name || user.role || user.user_roles?.name || "Faculty";
+    const roleName = user?.role_name || user?.role || user?.user_roles?.name || "";
+    return String(roleName).trim().toLowerCase();
+}
+
+function getUserRoleLabel(user) {
+    const roleName = getUserRoleName(user);
+
+    if (roleName === ROLE_ADMIN) {
+        return "Admin";
+    }
+
+    if (roleName === ROLE_FACULTY) {
+        return "Faculty";
+    }
+
+    return roleName || "Unassigned";
 }
 
 function isUserEnabled(user) {
@@ -455,7 +472,7 @@ function isUserEnabled(user) {
 }
 
 function isAdminUser(user) {
-    return getUserRoleName(user).toLowerCase() === "admin";
+    return getUserRoleName(user) === ROLE_ADMIN;
 }
 
 function openCreateUserModal() {
@@ -485,7 +502,7 @@ function openEditUserModal(user) {
     document.getElementById("userLastName").value = user.last_name ?? "";
     document.getElementById("userEmail").value = user.email ?? "";
     document.getElementById("userPhone").value = user.phone ?? "";
-    document.getElementById("userRole").value = getUserRoleName(user);
+    document.getElementById("userRole").value = getUserRoleName(user) || ROLE_FACULTY;
     document.getElementById("userPassword").value = "";
     document.getElementById("userFormMessage").textContent = "";
     document.getElementById("userPasswordHint").textContent = "Leave blank to keep the current password.";
@@ -570,6 +587,11 @@ async function openReservationEditModal(reservation) {
         { selectedValue: reservation.event_type ?? "" }
     );
     document.getElementById("adminReservationDescription").value = reservation.description ?? "";
+    adminReservationTimePicker.setUnavailableRanges(
+        reservations
+            .filter(existing => String(existing.id) !== String(reservation.id))
+            .map(existing => ({ start: existing.start_time, end: existing.end_time }))
+    );
     adminReservationTimePicker.setRange(
         reservation.start_time,
         reservation.end_time
@@ -827,6 +849,7 @@ userForm.addEventListener("submit", async event => {
 
     if (modalMode === "create") {
         delete userData.id;
+        userData.enabled = true;
 
         if (!password) {
             userFormMessage.textContent = "A password is required for new users.";
@@ -888,7 +911,7 @@ function getUserFormErrorMessage(error, fallback) {
         return "You do not have permission to manage users.";
     }
 
-    return error?.data?.error || error?.data?.message || fallback;
+    return error?.data?.error || error?.data?.message || error?.message || fallback;
 }
 
 createUserBtn.addEventListener("click", openCreateUserModal);

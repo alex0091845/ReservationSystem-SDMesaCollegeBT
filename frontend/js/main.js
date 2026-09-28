@@ -670,6 +670,11 @@ async function openFacultyReservationEditModal(reservation) {
         { selectedValue: reservation.event_type ?? "" }
     );
     document.getElementById("facultyReservationDescription").value = reservation.description ?? "";
+    facultyReservationTimePicker.setUnavailableRanges(
+        reservedEvents
+            .filter(existing => String(existing.id) !== String(reservation.id))
+            .map(existing => ({ start: existing.start_time, end: existing.end_time }))
+    );
     facultyReservationTimePicker.setRange(
         reservation.start_time,
         reservation.end_time
