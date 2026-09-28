@@ -108,7 +108,7 @@ errors so constraint details and database messages are not exposed to clients.
 | Endpoint group | Behaviour |
 |---|---|
 | `POST`/`PATCH` on `/events`, `/events/batch`, `/events/recurring`, `/reservation-drafts`, `/users` | Input errors return 400; database errors use a generic 502 response. |
-| All `DELETE` except `/reservation-drafts/{id}` | **Inspected properly** — 204 / 409 / 502 (see `DeleteOutcome`). |
+| All `DELETE` | **Inspected properly** — 204 / 409 / 502 (see `DeleteOutcome`). Draft deletion also verifies the row is absent. |
 | Every `GET` | Successful reads return 200; database failures return a generic 500. |
 | `POST` on `/attendees`, `/event-types`, `/roles` | Successful writes return 201; database rejections return a generic 502. |
 | `PATCH` on `/attendees`, `/event-types`, `/roles` | Successful writes return 200; database rejections return a generic 502. |
@@ -663,12 +663,10 @@ duplicates.
 
 **Success — `204 No Content`**
 
-A **soft** delete: it stamps `discarded_at` (and `updated_at`) rather than removing the row, and
-every read filters on `discarded_at IS NULL`. The update is scoped to `id` **and** your `user_id`,
-so you cannot discard someone else's draft.
-
-> ⚠️ Unlike every other DELETE, this one does **not** check the result — it returns `204`
-> unconditionally. Deleting an id that doesn't exist, or isn't yours, also returns `204`.
+A permanent delete scoped to `id` **and** your `user_id`, so you cannot delete someone else's
+draft. The endpoint checks the database response and confirms the row is absent before returning
+`204`. A failed deletion returns an error instead of a false success. Older soft-discarded rows
+remain in the database until a one-time cleanup is run.
 
 ---
 
@@ -986,4 +984,3 @@ faculty/admin access, disabled-account login rejection, session token hashing, e
 checks, and correct Supabase secret-key headers. These are local automated tests. Apply the database
 migration and exercise the production API before treating live permissions or deployment behavior
 as verified.
-

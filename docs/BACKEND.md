@@ -282,9 +282,8 @@ device doesn't lose their work.
 - Saving is an upsert: it looks for an existing non-discarded draft with the same
   (user, type, source event) and PATCHes it, otherwise POSTs a new one. A partial unique index in
   `erd.sql` enforces one active draft per combination.
-- Deleting is a **soft** delete — it stamps `discarded_at` rather than removing the row, and the
-  filter `discarded_at=is.null` hides it everywhere. (Consequence: this one DELETE doesn't use
-  `DeleteOutcome`, and it returns 204 without checking the PATCH result.)
+- Deleting removes the draft row. The endpoint checks the database response and confirms the
+  row is absent before returning 204. Existing soft-discarded rows remain until cleaned up.
 
 ### `UserController` — `/api/users` (admin only)
 
@@ -348,7 +347,7 @@ checks marked ★ happen inside the controller.
 | DELETE | `/api/events/{id}` | login ★ | deletes the event's attendees first |
 | GET | `/api/reservation-drafts` | login | always scoped to the caller |
 | POST | `/api/reservation-drafts` | login ★ | upsert |
-| DELETE | `/api/reservation-drafts/{id}` | login | soft delete (`discarded_at`) |
+| DELETE | `/api/reservation-drafts/{id}` | login | permanently deletes the caller's draft |
 | GET | `/api/attendees` | faculty/admin | Contains attendee personal information |
 | GET | `/api/attendees/{id}` | faculty/admin | Contains attendee personal information |
 | GET | `/api/attendees/by-event/{eventId}` | faculty/admin | Contains attendee personal information |

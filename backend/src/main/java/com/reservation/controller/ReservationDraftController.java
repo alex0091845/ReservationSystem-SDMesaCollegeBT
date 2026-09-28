@@ -111,21 +111,34 @@ public class ReservationDraftController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDraft(@PathVariable long id, HttpServletRequest request) {
+    public ResponseEntity<?> deleteDraft(@PathVariable long id, HttpServletRequest request) {
         JsonNode currentUser = getCurrentUser(request);
 
         if (currentUser == null) {
             return ResponseEntity.status(401).build();
         }
 
-        ObjectNode discardBody = objectMapper.createObjectNode();
-        discardBody.put("discarded_at", Instant.now().toString());
-        discardBody.put("updated_at", Instant.now().toString());
+        String draftFilter = "reservation_drafts?id=eq." + id + "&user_id=eq." + currentUser.path("id").asLong();
+        SupabaseClient.SupabaseResponse result = supabase.delete(draftFilter);
 
-        supabase.patch(
-            "reservation_drafts?id=eq." + id + "&user_id=eq." + currentUser.path("id").asLong(),
-            discardBody.toString()
-        );
+        if (!result.isSuccessful()) {
+            return DeleteOutcome.toResponse(
+                result,
+                "This reservation draft could not be deleted because another record references it."
+            );
+        }
+
+        // PostgREST can return 204 even when a policy prevented any row from
+        // being deleted. Confirm the row is absent before telling the UI it is gone.
+        try {
+            JsonNode remainingDrafts = objectMapper.readTree(supabase.get(draftFilter + "&select=id"));
+
+            if (!remainingDrafts.isArray() || !remainingDrafts.isEmpty()) {
+                return jsonError(502, "The reservation draft could not be deleted. Please try again.");
+            }
+        } catch (Exception error) {
+            return jsonError(502, "The reservation draft deletion could not be verified. Please try again.");
+        }
 
         return ResponseEntity.noContent().build();
     }

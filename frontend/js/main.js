@@ -16,6 +16,7 @@ import {
     clearReservationFormDraftFields,
     collectReservationFormDraft,
     createReservationDraftAutosave,
+    discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
 
@@ -778,8 +779,14 @@ async function resolveFacultyReservationDraftExit() {
     }
 
     if (draftAction === "discard") {
-        await facultyReservationDraftAutosave.discard();
-        return true;
+        try {
+            await facultyReservationDraftAutosave.discard();
+            return true;
+        } catch (error) {
+            console.error("Could not delete reservation draft:", error);
+            setFacultyReservationStatus("Could not delete the saved draft. Please try again.", "error");
+            return false;
+        }
     }
 
     try {
@@ -800,9 +807,14 @@ async function clearFacultyReservationForm() {
         facultyReservationTimePicker,
         { preserveNames: ["id", "host_user_id"] }
     );
-    await facultyReservationDraftAutosave.discard();
-    facultyReservationDraftAutosave.markClean();
-    setFacultyReservationStatus("Form cleared.", "success");
+    try {
+        await facultyReservationDraftAutosave.discard();
+        facultyReservationDraftAutosave.markClean();
+        setFacultyReservationStatus("Form cleared.", "success");
+    } catch (error) {
+        console.error("Could not delete reservation draft:", error);
+        setFacultyReservationStatus("Form cleared, but the saved draft could not be deleted. Try Clear again.", "error");
+    }
 }
 
 function blurFocusedElementInside(container) {
@@ -975,7 +987,7 @@ async function handleFacultyReservationSubmit(event) {
 
         sortReservedEvents(reservedEvents);
         renderAll();
-        await facultyReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "saved");
         closeFacultyReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not update reservation:", error);
@@ -1039,7 +1051,7 @@ async function handleFacultyReservationDelete() {
 
     try {
         await deleteEvent(selectedFacultyReservation);
-        await facultyReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
         removeReservationsFromFacultyState([selectedFacultyReservation]);
 
         closeFacultyReservationEditModal({ flushDraft: false });
@@ -1085,7 +1097,7 @@ async function handleFacultyReservationDeleteSeries() {
 
     try {
         await deleteReservations(seriesReservations);
-        await facultyReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
         removeReservationsFromFacultyState(seriesReservations);
 
         closeFacultyReservationEditModal({ flushDraft: false });
