@@ -417,7 +417,8 @@ public class ReservationController {
             return true;
         }
 
-        return userOwnsHostId(currentUser, existingEvent.path("host_user_id"));
+        return authService.isFacultyOrAdmin(currentUser) &&
+            userOwnsHostId(currentUser, existingEvent.path("host_user_id"));
     }
 
     private boolean canSaveWithRequestedHost(HttpServletRequest request, ObjectNode eventBody) {

@@ -135,8 +135,8 @@ table names, constraint details, and database configuration are not exposed.
 | `POST` | `/api/events` | login ★ | Create one |
 | `POST` | `/api/events/batch` | login ★ | Create many |
 | `POST` | `/api/events/recurring` | login ★ | Create a weekly series compactly |
-| `PATCH` | `/api/events/{id}` | login ★ | Update one |
-| `DELETE` | `/api/events/{id}` | login ★ | Delete one (+ its check-ins) |
+| `PATCH` | `/api/events/{id}` | faculty owner/admin ★ | Update one, including its event type |
+| `DELETE` | `/api/events/{id}` | faculty owner/admin ★ | Delete one (+ its check-ins) |
 | `GET` | `/api/reservation-drafts` | login | Your drafts |
 | `POST` | `/api/reservation-drafts` | login ★ | Save/update a draft |
 | `DELETE` | `/api/reservation-drafts/{id}` | login | Discard a draft |
@@ -506,7 +506,8 @@ transition.
 
 ### `PATCH /api/events/{id}`
 
-**Auth:** login — you must be the host, or an admin.
+**Auth:** faculty owner or admin. A faculty user can update only an event whose stored host ID
+matches their user ID. Admins can update any event.
 
 **Request** — same fields as create.
 
@@ -526,9 +527,10 @@ transition.
 | `403` | `{"error":"You do not have permission to save this reservation for that host."}` (you tried to reassign the host to someone else) |
 | `400` | Validation message |
 
-Ownership is checked against the **stored** event first, then against the **submitted**
-`host_user_id` — so you can't take over someone's event, and you can't hand yours to someone else
-unless you're an admin.
+The stored event ownership and the submitted `host_user_id` are both checked. Faculty can update
+their own event, including its event type, but cannot take over another faculty member's event or
+reassign their event to another host. Admins can update any event. The separate event-type catalog
+remains admin-managed because those shared records are not owned by an individual event.
 
 **Order of checks:** existence (`404`) → ownership (`403`) → body validation (`400`). So a partial
 body sent to someone else's event returns `403`, not `400` — the error you get tells you about the

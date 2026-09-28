@@ -2,6 +2,7 @@ import {
     CALENDAR_END_LABEL,
     CALENDAR_END_HOUR,
     convertHourLabelTo24,
+    formatDateKey,
     formatShortDateRange,
     getEventsForDay,
     getVisibleEventSectionForDay,
@@ -66,6 +67,11 @@ export function renderWeekView({
         const headerCell = document.createElement("div");
 
         headerCell.classList.add("week-day-header");
+        headerCell.dataset.weekDate = formatDateKey(
+            dateObj.getFullYear(),
+            dateObj.getMonth(),
+            dateObj.getDate()
+        );
 
         const isSelected =
             dateObj.getFullYear() === selectedYear &&
@@ -121,15 +127,25 @@ export function renderWeekView({
 
         timeLabel.classList.add("week-time-label");
 
-        timeLabel.textContent = hourLabel;
+        const timeLabelText = document.createElement("span");
+        timeLabelText.classList.add("week-time-label-text");
+        timeLabelText.textContent = hourLabel;
+        timeLabel.appendChild(timeLabelText);
 
         row.appendChild(timeLabel);
+        const cellHour = convertHourLabelTo24(hourLabel);
+        row.dataset.hour = String(cellHour);
 
         // Creating blocks for each day
         weekDates.forEach(dateObj => {
             const cell = document.createElement("div");
 
             cell.classList.add("week-cell");
+            cell.dataset.weekDate = formatDateKey(
+                dateObj.getFullYear(),
+                dateObj.getMonth(),
+                dateObj.getDate()
+            );
 
             // Allows clicking any cell to select day
             cell.addEventListener("click", () => {
@@ -159,9 +175,6 @@ export function renderWeekView({
                 dateObj.getMonth(),
                 dateObj.getDate()
             );
-
-            const cellHour =
-                convertHourLabelTo24(hourLabel);
 
             // Finds visible daily sections beginning during this hour.
             const matchingEventSections = events
@@ -233,7 +246,48 @@ export function renderWeekView({
         onSelectDate
     }));
 
+    updateCurrentTimeIndicator(weekViewWrapper);
     centerSelectedDateColumn(weekViewWrapper);
+}
+
+export function updateCurrentTimeIndicator(weekViewWrapper) {
+    if (!weekViewWrapper) {
+        return;
+    }
+
+    weekViewWrapper.querySelectorAll(".week-current-time-indicator").forEach(indicator => {
+        indicator.remove();
+    });
+
+    const now = new Date();
+    const minutesSinceMidnight = (now.getHours() * 60) + now.getMinutes();
+    const calendarStartMinutes = CALENDAR_START_HOUR * 60;
+    const calendarEndMinutes = CALENDAR_END_HOUR * 60;
+
+    if (minutesSinceMidnight < calendarStartMinutes || minutesSinceMidnight >= calendarEndMinutes) {
+        return;
+    }
+
+    const dateKey = formatDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+    const currentHourRow = weekViewWrapper.querySelector(
+        `.week-row[data-hour="${now.getHours()}"]`
+    );
+    const currentDayCell = currentHourRow?.querySelector(
+        `.week-cell[data-week-date="${dateKey}"]`
+    );
+
+    if (!currentDayCell) {
+        return;
+    }
+
+    const indicator = document.createElement("div");
+    const minuteOfHour = now.getMinutes() + (now.getSeconds() / 60);
+    const rowHeight = currentDayCell.getBoundingClientRect().height;
+
+    indicator.className = "week-current-time-indicator";
+    indicator.setAttribute("aria-hidden", "true");
+    indicator.style.top = `${(minuteOfHour / 60) * rowHeight}px`;
+    currentDayCell.appendChild(indicator);
 }
 
 function createEndBoundaryRow({
@@ -245,10 +299,13 @@ function createEndBoundaryRow({
 }) {
     const row = document.createElement("div");
     const timeLabel = document.createElement("div");
+    const timeLabelText = document.createElement("span");
 
     row.classList.add("week-row", "week-end-boundary-row");
     timeLabel.classList.add("week-time-label");
-    timeLabel.textContent = CALENDAR_END_LABEL;
+    timeLabelText.classList.add("week-time-label-text");
+    timeLabelText.textContent = CALENDAR_END_LABEL;
+    timeLabel.appendChild(timeLabelText);
     row.appendChild(timeLabel);
 
     weekDates.forEach(dateObj => {
@@ -259,6 +316,11 @@ function createEndBoundaryRow({
             dateObj.getDate() === selectedDay;
 
         cell.classList.add("week-cell");
+        cell.dataset.weekDate = formatDateKey(
+            dateObj.getFullYear(),
+            dateObj.getMonth(),
+            dateObj.getDate()
+        );
 
         if (isSelected) {
             cell.classList.add("current-day-column");

@@ -2,7 +2,7 @@ import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTyp
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
-import { renderWeekView } from "./ui/weekView.js";
+import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
@@ -1427,6 +1427,9 @@ function init() {
     bindEvents();
 
     renderAll();
+    window.setInterval(() => {
+        updateCurrentTimeIndicator(elements.weekViewWrapper);
+    }, 60_000);
 }
 
 init();

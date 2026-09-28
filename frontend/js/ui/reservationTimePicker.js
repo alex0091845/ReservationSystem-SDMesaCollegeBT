@@ -43,6 +43,7 @@ export function createReservationTimePicker({
         shell.append(header, grid);
         container.appendChild(shell);
 
+        updateCurrentTimeIndicator();
         updateSelectionStyles();
         updateSummary();
     }
@@ -366,6 +367,42 @@ export function createReservationTimePicker({
         });
     }
 
+    function updateCurrentTimeIndicator() {
+        container.querySelectorAll(".reservation-time-picker-current-time").forEach(indicator => {
+            indicator.remove();
+        });
+
+        const now = new Date();
+        if (
+            now.getHours() < CALENDAR_START_HOUR ||
+            now.getHours() >= CALENDAR_END_HOUR
+        ) {
+            return;
+        }
+
+        const nowTime = now.getTime();
+        const currentSlot = Array.from(
+            container.querySelectorAll("[data-picker-cell='true']")
+        ).find(cell => {
+            return Number(cell.dataset.start) <= nowTime &&
+                nowTime < Number(cell.dataset.end);
+        });
+
+        if (!currentSlot) {
+            return;
+        }
+
+        const slotStart = Number(currentSlot.dataset.start);
+        const slotEnd = Number(currentSlot.dataset.end);
+        const progress = (nowTime - slotStart) / (slotEnd - slotStart);
+        const indicator = document.createElement("span");
+
+        indicator.className = "reservation-time-picker-current-time";
+        indicator.setAttribute("aria-hidden", "true");
+        indicator.style.top = `${progress * 100}%`;
+        currentSlot.appendChild(indicator);
+    }
+
     function updateSummary() {
         const renderedRanges = getRenderedSelectionRanges();
 
@@ -403,6 +440,7 @@ export function createReservationTimePicker({
     }
 
     render();
+    window.setInterval(updateCurrentTimeIndicator, 60_000);
 
     return {
         clear,

@@ -212,9 +212,11 @@ the booking window in **`America/Los_Angeles`**:
 
 Timestamps are parsed leniently — ISO instant, then offset date-time, then local date-time.
 
-**Ownership**: `canSaveWithRequestedHost` (for writes) and `canModifyExistingEvent` (for
-edit/delete) both say: admins may do anything; everyone else only for `host_user_id == their own id`.
-This is what stops a logged-in user from booking rooms in someone else's name.
+**Ownership**: For edits and deletes, `canModifyExistingEvent` allows admins to act on any event
+and faculty to act only when the event's stored `host_user_id` matches their user ID. Other roles
+cannot edit or delete events, even if their ID appears as the host. A faculty owner can update the
+event's data, including its `event_type`. The shared event-type catalog remains admin-only.
+`canSaveWithRequestedHost` also prevents faculty from assigning an event to another host.
 
 Endpoints:
 
@@ -343,8 +345,8 @@ checks marked ★ happen inside the controller.
 | POST | `/api/events` | login ★ | |
 | POST | `/api/events/batch` | login ★ | array body |
 | POST | `/api/events/recurring` | login ★ | template + week ranges |
-| PATCH | `/api/events/{id}` | login ★ | |
-| DELETE | `/api/events/{id}` | login ★ | deletes the event's attendees first |
+| PATCH | `/api/events/{id}` | faculty owner/admin ★ | |
+| DELETE | `/api/events/{id}` | faculty owner/admin ★ | deletes the event's attendees first |
 | GET | `/api/reservation-drafts` | login | always scoped to the caller |
 | POST | `/api/reservation-drafts` | login ★ | upsert |
 | DELETE | `/api/reservation-drafts/{id}` | login | permanently deletes the caller's draft |

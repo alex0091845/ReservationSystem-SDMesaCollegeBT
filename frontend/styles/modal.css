@@ -217,6 +217,7 @@
 }
 
 .reservation-time-picker-grid {
+    position: relative;
     display: grid;
     grid-template-columns: 88px repeat(7, minmax(56px, 1fr));
     overflow-x: auto;
@@ -269,12 +270,10 @@
     position: sticky;
     left: 0;
     z-index: 4;
-    display: grid;
-    align-content: start;
-    justify-items: end;
-    gap: 1px;
+    display: block;
     min-height: 31px;
-    padding: 3px 8px 0 6px;
+    padding: 0 8px 0 6px;
+    border-bottom: none;
     background: #fafafa;
     color: #111827;
     line-height: 1.15;
@@ -283,18 +282,46 @@
 }
 
 .reservation-time-picker-time-start {
-    display: block;
+    position: absolute;
+    top: 0;
+    right: 8px;
+    z-index: 1;
+    padding: 0 2px;
+    background: #fafafa;
+    transform: translateY(-50%);
     font-size: 12px;
     font-weight: 500;
 }
 
 .reservation-time-picker-slot {
+    position: relative;
     min-height: 31px;
     border-top: none;
     border-left: none;
     background: #fff;
     cursor: pointer;
     transition: background-color 0.08s ease, box-shadow 0.08s ease;
+}
+
+.reservation-time-picker-current-time {
+    position: absolute;
+    left: -1px;
+    right: -1px;
+    z-index: 8;
+    height: 2px;
+    background: #d32f2f;
+    pointer-events: none;
+}
+
+.reservation-time-picker-current-time::before {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d32f2f;
+    content: "";
 }
 
 .reservation-time-picker-slot:hover {
