@@ -305,8 +305,8 @@ localStorage, so a draft survives a different browser.
   than racing.
 - On close, if `hasChanges()` is true, `showDraftExitPrompt()` builds a small dialog in JS offering
   **Save Draft / Discard Changes / Continue Editing**.
-- A successful submit or an explicit discard calls `discard()`, which soft-deletes the draft
-  server-side.
+- A successful submit or an explicit discard calls `discard()`, which deletes the draft row
+  server-side. Clear and Discard show an error if deletion fails.
 - The `#…DraftBadge` element shows when a stored draft exists.
 
 Companion helpers `collectReservationFormDraft` / `applyReservationFormDraft` /

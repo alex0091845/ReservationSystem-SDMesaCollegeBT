@@ -24,6 +24,7 @@ import {
     clearReservationFormDraftFields,
     collectReservationFormDraft,
     createReservationDraftAutosave,
+    discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
 
@@ -687,8 +688,14 @@ async function resolveAdminReservationDraftExit() {
     }
 
     if (draftAction === "discard") {
-        await adminReservationDraftAutosave.discard();
-        return true;
+        try {
+            await adminReservationDraftAutosave.discard();
+            return true;
+        } catch (error) {
+            console.error("Could not delete reservation draft:", error);
+            setAdminReservationStatus("Could not delete the saved draft. Please try again.", "error");
+            return false;
+        }
     }
 
     try {
@@ -709,9 +716,14 @@ async function clearAdminReservationForm() {
         adminReservationTimePicker,
         { preserveNames: ["id", "host_user_id"] }
     );
-    await adminReservationDraftAutosave.discard();
-    adminReservationDraftAutosave.markClean();
-    setAdminReservationStatus("Form cleared.", "success");
+    try {
+        await adminReservationDraftAutosave.discard();
+        adminReservationDraftAutosave.markClean();
+        setAdminReservationStatus("Form cleared.", "success");
+    } catch (error) {
+        console.error("Could not delete reservation draft:", error);
+        setAdminReservationStatus("Form cleared, but the saved draft could not be deleted. Try Clear again.", "error");
+    }
 }
 
 function bindBackdropClose(overlay, closeModal) {
@@ -1005,7 +1017,7 @@ adminReservationForm.addEventListener("submit", async event => {
         reservations.push(...createdReservations);
 
         renderUserDetails();
-        await adminReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "saved");
         closeReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not update reservation:", error);
@@ -1069,7 +1081,7 @@ async function handleAdminReservationDelete() {
 
     try {
         await deleteEvent(selectedReservation);
-        await adminReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
         removeReservationsFromAdminState([selectedReservation]);
 
         renderUserDetails();
@@ -1110,7 +1122,7 @@ async function handleAdminReservationDeleteSeries() {
 
     try {
         await deleteReservations(seriesReservations);
-        await adminReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
         removeReservationsFromAdminState(seriesReservations);
 
         renderUserDetails();

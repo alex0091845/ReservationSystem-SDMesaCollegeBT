@@ -7,6 +7,7 @@ import {
     clearReservationFormDraftFields,
     collectReservationFormDraft,
     createReservationDraftAutosave,
+    discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./reservationDrafts.js";
 import { createReservationTimePicker } from "./reservationTimePicker.js";
@@ -359,8 +360,14 @@ async function resolveReservationDraftExit() {
     }
 
     if (draftAction === "discard") {
-        await reservationDraftAutosave.discard();
-        return true;
+        try {
+            await reservationDraftAutosave.discard();
+            return true;
+        } catch (error) {
+            console.error("Could not delete reservation draft:", error);
+            setReservationStatus("Could not delete the saved draft. Please try again.", "error");
+            return false;
+        }
     }
 
     try {
@@ -378,9 +385,14 @@ async function resolveReservationDraftExit() {
 async function clearReservationForm() {
     clearReservationFormDraftFields(reservationForm, reservationTimePicker);
     renderRecurringControls();
-    await reservationDraftAutosave.discard();
-    reservationDraftAutosave.markClean();
-    setReservationStatus("Form cleared.", "success");
+    try {
+        await reservationDraftAutosave.discard();
+        reservationDraftAutosave.markClean();
+        setReservationStatus("Form cleared.", "success");
+    } catch (error) {
+        console.error("Could not delete reservation draft:", error);
+        setReservationStatus("Form cleared, but the saved draft could not be deleted. Try Clear again.", "error");
+    }
 }
 
 function setReservationStatus(message, statusType = "") {
@@ -563,7 +575,7 @@ reservationForm.addEventListener("submit", async (event) => {
             { existingReservations }
         );
 
-        await reservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(reservationDraftAutosave, "created");
         closeReservationModal({ flushDraft: false });
 
         window.dispatchEvent(new CustomEvent("reservation:created", {
