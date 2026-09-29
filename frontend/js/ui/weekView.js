@@ -1,6 +1,7 @@
 import {
     CALENDAR_END_LABEL,
     CALENDAR_END_HOUR,
+    CALENDAR_START_HOUR,
     convertHourLabelTo24,
     formatDateKey,
     formatShortDateRange,

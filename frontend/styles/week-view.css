@@ -86,7 +86,6 @@
     z-index: 1;
     padding: 0 2px;
     background: #fafafa;
-    transform: translateY(-50%);
 }
 
 .week-cell {
@@ -143,7 +142,7 @@
 }
 
 .week-cell.current-day-column {
-    border-bottom-color: rgba(29, 78, 216, 0.48);
+    border-bottom-color: #d1d5db;
 }
 
 .week-day-header:hover,

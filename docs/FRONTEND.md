@@ -53,6 +53,21 @@ ES modules require http (aka, a server).
 You also need the backend running (see `docs/BACKEND.md`), and the backend's
 `APP_CORS_ALLOWED_ORIGIN_PATTERNS` must include `http://localhost:5500`.
 
+On Windows, `local-testing/start-local.ps1` installs missing Java, Python, and Maven tools, then
+starts the local frontend and backend. From the repository root, run
+`powershell -ExecutionPolicy Bypass -File .\local-testing\start-local.ps1`. The launcher serves the
+existing `frontend/` directory at `http://localhost:5500` and runs the existing `backend/` project
+at port 8080. It does not copy or edit either source tree. The local frontend server forwards `/api`
+requests to the backend, so the browser uses the same-origin API setting as the deployed frontend.
+
+The local-only launcher and its settings are grouped in `local-testing/`. The ignored
+`local-testing/local-settings.ps1` can contain `$testSupabaseApiKey = 'your-test-project-key'` for
+personal convenience. The folder's `.gitignore` keeps that file out of Git. Each developer supplies
+their own test key. If the file is missing or the setting is empty, the launcher prompts for the key
+without displaying it. Do not commit the settings file. Removing `local-testing/` removes the local
+launcher and its ignore rule only; the production frontend and backend source remain in their
+existing directories.
+
 ### Pointing the frontend at the backend
 
 `js/api.js` resolves the API base URL like this:
@@ -68,11 +83,10 @@ Each of the three HTML files mentioned above (`index`, `login`, `admin.html`) se
 <script>window.RESERVATION_API_ORIGIN = "";</script>
 ```
 
-- **Empty** → call `/api` on the same origin as the page. Correct when the backend serves the
-  frontend, and when you run both on `localhost` behind one origin.
+- **Empty** → call `/api` on the same origin as the page. Production routes that path through
+  CloudFront to the backend. The local launcher forwards the same path from port 5500 to port 8080.
 - **Set to the backend origin** (e.g. `"https://api.example.com"`) → the split S3-frontend /
-  EC2-backend deploy this project is designed for. **You must edit all three files** at deploy time
-  (`index.html:197`, `admin.html:313`, `login.html:45`).
+  EC2-backend deployment. The current production pages use the same-origin configuration above.
 
 Cross-site cookies also need the backend on `AUTH_COOKIE_SAME_SITE=None` + `AUTH_COOKIE_SECURE=true`.
 
