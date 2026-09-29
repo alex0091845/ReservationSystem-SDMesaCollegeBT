@@ -9,7 +9,9 @@ The app lets users browse and reserve rooms/events, manage attendees and event t
 > tasks, and the traps specific to this codebase. Otherwise start with the handover docs:
 > [`docs/BACKEND.md`](docs/BACKEND.md) and [`docs/FRONTEND.md`](docs/FRONTEND.md) — how each half
 > works, how to run it, common tasks, and known gaps. Endpoint-level detail (request bodies,
-> responses, error codes, curl examples) lives in [`docs/API.md`](docs/API.md).
+> responses, error codes, curl examples) lives in [`docs/API.md`](docs/API.md). Security controls
+> and deployment checks are in [`docs/SECURITY.md`](docs/SECURITY.md). For the full local setup,
+> follow [`docs/LOCAL_TESTING.md`](docs/LOCAL_TESTING.md).
 
 ---
 
@@ -122,14 +124,19 @@ mvn spring-boot:run
 
 ## Running the frontend
 
-The frontend is static — serve the `frontend/` folder with any static server:
+For the full application, use the [local testing guide](docs/LOCAL_TESTING.md). Its local server
+serves the existing frontend and forwards `/api` requests to the backend, so the production source
+files work locally without changing their API configuration.
+
+For static layout work only, the frontend can be served without the backend:
 
 ```bash
 cd frontend
 python -m http.server 5500          # → http://localhost:5500
 ```
 
-(Or use the VS Code **Live Server** extension.)
+(Or use the VS Code **Live Server** extension.) API requests will not work through a basic static
+server because it does not forward `/api` requests to Spring Boot.
 
 ### Pointing the frontend at the backend
 
@@ -147,7 +154,7 @@ Each HTML page (`index.html`, `admin.html`, `login.html`) contains a config bloc
 <script>window.RESERVATION_API_ORIGIN = "";</script>
 ```
 
-- **Current deploy** (S3 frontend and EC2 API behind one CloudFront domain): leave it empty. CloudFront routes `/api/*` to EC2.
+- **Current deploy** (S3 frontend and EC2 API behind one CloudFront domain): leave it empty. CloudFront routes `/api/*` to EC2. The local testing server proxies the same path to port 8080.
 - **Direct cross-site API**: set it to the backend origin in all three HTML files and configure the exact frontend origin in the backend.
 
 Whatever origin you set here must also be listed in `APP_CORS_ALLOWED_ORIGIN_PATTERNS`. A direct cross-site API also needs `AUTH_COOKIE_SAME_SITE=None` and `AUTH_COOKIE_SECURE=true`.
@@ -194,7 +201,7 @@ There is no CI yet — deploys are manual.
 aws s3 sync frontend/ s3://<your-bucket> --delete
 ```
 
-Before syncing, set `window.RESERVATION_API_ORIGIN` in the three HTML files to the deployed backend origin (see [Pointing the frontend at the backend](#pointing-the-frontend-at-the-backend)).
+For the current CloudFront setup, keep `window.RESERVATION_API_ORIGIN` empty in all three pages. CloudFront routes `/api/*` to EC2. The S3 command syncs only `frontend/`, so it does not upload `local-testing/` or its local settings.
 
 **Backend → EC2**
 

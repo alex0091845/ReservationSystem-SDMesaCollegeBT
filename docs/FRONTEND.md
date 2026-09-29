@@ -42,31 +42,14 @@ Three pages, three entry points:
 
 ## 2. Running it locally
 
-```bash
-cd frontend
-python -m http.server 5500        # → http://localhost:5500
-```
+Opening `index.html` with `file://` will not work because ES modules require HTTP. For the complete
+application, follow [`LOCAL_TESTING.md`](LOCAL_TESTING.md). The local launcher serves the existing
+`frontend/` directory and forwards same-origin `/api` requests to the backend. It does not require
+local-only changes to the three production HTML pages.
 
-(Or the VS Code **Live Server** extension.) Opening `index.html` with `file://` will **not** work —
-ES modules require http (aka, a server).
-
-You also need the backend running (see `docs/BACKEND.md`), and the backend's
-`APP_CORS_ALLOWED_ORIGIN_PATTERNS` must include `http://localhost:5500`.
-
-On Windows, `local-testing/start-local.ps1` installs missing Java, Python, and Maven tools, then
-starts the local frontend and backend. From the repository root, run
-`powershell -ExecutionPolicy Bypass -File .\local-testing\start-local.ps1`. The launcher serves the
-existing `frontend/` directory at `http://localhost:5500` and runs the existing `backend/` project
-at port 8080. It does not copy or edit either source tree. The local frontend server forwards `/api`
-requests to the backend, so the browser uses the same-origin API setting as the deployed frontend.
-
-The local-only launcher and its settings are grouped in `local-testing/`. The ignored
-`local-testing/local-settings.ps1` can contain `$testSupabaseApiKey = 'your-test-project-key'` for
-personal convenience. The folder's `.gitignore` keeps that file out of Git. Each developer supplies
-their own test key. If the file is missing or the setting is empty, the launcher prompts for the key
-without displaying it. Do not commit the settings file. Removing `local-testing/` removes the local
-launcher and its ignore rule only; the production frontend and backend source remain in their
-existing directories.
+A basic static server such as `python -m http.server 5500` is still useful for layout-only work, but
+it does not forward API requests. Use the local launcher when testing event loading, login, or any
+other backend feature.
 
 ### Pointing the frontend at the backend
 
@@ -83,10 +66,11 @@ Each of the three HTML files mentioned above (`index`, `login`, `admin.html`) se
 <script>window.RESERVATION_API_ORIGIN = "";</script>
 ```
 
-- **Empty** → call `/api` on the same origin as the page. Production routes that path through
-  CloudFront to the backend. The local launcher forwards the same path from port 5500 to port 8080.
-- **Set to the backend origin** (e.g. `"https://api.example.com"`) → the split S3-frontend /
-  EC2-backend deployment. The current production pages use the same-origin configuration above.
+- **Empty** → call `/api` on the same origin as the page. CloudFront routes that path to the backend
+  in production. The local testing server forwards it from port 5500 to port 8080.
+- **Set to a backend origin** (e.g. `"https://api.example.com"`) only for a deployment where the
+  frontend and API use separate public origins. That setup also needs matching CORS and cookie
+  settings on the backend.
 
 Cross-site cookies also need the backend on `AUTH_COOKIE_SAME_SITE=None` + `AUTH_COOKIE_SECURE=true`.
 
@@ -378,8 +362,9 @@ the whole building behaves as one bookable space (BT-216). The hooks are there i
 `upcoming-events`, `week-view`, `modal`, `responsive`, in that order. `admin.css` and `login.css`
 are loaded separately by their pages.
 
-Order matters: `responsive.css` is last so its media queries win. Event colours are **class-based**,
-assigned by `getEventColorClass(eventType)` in `dateUtils.js`
+Order matters: `responsive.css` is last so its media queries win. Week time labels align with their
+hour rows, and the selected-day column uses neutral grey separators while its header underline stays
+blue. Event colours are **class-based**, assigned by `getEventColorClass(eventType)` in `dateUtils.js`
 (`study_group`→green, `meeting`→blue, `workshop`→orange, `social`→purple, everything else→red).
 Adding an event type without adding a case there gives you red.
 
@@ -411,12 +396,13 @@ see unexpected 401s.
 
 ## 14. Known gaps — please read before you change anything
 
-1. **No tests and no build/lint step.** Nothing catches a typo except loading the page. Check all
-   three pages after a change to shared code.
+1. **The frontend has no test, build, or lint step.** The backend has Maven regression tests. Check
+   all three pages after a change to shared frontend code.
 2. **`main.js` and `admin.js` duplicate ~200 lines** of reservation-edit logic (see §10).
 3. **The event-type alias table exists twice** — `api.js` and `ui/eventTypeOptions.js`.
-4. **`RESERVATION_API_ORIGIN` is hand-edited in three HTML files at deploy time.** Easy to forget
-   one; symptom is one page working and another failing CORS. A deploy script would fix this.
+4. **Separate-origin API deployments need coordinated configuration.** The current CloudFront and
+   local setups use a same-origin `/api` path. If a deployment uses a separate API hostname, all
+   pages, CORS, and cookie settings need to agree.
 5. **Series delete is sequential and not atomic** — deleting a 16-week series is 16 requests, and a
    failure part-way leaves the rest deleted.
 6. **`isUserDisabled()` calls `getUsers()`**, which is admin-only, so it 403s for normal faculty.
@@ -428,5 +414,3 @@ see unexpected 401s.
 8. **`window.confirm` is used for deletes and skipped-occurrence confirmation.** Fine, but it blocks
    the page and can't be styled — worth replacing with the same pattern as `showDraftExitPrompt()`
    if the UI is ever polished.
-9. **The calendar shows private events to anonymous visitors**, because `GET /api/events` is public
-   on the backend and returns everything. This is a backend decision — see `docs/BACKEND.md` §8.1.

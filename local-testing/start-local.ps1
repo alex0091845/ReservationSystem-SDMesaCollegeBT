@@ -157,7 +157,6 @@ try {
     }
 
     $env:SUPABASE_URL = $supabaseUrl
-    $env:SUPABASE_API_KEY = $apiKey
     $env:APP_CORS_ALLOWED_ORIGIN_PATTERNS = 'http://localhost:5500'
     $env:SERVER_PORT = '8080'
     $env:AUTH_COOKIE_SECURE = 'false'
@@ -261,6 +260,8 @@ server.serve_forever()
 '@
     [System.IO.File]::WriteAllText($pythonServerScriptPath, $pythonServerScript, [System.Text.UTF8Encoding]::new($false))
     $env:RESERVATION_LOCAL_FRONTEND_PATH = $frontendPath
+    # The frontend server and browser do not need the Supabase server key.
+    $env:SUPABASE_API_KEY = $null
     $quotedPythonServerScriptPath = '"' + $pythonServerScriptPath + '"'
     $frontendProcess = Start-Process -FilePath $pythonCommand -ArgumentList $quotedPythonServerScriptPath -PassThru
     Start-Sleep -Seconds 1
@@ -276,6 +277,8 @@ server.serve_forever()
     Write-Host 'Keep this window open while testing. Press Ctrl+C here to stop the backend.'
     Write-Host ''
 
+    # Expose the key only to the backend process started by Maven.
+    $env:SUPABASE_API_KEY = $apiKey
     Push-Location $backendPath
     try {
         & $mavenCommand spring-boot:run

@@ -348,10 +348,10 @@ invalid in summer. Send zoned timestamps and let the server convert.
 
 ### `GET /api/events`
 
-**Auth:** public. Returns an array of every event, each with its host's name.
-
-⚠️ This includes events with `is_public: false`. See
-[gotcha 1](#1-private-events-are-readable-by-anyone).
+**Auth:** public. Returns event schedule blocks. Callers without a valid faculty or admin session
+receive full details for public events and masked details for private events. A masked event keeps
+its ID, start and end times, `is_public: false`, and a generic title so the calendar can show the
+occupied time. Host identity, department, description, and event type are not included.
 
 ```bash
 curl http://localhost:8080/api/events
@@ -359,16 +359,17 @@ curl http://localhost:8080/api/events
 
 ### `GET /api/events/{id}`
 
-**Auth:** public. Array with 0 or 1 element — a missing event is `200 []`, not `404`.
+**Auth:** public. Array with 0 or 1 element. Private event details are masked for callers without a
+valid faculty or admin session. A missing event is `200 []`, not `404`.
 
 ### `GET /api/events/by-user/{userId}`
 
-**Auth:** public. Every event where `host_user_id = {userId}`.
+**Auth:** public. Events where `host_user_id = {userId}`. Private event details are masked for
+callers without a valid faculty or admin session.
 
 ### `GET /api/events/public`
 
-**Auth:** public. Only `is_public = true`. Currently unused by the frontend; it is the endpoint an
-anonymous calendar *should* be calling.
+**Auth:** public. Only `is_public = true`.
 
 ---
 
@@ -928,7 +929,7 @@ The role that matters is `admin`; the check is `role_name == "admin"`, case-inse
 Current server behavior and known limitations. Automated tests cover the security cases listed in
 the test section below. Production database permissions and AWS settings still require live checks.
 
-### 1. Private events are masked by the API
+### 1. Private event details are masked by the API
 
 All three public event reads mask private details unless a valid faculty or admin session is
 present. The public response still contains the reservation ID and time interval so the calendar can
