@@ -121,6 +121,10 @@ remove or change the frontend, backend, or production runtime.
   that port, then run the launcher again.
 - If it says Java, Python, or Maven is missing after installation, restart PowerShell and rerun the
   script.
+- If WinGet reports that a package is already installed and no upgrade is available, the launcher now
+  checks whether the required command works and looks for the JDK in its standard install folders.
+  If Java is still unavailable, restart PowerShell and run the launcher again so Windows can refresh
+  the Java installation paths.
 - If `/api/health` does not load, check the PowerShell output for a backend startup error. The
   backend needs network access to the test Supabase project.
 - If the page loads but API requests fail, open DevTools Network and confirm the request URL starts

@@ -27,12 +27,13 @@ function Refresh-Path {
 }
 
 function Install-WinGetPackage([string] $PackageId) {
-    Write-Host "Installing $PackageId..."
+    Write-Host "Checking or installing $PackageId..."
     & winget install --id $PackageId --exact --source winget --accept-source-agreements --accept-package-agreements
-    if ($LASTEXITCODE -ne 0) {
-        throw "Installation failed for $PackageId. Close this window, resolve the installer prompt or error, then run this script again."
-    }
+    $installExitCode = $LASTEXITCODE
     Refresh-Path
+    if ($installExitCode -ne 0) {
+        Write-Warning "WinGet returned exit code $installExitCode for $PackageId. Checking whether the required tool is already installed."
+    }
 }
 
 function Test-PortInUse([int] $Port) {
@@ -69,6 +70,20 @@ try {
         Install-WinGetPackage 'EclipseAdoptium.Temurin.17.JDK'
         $java = Get-Command java -ErrorAction SilentlyContinue
         $javac = Get-Command javac -ErrorAction SilentlyContinue
+        if (-not $java -or -not $javac -or $javaMajor -lt 17) {
+            $jdkRoots = @(
+                (Join-Path $env:ProgramFiles 'Eclipse Adoptium'),
+                (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium')
+            ) | Where-Object { Test-Path $_ }
+            $installedJdk = Get-ChildItem -Path $jdkRoots -Directory -Filter 'jdk-17*' -ErrorAction SilentlyContinue |
+                Sort-Object Name -Descending |
+                Select-Object -First 1
+            if ($installedJdk) {
+                $env:Path = "$(Join-Path $installedJdk.FullName 'bin');$env:Path"
+                $java = Get-Command java -ErrorAction SilentlyContinue
+                $javac = Get-Command javac -ErrorAction SilentlyContinue
+            }
+        }
         $versionOutput = if ($java) { (& $env:ComSpec /d /c 'java -version 2>&1' | Out-String) } else { '' }
         $javaMajor = if ($versionOutput -match 'version "(?<major>\d+)') { [int]$Matches.major } else { 0 }
         if (-not $java -or -not $javac -or $javaMajor -lt 17) {
