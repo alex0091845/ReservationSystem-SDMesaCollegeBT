@@ -16,23 +16,32 @@ is the CloudFront origin, so its API calls are same-origin. The screenshots do n
 CloudFront-to-EC2 origin protocol policy, EC2 security group rules, WAF association, or deployed
 response headers policy.
 
+## Local testing boundary
+
+The local launcher serves the existing frontend and backend source through a local `/api` proxy.
+It targets the test Supabase project and sets local-only cookie and CORS values. Use a test project's
+server-only key, never the production key. The launcher keeps the key out of the frontend proxy and
+browser process and passes it to the backend process at startup. See [`LOCAL_TESTING.md`](LOCAL_TESTING.md)
+for setup and key handling. The ignored settings file is plain text if a key is saved there; Git
+ignoring the file does not encrypt it.
+
 ## Evidence from the database
 
-The supplied Supabase privilege query showed that `anon` and `authenticated` had SELECT, INSERT,
-UPDATE, and DELETE table privileges on `attendees`, `event_types`, `events`, `reservation_drafts`,
-`user_roles`, and `users`. RLS was disabled for `attendees`, `events`, `user_roles`, and `users`.
-RLS was enabled on `event_types` and `reservation_drafts`, but the screenshot did not show their
-policies. `sessions` had RLS enabled and no listed table privileges for those roles.
+The initial Supabase privilege query showed that `anon` and `authenticated` had SELECT, INSERT,
+UPDATE, and DELETE table privileges on most application tables. RLS was disabled on four of the
+seven tables. The latest Supabase query results shared for this project show RLS enabled on all
+seven tables and one restrictive `deny_direct_api_access` policy per table, for `anon` and
+`authenticated`, with `cmd = ALL`, `qual = false`, and `with_check = false`.
 
-The query did not establish whether any browser code used those direct privileges. A repository
-search found no frontend Supabase client or direct Supabase REST request. It did establish that the
-database API roles had privileges that were broader than this backend-only architecture needs.
+The latest screenshots do not include a fresh table-grant query or a live request test. The policy
+script does not change table grants. A repository search found no frontend Supabase client or
+direct Supabase REST request. The browser calls the Java backend, which uses a server-only key.
 
 ## Controls in this branch
 
 | Area | Change |
 |---|---|
-| Direct database access | The SQL migration provided in the implementation handoff revokes table, sequence, function, and schema-create privileges from `PUBLIC`, `anon`, and `authenticated`; removes existing policies on the seven application tables; enables RLS; and removes default grants for new objects created by `postgres`. |
+| Direct database access | The initial SQL migration revokes direct API grants and enables RLS. A follow-up script adds a restrictive deny policy for `anon` and `authenticated` on all seven application tables. Current screenshots verify the RLS flags and policies, but not current grants or live request behavior. |
 | Private event data | The backend returns full details only to faculty and admin sessions. Other viewers receive an event ID, time interval, public flag, and generic title. Host identity and descriptive fields are removed. |
 | Attendee records | Reads, updates, and deletes require faculty or admin. Public check-in input is field-whitelisted and its text fields are length-limited. |
 | Account status | Disabled accounts cannot log in. Existing sessions are rejected when the account is disabled or missing. |
@@ -43,16 +52,78 @@ database API roles had privileges that were broader than this backend-only archi
 | Dependencies | Updated the backend to Spring Boot 4.1.1 and moved the application to its managed Jackson 3 packages. |
 | Regression checks | Added automated checks for private-event masking, staff access, disabled accounts, token hashing, origin checks, and secret-key headers. |
 
-## Database migration
+## Database changes
 
-Paste the SQL migration provided in the implementation handoff into the Supabase SQL Editor and
-run it once as the project database owner. It is designed for this backend-only data path. It
-removes direct API policies and grants, enables RLS, and deletes all existing `sessions` rows. Users
-will need to sign in again. Do not apply it if another trusted application depends on direct `anon`
-or `authenticated` table access without first moving that traffic through an authorized service.
+The initial database migration was reported as applied. It removes direct API access, enables RLS,
+and deletes existing `sessions` rows, so users had to sign in again. The follow-up RLS policy script
+was also run. It does not alter grants or session rows. These controls are intended for the current
+backend-only architecture. Another trusted application that accesses Supabase directly would need
+its own authorized access design before these deny policies are changed.
 
-After applying the migration, run this query in the SQL Editor. Every table should report RLS as
-enabled and all listed table privileges as false.
+The follow-up policy SQL, in a form that can be rerun, is:
+
+```sql
+BEGIN;
+
+DO $rls$
+DECLARE
+    table_name text;
+BEGIN
+    FOREACH table_name IN ARRAY ARRAY[
+        'attendees',
+        'event_types',
+        'events',
+        'reservation_drafts',
+        'sessions',
+        'user_roles',
+        'users'
+    ]
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',
+            table_name
+        );
+        EXECUTE format(
+            'DROP POLICY IF EXISTS deny_direct_api_access ON public.%I',
+            table_name
+        );
+        EXECUTE format(
+            'CREATE POLICY deny_direct_api_access ON public.%I
+             AS RESTRICTIVE
+             FOR ALL
+             TO anon, authenticated
+             USING (false)
+             WITH CHECK (false)',
+            table_name
+        );
+    END LOOP;
+END
+$rls$;
+
+COMMIT;
+```
+
+To verify the policy definitions, run:
+
+```sql
+select tablename, policyname, permissive, roles, cmd, qual, with_check
+from pg_policies
+where schemaname = 'public'
+  and tablename = any (array[
+    'attendees', 'event_types', 'events', 'reservation_drafts',
+    'sessions', 'user_roles', 'users'
+  ])
+order by tablename, policyname;
+```
+
+The expected result is one `RESTRICTIVE` `deny_direct_api_access` policy per table, with roles
+`{anon,authenticated}`, command `ALL`, and both expressions set to `false`. The latest screenshots
+show that result and show RLS enabled on all seven tables.
+
+The earlier privilege query showed table grants to `anon` and `authenticated`. The follow-up policy
+script did not revoke those grants, and the latest screenshots do not show whether the initial
+migration changed them. Re-run the following query to verify their current state. Each privilege
+should be false for both roles:
 
 ```sql
 select
@@ -76,21 +147,11 @@ where n.nspname = 'public'
 order by c.relname;
 ```
 
-Confirm that no policies remain on the application tables:
-
-```sql
-select tablename, policyname
-from pg_policies
-where schemaname = 'public'
-  and tablename = any (array[
-    'attendees', 'event_types', 'events', 'reservation_drafts',
-    'sessions', 'user_roles', 'users'
-  ]);
-```
-
-Expected result: zero rows. A PostgREST request made with a publishable key and no user session
-should not be able to read or write these tables. Do not use or paste the secret key to run this
-check.
+The database owner can bypass RLS, so inspecting rows in the SQL Editor does not verify the deny
+policies. For a behavioral check, use a publishable key and the Data API roles, never the server
+secret key. Direct client requests should be denied. Separately, verify website event loading,
+check-in, draft saving, and faculty/admin actions through the backend because its `sb_secret` key
+bypasses RLS and its authorization checks remain essential.
 
 ## AWS checks before calling production secure
 

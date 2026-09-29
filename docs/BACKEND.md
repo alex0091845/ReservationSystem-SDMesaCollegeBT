@@ -38,6 +38,10 @@ The backend's real jobs are the four things Supabase can't do for us:
 
 ## 2. Running it locally
 
+For a one-command local run of the frontend and backend with the same-origin API proxy, use
+[`LOCAL_TESTING.md`](LOCAL_TESTING.md). The manual backend-only steps below are useful for direct API
+work, but they do not start the frontend proxy.
+
 ```bash
 cd backend
 
@@ -418,21 +422,24 @@ then reuse the cookie jar with `-b jar`. Remember that a generic 500 means the d
 
 ## 8. Security rollout and remaining work
 
-This branch adds backend controls and documents a database migration. The production Supabase project and
-CloudFront distribution still need an operator to apply or verify the items below. This checkout
-has not changed those live services.
+The operator reported applying the database migration and the follow-up RLS policy script. The
+latest Supabase query results shared for this project confirm that all seven application tables
+have RLS enabled and each has a restrictive `deny_direct_api_access` policy for `anon` and
+`authenticated`. The results do not show the current table grants or prove application behavior.
+This checkout cannot inspect or change the live Supabase project or CloudFront distribution.
 
-### Apply the database migration
+### Database access controls
 
-Paste the SQL migration provided in the implementation handoff into the Supabase SQL Editor and
-run it once as the project database owner. It revokes public, anon, and authenticated grants on the
-application's tables and sequences, removes existing policies, enables RLS, blocks future default
-grants for the `postgres` owner, and deletes current session rows. All users will need to sign in
-again. The server-only key bypasses RLS, so the backend must enforce all caller authorization rules.
+The initial database migration revokes direct API grants, enables RLS, removes prior policies, and
+deletes existing session rows. The follow-up SQL creates one restrictive deny policy on each
+application table. It blocks direct `anon` and `authenticated` access for all commands, even if a
+permissive policy is later added. The follow-up script does not change table grants or session rows.
 
-After applying it, verify that the seven application tables report RLS enabled, every `anon_*` and
-`authenticated_*` table privilege is false, and the policy query returns no rows for those tables.
-Use the verification query in [`SECURITY.md`](SECURITY.md).
+The latest screenshots confirm RLS and policy definitions, but do not confirm current grants or
+test requests made through the Data API. Re-run the grant query in [`SECURITY.md`](SECURITY.md) to
+verify `anon` and `authenticated` privileges. A database owner query does not test RLS behavior.
+The `sb_secret` key used by the backend bypasses RLS, so backend authorization checks remain
+required. The browser uses the Java `/api` service and does not connect directly to Supabase.
 
 ### Verify AWS and runtime settings
 
@@ -457,8 +464,8 @@ Use the verification query in [`SECURITY.md`](SECURITY.md).
 - Expired and invalidated session rows still need a scheduled cleanup policy.
 - The backend still needs overlap validation and enforcement of the 8 AM opening time. These
   reservation integrity controls remain server-side gaps.
-- Local tests cannot prove database grants or AWS behavior until the migration and runtime checks
-  are completed against production services.
+- The supplied screenshots confirm RLS settings and policies, but not current grants, direct Data
+  API behavior, or AWS behavior. Those require fresh production checks.
 
 ---
 
