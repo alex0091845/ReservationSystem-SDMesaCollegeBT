@@ -4,6 +4,7 @@ import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
+import { renderZoomStage } from "./ui/zoomController.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
@@ -238,7 +239,8 @@ const state = {
     ),
 
     currentYear: today.getFullYear(),
-    currentMonth: today.getMonth()
+    currentMonth: today.getMonth(),
+    zoomLevel: "week"
 };
 
 // Pulls open and close functions from modal file
@@ -336,6 +338,29 @@ function changeMonth(monthOffset) {
 }
 
 // Draws all the page elements
+// Zoom calendar (prototype): switches the big panel between zoom levels.
+function setZoomLevel(zoomLevel) {
+    state.zoomLevel = zoomLevel;
+
+    renderAll();
+}
+
+// Shows another year in the Year view (the small month calendar follows along).
+function showYear(year) {
+    state.currentYear = year;
+
+    renderAll();
+}
+
+// Clicking a month in the Year view zooms in to a week of that month.
+function zoomIntoMonth(year, month) {
+    const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    state.zoomLevel = "week";
+
+    setSelectedDate(new Date(year, month, isThisMonth ? today.getDate() : 1));
+}
+
 function renderAll() {
     renderApplicationTitle();
     updateCreateReservationButtonState();
@@ -360,6 +385,17 @@ function renderAll() {
         reservedEvents,
         onSelectDate: setSelectedDate,
         openEventModal: openCalendarEvent
+    });
+
+    renderZoomStage({
+        weekView: elements.weekViewWrapper?.closest(".week-view"),
+        zoomLevel: state.zoomLevel,
+        year: state.currentYear,
+        selectedDate: state.selectedDate,
+        reservedEvents,
+        onSetZoomLevel: setZoomLevel,
+        onShowYear: showYear,
+        onSelectMonth: zoomIntoMonth
     });
 
     renderUpcomingEvents(
