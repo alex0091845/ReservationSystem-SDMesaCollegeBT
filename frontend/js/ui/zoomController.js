@@ -1,9 +1,11 @@
+import { renderDayView } from "./dayView.js";
 import { renderYearView } from "./yearView.js";
 
-// Zoom levels the big calendar panel can show. Month and Day come in later steps.
+// Zoom levels the big calendar panel can show. Month comes in a later step.
 const ZOOM_LEVELS = [
     { id: "year", label: "Year" },
-    { id: "week", label: "Week" }
+    { id: "week", label: "Week" },
+    { id: "day", label: "Day" }
 ];
 
 // Draws the zoom buttons and shows the panel for the current zoom level.
@@ -16,7 +18,9 @@ export function renderZoomStage({
     reservedEvents,
     onSetZoomLevel,
     onShowYear,
-    onSelectMonth
+    onSelectMonth,
+    onSelectDate,
+    openEventModal
 }) {
     if (!weekView) {
         return;
@@ -24,26 +28,37 @@ export function renderZoomStage({
 
     const toolbar = getOrCreateChild(weekView, "zoom-toolbar", "prepend");
     const yearStage = getOrCreateChild(weekView, "year-stage", "append");
-    const isYear = zoomLevel === "year";
+    const dayStage = getOrCreateChild(weekView, "day-stage", "append");
 
-    // CSS in zoom-calendar.css hides the week header and grid while the year is showing.
+    // CSS in zoom-calendar.css hides the week header and grid while another level is showing.
     weekView.dataset.zoomLevel = zoomLevel;
     renderToolbar(toolbar, zoomLevel, onSetZoomLevel);
-    yearStage.hidden = !isYear;
 
-    if (!isYear) {
-        yearStage.innerHTML = "";
-        return;
+    yearStage.hidden = zoomLevel !== "year";
+    dayStage.hidden = zoomLevel !== "day";
+    yearStage.innerHTML = "";
+    dayStage.innerHTML = "";
+
+    if (zoomLevel === "year") {
+        renderYearView({
+            container: yearStage,
+            year,
+            selectedDate,
+            reservedEvents,
+            onShowYear,
+            onSelectMonth
+        });
     }
 
-    renderYearView({
-        container: yearStage,
-        year,
-        selectedDate,
-        reservedEvents,
-        onShowYear,
-        onSelectMonth
-    });
+    if (zoomLevel === "day") {
+        renderDayView({
+            container: dayStage,
+            selectedDate,
+            reservedEvents,
+            onSelectDate,
+            openEventModal
+        });
+    }
 }
 
 function getOrCreateChild(parent, className, position) {

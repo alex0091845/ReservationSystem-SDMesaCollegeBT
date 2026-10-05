@@ -395,7 +395,9 @@ function renderAll() {
         reservedEvents,
         onSetZoomLevel: setZoomLevel,
         onShowYear: showYear,
-        onSelectMonth: zoomIntoMonth
+        onSelectMonth: zoomIntoMonth,
+        onSelectDate: setSelectedDate,
+        openEventModal: openCalendarEvent
     });
 
     renderUpcomingEvents(

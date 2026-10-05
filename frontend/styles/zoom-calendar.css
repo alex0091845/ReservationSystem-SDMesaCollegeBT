@@ -1,4 +1,4 @@
-/* Zoom Calendar (prototype): zoom buttons and the Year level */
+/* Zoom Calendar (prototype): zoom buttons, the Year level and the Day level */
 
 .zoom-toolbar {
     display: flex;
@@ -34,17 +34,21 @@
     outline-offset: 2px;
 }
 
-/* While the year is showing, the week header and grid step aside. */
+/* While the year or a single day is showing, the week header and grid step aside. */
 .week-view[data-zoom-level="year"] .week-view-header,
-.week-view[data-zoom-level="year"] .week-grid {
+.week-view[data-zoom-level="year"] .week-grid,
+.week-view[data-zoom-level="day"] .week-view-header,
+.week-view[data-zoom-level="day"] .week-grid {
     display: none;
 }
 
-.year-stage[hidden] {
+.year-stage[hidden],
+.day-stage[hidden] {
     display: none;
 }
 
-.year-header {
+.year-header,
+.day-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -52,7 +56,8 @@
     margin-bottom: 14px;
 }
 
-.year-title {
+.year-title,
+.day-title {
     flex: 1;
     margin: 0;
     font-size: 24px;
@@ -141,6 +146,141 @@
     border-radius: 2px;
 }
 
+/* Day level */
+
+.day-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: -6px 0 14px;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.day-today-badge {
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #e1eaf3;
+    color: var(--mesa-blue);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.day-timeline {
+    --day-hour-height: 68px;
+    --day-time-column-width: 70px;
+    display: grid;
+    grid-template-columns: var(--day-time-column-width) minmax(0, 1fr);
+    padding: 8px 0 10px;
+    border: 1px solid #ddd;
+    border-radius: var(--radius-card);
+    background: #fff;
+}
+
+.day-hour-labels,
+.day-column {
+    position: relative;
+    height: calc(var(--day-hour-height) * var(--day-visible-hours));
+}
+
+.day-hour-label {
+    position: absolute;
+    top: calc(var(--day-hour-height) * var(--day-offset-hours) - 7px);
+    right: 8px;
+    color: #666;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.day-column {
+    border-left: 1px solid #e5e5e5;
+}
+
+.day-hour-line {
+    position: absolute;
+    top: calc(var(--day-hour-height) * var(--day-offset-hours));
+    right: 0;
+    left: 0;
+    border-top: 1px solid #e5e5e5;
+}
+
+/* Builds on .week-event from week-view.css; these rules set the position and the extra text lines. */
+.week-event.day-event {
+    top: calc(var(--day-hour-height) * var(--day-offset-hours) + 1px);
+    left: calc(100% / var(--day-column-count) * var(--day-column) + 4px);
+    right: auto;
+    width: calc(100% / var(--day-column-count) - 8px);
+    height: calc(var(--day-hour-height) * var(--day-duration-hours) - 2px);
+    min-height: 24px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 10px;
+    font-size: 14px;
+    /* No z-index here, so the text below can sit above the "now" line while the card stays under it. */
+    z-index: auto;
+}
+
+/* The "now" line crosses the card but never strikes through its text. */
+.day-event > span {
+    position: relative;
+    z-index: 9;
+    margin: 0 -4px;
+    padding: 0 4px;
+    background-color: inherit;
+}
+
+.day-event-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.day-event-time,
+.day-event-details {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.92;
+}
+
+.day-event-now {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fff;
+    color: #b71c1c;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* Same look as the red line in the week view, so "now" reads the same at every level. */
+.day-now-line {
+    position: absolute;
+    top: calc(var(--day-hour-height) * var(--day-offset-hours));
+    right: 0;
+    left: 0;
+    z-index: 8;
+    height: 2px;
+    background: #d32f2f;
+    pointer-events: none;
+}
+
+.day-now-line::before {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d32f2f;
+    content: "";
+}
+
 @media (max-width: 1200px) {
     .year-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -159,8 +299,24 @@
         min-height: 44px;
     }
 
-    .year-title {
+    .year-title,
+    .day-title {
         font-size: 18px;
+    }
+
+    .day-timeline {
+        --day-hour-height: 60px;
+        --day-time-column-width: 54px;
+    }
+
+    .day-hour-label {
+        right: 5px;
+        font-size: 11px;
+    }
+
+    .week-event.day-event {
+        padding: 6px 8px;
+        font-size: 13px;
     }
 
     .year-grid {
