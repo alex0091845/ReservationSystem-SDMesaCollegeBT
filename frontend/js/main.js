@@ -1,5 +1,6 @@
 import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
+import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
 import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
@@ -177,7 +178,11 @@ async function loadReservedEvents() {
     } catch (error) {
         console.error("Error loading events:", error);
 
-        reservedEvents = [];
+        // DEV ONLY: with no backend running locally, show fake events instead of an empty calendar.
+        const isLocalDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+        reservedEvents = isLocalDev ? getSampleEvents() : [];
+        sortReservedEvents(reservedEvents);
     }
 
     renderAll();
