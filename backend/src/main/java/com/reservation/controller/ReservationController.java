@@ -283,8 +283,45 @@ public class ReservationController {
         }
 
         return DeleteOutcome.toResponse(
-            supabase.delete("events?id=eq." + id),
-            "This reservation is still referenced by other records, so it cannot be deleted."
+            supabase.delete("events?recurrence_group_id=eq." + id),
+            "This reservation is still referenced by other records, so it cannot be deleted.");
+    }
+
+
+    @DeleteMapping("/series/{groupId}")
+    public ResponseEntity<?> deleteSeries(@PathVariable String groupId,HttpServletRequest request) {
+        JsonNode seriesEvents = getRecurringSeries(groupId);
+
+        if (!seriesEvents.isArray() || seriesEvents.isEmpty()){
+            return jsonError(404, "Recurring reservation series not found.");
+        }
+        for (JsonNode existingEvent : seriesEvents) { 
+            if (!canModifyExistingEvent(request, existingEvent)) {
+                return jsonError(403, "You do not have permission to delete this reservation.");
+            }
+        }
+    
+        StringBuilder eventIDs = new StringBuilder();
+
+
+        for (JsonNode existingEvent : seriesEvents){
+            if (eventIDs.length() > 0){
+                eventIDs.append(',');
+            }
+            eventIDs.append(existingEvent.path("id").asInt());
+        }
+
+        SupabaseClient.SupabaseResponse checkInCleanup = supabase.delete("attendees?event_id=in.("+eventIDs+")");
+
+        if(!checkInCleanup.isSuccessful()){
+            return jsonError(
+                502,
+                "The check-in records for this recurring reservation series could not be removed."
+            );
+        }
+        return DeleteOutcome.toResponse(
+            supabase.delete("events?id=in.("+eventIDs+")"),
+            "This recurring series is still referenced by other records, so it cannot be deleted."
         );
     }
 
@@ -404,6 +441,20 @@ public class ReservationController {
         } catch (Exception error) {
             throw new RuntimeException("Could not verify reservation ownership.");
         }
+    }
+    
+    private JsonNode getRecurringSeries(String groupId){
+        try{
+            String response = supabase.get("events?recurrence_group_id=eq." + groupId +
+             "&select=id,host_user_id,recurrence_group_id"
+             );
+             
+             return objectMapper.readTree(response);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not read recurring reservation series.");
+
+        }      
+        
     }
 
     private boolean canModifyExistingEvent(HttpServletRequest request, JsonNode existingEvent) {
