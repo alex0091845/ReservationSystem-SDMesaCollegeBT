@@ -55,7 +55,7 @@ input {
   align-items: center;
   gap: 8px;
   margin: 0 0 16px;
-  color: #333;
+  color: #333333;
   font-size: 14px;
   cursor: pointer;
   user-select: none;
@@ -86,7 +86,14 @@ button:hover {
 #message {
   margin-top: 15px;
   text-align: center;
-  color: red;
+}
+
+#message.success {
+  color: rgb(13, 219, 130);
+}
+
+#message.error {
+  color: rgb(255, 35, 35);
 }
 
 @media (max-width: 420px) {

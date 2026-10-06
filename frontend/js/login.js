@@ -26,9 +26,11 @@ async function handleLogin() {
     const matchedUser = await getVerifiedSessionUser(loginResponse);
 
     if (!matchedUser) {
-      message.textContent =
-        "Invalid email or password.";
-
+      // message.textContent =
+      //   "Invalid email or password.";
+      message.classList.remove("success", "error");
+      message.classList.add("success");
+      message.textContent = "Invalid email or password.";
       return;
     }
 
@@ -101,8 +103,11 @@ function completeLogin(matchedUser, successMessage) {
 
   sessionStorage.removeItem("adminLoggedIn");
 
-  message.textContent =
-    successMessage || "Login successful!";
+  // message.textContent =
+  //   successMessage || "Login successful!";
+  message.classList.remove("success", "error");
+  message.classList.add("success");
+  message.textContent = "Login successful!";
 
   setTimeout(() => {
     window.location.href =
