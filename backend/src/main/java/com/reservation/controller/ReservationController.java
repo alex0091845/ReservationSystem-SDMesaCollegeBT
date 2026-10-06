@@ -283,7 +283,7 @@ public class ReservationController {
         }
 
         return DeleteOutcome.toResponse(
-            supabase.delete("events?recurrence_group_id=eq." + id),
+            supabase.delete("events?id=eq." + id),
             "This reservation is still referenced by other records, so it cannot be deleted.");
     }
 
