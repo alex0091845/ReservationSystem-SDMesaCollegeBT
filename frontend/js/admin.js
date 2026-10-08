@@ -13,7 +13,6 @@ import {
     logoutUser,
     getCurrentSession
 } from "./api.js";
-import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderEventAttendees } from "./ui/attendees.js";
 import { createEventCard } from "./ui/eventCards.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
@@ -24,6 +23,7 @@ import {
     clearReservationFormDraftFields,
     collectReservationFormDraft,
     createReservationDraftAutosave,
+    discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
 import {
@@ -97,6 +97,8 @@ let modalMode = "create";
 let userSearchTerm = "";
 let userRoleValue = "all";
 let userSortValue = "name-asc";
+const ROLE_ADMIN = "admin";
+const ROLE_FACULTY = "faculty";
 const adminReservationTimePicker = createReservationTimePicker({
     container: document.getElementById("adminReservationTimePicker"),
     summaryElement: document.getElementById("adminReservationTimeSummary"),
@@ -280,7 +282,7 @@ function renderUsers() {
         userMeta.className = "faculty-user-meta";
 
         const role = document.createElement("span");
-        role.textContent = isUserEnabled(user) ? getUserRoleName(user) : "disabled";
+        role.textContent = isUserEnabled(user) ? getUserRoleLabel(user) : "disabled";
 
         userMeta.append(role);
         userCard.append(userDetails, userMeta);
@@ -454,7 +456,22 @@ function getUserFullName(user) {
 }
 
 function getUserRoleName(user) {
-    return user.role_name || user.role || user.user_roles?.name || "Faculty";
+    const roleName = user?.role_name || user?.role || user?.user_roles?.name || "";
+    return String(roleName).trim().toLowerCase();
+}
+
+function getUserRoleLabel(user) {
+    const roleName = getUserRoleName(user);
+
+    if (roleName === ROLE_ADMIN) {
+        return "Admin";
+    }
+
+    if (roleName === ROLE_FACULTY) {
+        return "Faculty";
+    }
+
+    return roleName || "Unassigned";
 }
 
 function isUserEnabled(user) {
@@ -462,7 +479,7 @@ function isUserEnabled(user) {
 }
 
 function isAdminUser(user) {
-    return getUserRoleName(user).toLowerCase() === "admin";
+    return getUserRoleName(user) === ROLE_ADMIN;
 }
 
 function openCreateUserModal() {
@@ -492,7 +509,7 @@ function openEditUserModal(user) {
     document.getElementById("userLastName").value = user.last_name ?? "";
     document.getElementById("userEmail").value = user.email ?? "";
     document.getElementById("userPhone").value = user.phone ?? "";
-    document.getElementById("userRole").value = getUserRoleName(user);
+    document.getElementById("userRole").value = getUserRoleName(user) || ROLE_FACULTY;
     document.getElementById("userPassword").value = "";
     document.getElementById("userFormMessage").textContent = "";
     document.getElementById("userPasswordHint").textContent = "Leave blank to keep the current password.";
@@ -577,6 +594,11 @@ async function openReservationEditModal(reservation) {
         { selectedValue: reservation.event_type ?? "" }
     );
     document.getElementById("adminReservationDescription").value = reservation.description ?? "";
+    adminReservationTimePicker.setUnavailableRanges(
+        reservations
+            .filter(existing => String(existing.id) !== String(reservation.id))
+            .map(existing => ({ start: existing.start_time, end: existing.end_time }))
+    );
     adminReservationTimePicker.setRange(
         reservation.start_time,
         reservation.end_time
@@ -672,8 +694,14 @@ async function resolveAdminReservationDraftExit() {
     }
 
     if (draftAction === "discard") {
-        await adminReservationDraftAutosave.discard();
-        return true;
+        try {
+            await adminReservationDraftAutosave.discard();
+            return true;
+        } catch (error) {
+            console.error("Could not delete reservation draft:", error);
+            setAdminReservationStatus("Could not delete the saved draft. Please try again.", "error");
+            return false;
+        }
     }
 
     try {
@@ -694,9 +722,14 @@ async function clearAdminReservationForm() {
         adminReservationTimePicker,
         { preserveNames: ["id", "host_user_id"] }
     );
-    await adminReservationDraftAutosave.discard();
-    adminReservationDraftAutosave.markClean();
-    setAdminReservationStatus("Form cleared.", "success");
+    try {
+        await adminReservationDraftAutosave.discard();
+        adminReservationDraftAutosave.markClean();
+        setAdminReservationStatus("Form cleared.", "success");
+    } catch (error) {
+        console.error("Could not delete reservation draft:", error);
+        setAdminReservationStatus("Form cleared, but the saved draft could not be deleted. Try Clear again.", "error");
+    }
 }
 
 function formatDateTimeLocalValue(value) {
@@ -818,6 +851,7 @@ userForm.addEventListener("submit", async event => {
 
     if (modalMode === "create") {
         delete userData.id;
+        userData.enabled = true;
 
         if (!password) {
             userFormMessage.textContent = "A password is required for new users.";
@@ -879,7 +913,7 @@ function getUserFormErrorMessage(error, fallback) {
         return "You do not have permission to manage users.";
     }
 
-    return error?.data?.error || error?.data?.message || fallback;
+    return error?.data?.error || error?.data?.message || error?.message || fallback;
 }
 
 createUserBtn.addEventListener("click", openCreateUserModal);
@@ -973,7 +1007,7 @@ adminReservationForm.addEventListener("submit", async event => {
         reservations.push(...createdReservations);
 
         renderUserDetails();
-        await adminReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "saved");
         closeReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not update reservation:", error);
@@ -1005,7 +1039,7 @@ async function handleAdminReservationDelete() {
 
     try {
         await deleteEvent(selectedReservation);
-        await adminReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
         removeReservations([selectedReservation], reservations, attendees);
 
         renderUserDetails();
@@ -1046,7 +1080,7 @@ async function handleAdminReservationDeleteSeries() {
 
     try {
         await deleteReservations(seriesReservations);
-        await adminReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
         removeReservations(seriesReservations, reservations, attendees);
 
         renderUserDetails();

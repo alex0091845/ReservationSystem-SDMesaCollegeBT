@@ -1,14 +1,15 @@
 package com.reservation.services;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 @Service
 public class AuthService {
@@ -23,9 +24,14 @@ public class AuthService {
 
     public JsonNode authenticate(String email, String password) {
         try {
-            JsonNode user = findUserByEmail(email);
+            if (email == null || password == null || password.getBytes(StandardCharsets.UTF_8).length > 72) {
+                return null;
+            }
 
-            if (user == null || !passwordMatches(password, user.path("password_hash").asText(""))) {
+            JsonNode user = findUserByEmail(email.trim().toLowerCase(Locale.ROOT));
+
+            if (user == null || !user.path("enabled").asBoolean(false) ||
+                !passwordMatches(password, user.path("password_hash").asText(""))) {
                 return null;
             }
 
@@ -37,14 +43,18 @@ public class AuthService {
 
     public JsonNode findUserById(int id) {
         try {
-            String response = supabase.get("users?id=eq." + id + "&select=*,user_roles(name)");
+            String response = supabase.get(
+                "users?id=eq." + id +
+                    "&select=id,email,first_name,last_name,phone,role_name,enabled,user_roles(name)"
+            );
             JsonNode users = mapper.readTree(response);
 
             if (!users.isArray() || users.isEmpty()) {
                 return null;
             }
 
-            return sanitizeUser(users.get(0));
+            JsonNode user = users.get(0);
+            return user.path("enabled").asBoolean(false) ? sanitizeUser(user) : null;
         } catch (Exception e) {
             throw new RuntimeException("Could not load session user");
         }
@@ -54,9 +64,17 @@ public class AuthService {
         return "admin".equalsIgnoreCase(getRoleName(user));
     }
 
+    public boolean isFacultyOrAdmin(JsonNode user) {
+        String roleName = getRoleName(user);
+        return "admin".equalsIgnoreCase(roleName) || "faculty".equalsIgnoreCase(roleName);
+    }
+
     private JsonNode findUserByEmail(String email) throws Exception {
         String encodedEmail = URLEncoder.encode(email, StandardCharsets.UTF_8);
-        String response = supabase.get("users?email=eq." + encodedEmail + "&select=*,user_roles(name)");
+        String response = supabase.get(
+            "users?email=eq." + encodedEmail +
+                "&select=id,email,password_hash,first_name,last_name,phone,role_name,enabled,user_roles(name)"
+        );
         JsonNode users = mapper.readTree(response);
 
         if (!users.isArray() || users.isEmpty()) {
@@ -67,7 +85,8 @@ public class AuthService {
     }
 
     private boolean passwordMatches(String rawPassword, String storedPassword) {
-        if (rawPassword == null || storedPassword == null || storedPassword.isBlank()) {
+        if (rawPassword == null || rawPassword.getBytes(StandardCharsets.UTF_8).length > 72 ||
+            storedPassword == null || storedPassword.isBlank()) {
             return false;
         }
 

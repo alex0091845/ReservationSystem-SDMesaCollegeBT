@@ -9,7 +9,9 @@ The app lets users browse and reserve rooms/events, manage attendees and event t
 > tasks, and the traps specific to this codebase. Otherwise start with the handover docs:
 > [`docs/BACKEND.md`](docs/BACKEND.md) and [`docs/FRONTEND.md`](docs/FRONTEND.md) — how each half
 > works, how to run it, common tasks, and known gaps. Endpoint-level detail (request bodies,
-> responses, error codes, curl examples) lives in [`docs/API.md`](docs/API.md).
+> responses, error codes, curl examples) lives in [`docs/API.md`](docs/API.md). Security controls
+> and deployment checks are in [`docs/SECURITY.md`](docs/SECURITY.md). For the full local setup,
+> follow [`docs/LOCAL_TESTING.md`](docs/LOCAL_TESTING.md).
 
 ---
 
@@ -41,7 +43,7 @@ This is a monorepo with two independently deployed halves:
 | Layer     | Tech                                             |
 |-----------|--------------------------------------------------|
 | Frontend  | HTML, CSS, vanilla JavaScript (ES modules)       |
-| Backend   | Java 17, Spring Boot 3.2.4, Maven                |
+| Backend   | Java 17, Spring Boot 4.1.1, Maven                |
 | Database  | Supabase (PostgreSQL)                            |
 | Auth      | Cookie-based sessions (`session_id` cookie)      |
 
@@ -72,7 +74,7 @@ mvn spring-boot:run
 ### Building a runnable jar (e.g. for EC2)
 
 ```bash
-mvn clean package
+mvn clean verify
 java -jar target/*.jar
 ```
 
@@ -101,11 +103,11 @@ Set these before starting the backend. `APP_CORS_ALLOWED_ORIGIN_PATTERNS` has **
 | Variable                            | Required | Default | Description                                                                 |
 |-------------------------------------|:--------:|---------|-----------------------------------------------------------------------------|
 | `SUPABASE_URL`                      | ✅       | —       | Supabase project URL (Dashboard → Project Settings → API)                   |
-| `SUPABASE_API_KEY`                  | ✅       | —       | Supabase key — use the **anon** key with Row Level Security enabled, **not** the service-role key |
-| `APP_CORS_ALLOWED_ORIGIN_PATTERNS`  | ✅       | —       | Comma-separated allowed frontend origins, e.g. `https://your-bucket.s3-website.amazonaws.com,http://localhost:5500`. Must list the exact deployed frontend origin (no `*` with credentials) |
+| `SUPABASE_API_KEY`                  | ✅       | None    | Current EC2 setup uses an `sb_secret` key. Server-only; bypasses RLS, so backend authorization is required |
+| `APP_CORS_ALLOWED_ORIGIN_PATTERNS`  | ✅       | None    | Comma-separated exact frontend origins, e.g. `https://dsowhvg574z7c.cloudfront.net,http://localhost:5500`. Wildcards and URL paths are rejected |
 | `SERVER_PORT`                       |          | `8080`  | Port the backend binds to                                                   |
 | `AUTH_COOKIE_SECURE`                |          | `true`  | Keep `true` in production; set `false` only for local http testing          |
-| `AUTH_COOKIE_SAME_SITE`             |          | `Lax`   | Session cookie SameSite policy. For a cross-site frontend (S3) → backend (EC2) setup, use `None` (which also requires `AUTH_COOKIE_SECURE=true`) |
+| `AUTH_COOKIE_SAME_SITE`             |          | `Lax`   | Session cookie policy. Use `Lax` for the current CloudFront `/api/*` same-origin route. `None` requires `AUTH_COOKIE_SECURE=true` |
 | `AUTH_SESSION_HOURS`                |          | `8`     | Session lifetime in hours                                                   |
 
 Example (macOS/Linux):
@@ -122,14 +124,19 @@ mvn spring-boot:run
 
 ## Running the frontend
 
-The frontend is static — serve the `frontend/` folder with any static server:
+For the full application, use the [local testing guide](docs/LOCAL_TESTING.md). Its local server
+serves the existing frontend and forwards `/api` requests to the backend, so the production source
+files work locally without changing their API configuration.
+
+For static layout work only, the frontend can be served without the backend:
 
 ```bash
 cd frontend
 python -m http.server 5500          # → http://localhost:5500
 ```
 
-(Or use the VS Code **Live Server** extension.)
+(Or use the VS Code **Live Server** extension.) API requests will not work through a basic static
+server because it does not forward `/api` requests to Spring Boot.
 
 ### Pointing the frontend at the backend
 
@@ -143,15 +150,14 @@ const BASE_URL = `${API_ORIGIN}/api`;
 Each HTML page (`index.html`, `admin.html`, `login.html`) contains a config block **before** its module script:
 
 ```html
-<!-- Backend API origin. Leave empty to call /api on the same origin as this page;
-     set to the backend's origin when the frontend is hosted separately (e.g. S3 → EC2). -->
+<!-- Backend API origin. Leave empty for the CloudFront /api/* route to EC2. -->
 <script>window.RESERVATION_API_ORIGIN = "";</script>
 ```
 
-- **Same-origin deploy** (frontend served by the backend): leave it empty.
-- **Split deploy** (frontend on S3, backend on EC2 — the intended setup): set it to the backend origin, e.g. `"https://api.your-domain.com"`, in all three HTML files at deploy time.
+- **Current deploy** (S3 frontend and EC2 API behind one CloudFront domain): leave it empty. CloudFront routes `/api/*` to EC2. The local testing server proxies the same path to port 8080.
+- **Direct cross-site API**: set it to the backend origin in all three HTML files and configure the exact frontend origin in the backend.
 
-Whatever origin you set here must also be listed in the backend's `APP_CORS_ALLOWED_ORIGIN_PATTERNS`, and for cross-site cookies the backend needs `AUTH_COOKIE_SAME_SITE=None` + `AUTH_COOKIE_SECURE=true`.
+Whatever origin you set here must also be listed in `APP_CORS_ALLOWED_ORIGIN_PATTERNS`. A direct cross-site API also needs `AUTH_COOKIE_SAME_SITE=None` and `AUTH_COOKIE_SECURE=true`.
 
 ---
 
@@ -195,15 +201,17 @@ There is no CI yet — deploys are manual.
 aws s3 sync frontend/ s3://<your-bucket> --delete
 ```
 
-Before syncing, set `window.RESERVATION_API_ORIGIN` in the three HTML files to the deployed backend origin (see [Pointing the frontend at the backend](#pointing-the-frontend-at-the-backend)).
+For the current CloudFront setup, keep `window.RESERVATION_API_ORIGIN` empty in all three pages. CloudFront routes `/api/*` to EC2. The S3 command syncs only `frontend/`, so it does not upload `local-testing/` or its local settings.
 
 **Backend → EC2**
+
+The production environment file is `/etc/reservation-backend.env`. See [Backend Handover](docs/BACKEND.md#ec2-environment-file) for details. Keep the file on EC2 and out of source control.
 
 ```bash
 # on the EC2 instance
 git pull
 cd backend
-mvn clean package
+mvn clean verify
 java -jar target/*.jar          # with SUPABASE_* / CORS env vars exported
 ```
 
@@ -215,7 +223,7 @@ docker build -t reservation-backend .
 docker run -d -p 8080:8080 --env-file .env reservation-backend
 ```
 
-Keep the deployed frontend's origin listed in the backend's `APP_CORS_ALLOWED_ORIGIN_PATTERNS`, and use `AUTH_COOKIE_SAME_SITE=None` + `AUTH_COOKIE_SECURE=true` for the cross-site S3 → EC2 setup.
+Keep the exact CloudFront origin listed in `APP_CORS_ALLOWED_ORIGIN_PATTERNS`. The current distribution routes `/api/*` to EC2, so the browser calls the CloudFront origin and `AUTH_COOKIE_SAME_SITE=Lax` is appropriate. See [`docs/SECURITY.md`](docs/SECURITY.md) for the database migration and deployment checks.
 
 ---
 

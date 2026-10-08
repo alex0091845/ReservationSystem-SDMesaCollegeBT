@@ -1,9 +1,9 @@
 package com.reservation.controller;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
 import com.reservation.services.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,23 +39,61 @@ public class ReservationController {
     }
 
     @GetMapping
-    public ResponseEntity<String> getAll() {
-        return ResponseEntity.ok(supabase.get("events?select=*,users(first_name,last_name)"));
+    public ResponseEntity<String> getAll(HttpServletRequest request) {
+        return visibleEvents(supabase.get("events?select=*,users(first_name,last_name)"), request);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<String> getById(@PathVariable int id) {
-        return ResponseEntity.ok(supabase.get("events?id=eq." + id + "&select=*,users(first_name,last_name)"));
+    public ResponseEntity<String> getById(@PathVariable int id, HttpServletRequest request) {
+        return visibleEvents(
+            supabase.get("events?id=eq." + id + "&select=*,users(first_name,last_name)"), request
+        );
     }
 
     @GetMapping("/by-user/{userId}")
-    public ResponseEntity<String> getByUser(@PathVariable int userId) {
-        return ResponseEntity.ok(supabase.get("events?host_user_id=eq." + userId + "&select=*,users(first_name,last_name)"));
+    public ResponseEntity<String> getByUser(@PathVariable int userId, HttpServletRequest request) {
+        return visibleEvents(
+            supabase.get("events?host_user_id=eq." + userId + "&select=*,users(first_name,last_name)"), request
+        );
     }
 
     @GetMapping("/public")
     public ResponseEntity<String> getPublic() {
         return ResponseEntity.ok(supabase.get("events?is_public=eq.true&select=*,users(first_name,last_name)"));
+    }
+
+    private ResponseEntity<String> visibleEvents(String response, HttpServletRequest request) {
+        JsonNode viewer = (JsonNode) request.getAttribute("currentUser");
+        if (authService.isFacultyOrAdmin(viewer)) {
+            return ResponseEntity.ok(response);
+        }
+
+        try {
+            JsonNode events = objectMapper.readTree(response);
+            if (!events.isArray()) {
+                throw new IllegalStateException("Unexpected events response");
+            }
+
+            ArrayNode safeEvents = objectMapper.createArrayNode();
+            for (JsonNode event : events) {
+                if (event.path("is_public").asBoolean(false)) {
+                    safeEvents.add(event);
+                    continue;
+                }
+
+                ObjectNode genericEvent = objectMapper.createObjectNode();
+                genericEvent.set("id", event.get("id"));
+                genericEvent.set("start_time", event.get("start_time"));
+                genericEvent.set("end_time", event.get("end_time"));
+                genericEvent.put("is_public", false);
+                genericEvent.put("title", "Private event");
+                safeEvents.add(genericEvent);
+            }
+
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(safeEvents.toString());
+        } catch (Exception error) {
+            throw new IllegalStateException("Could not safely prepare event response");
+        }
     }
 
     @PostMapping
@@ -379,7 +417,8 @@ public class ReservationController {
             return true;
         }
 
-        return userOwnsHostId(currentUser, existingEvent.path("host_user_id"));
+        return authService.isFacultyOrAdmin(currentUser) &&
+            userOwnsHostId(currentUser, existingEvent.path("host_user_id"));
     }
 
     private boolean canSaveWithRequestedHost(HttpServletRequest request, ObjectNode eventBody) {
@@ -550,6 +589,9 @@ public class ReservationController {
     }
 
     private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response) {
+        if (!response.isSuccessful()) {
+            return jsonError(502, "The database could not complete this request.");
+        }
         return ResponseEntity.status(response.statusCode())
             .contentType(MediaType.APPLICATION_JSON)
             .body(response.body());

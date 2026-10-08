@@ -17,6 +17,7 @@ export function createReservationDraftAutosave({
 }) {
     let active = false;
     let currentDraft = null;
+    let draftLookupFailed = false;
     let isApplyingDraft = false;
     let baselinePayload = "";
     let lastSavedPayload = "";
@@ -58,9 +59,11 @@ export function createReservationDraftAutosave({
                 draft_type: draftType,
                 source_event_id: getSourceEventId()
             });
+            draftLookupFailed = false;
         } catch (error) {
             console.error("Could not load reservation draft:", error);
             currentDraft = null;
+            draftLookupFailed = true;
         }
 
         if (currentDraft?.payload && applyPayload) {
@@ -94,13 +97,24 @@ export function createReservationDraftAutosave({
     async function discard() {
         clearSaveTimer();
         saveQueued = false;
+        let pendingSaveFailed = false;
 
         if (pendingSavePromise) {
             try {
                 await pendingSavePromise;
             } catch (error) {
-                // The save failure was already logged in saveNow; still clear local draft state.
+                // A timed-out save may still have reached the database. Look it up
+                // before reporting that the draft was deleted.
+                pendingSaveFailed = true;
             }
+        }
+
+        if (!currentDraft?.id && (pendingSaveFailed || draftLookupFailed)) {
+            currentDraft = await getReservationDraft({
+                draft_type: draftType,
+                source_event_id: getSourceEventId()
+            });
+            draftLookupFailed = false;
         }
 
         if (!currentDraft?.id) {
@@ -111,16 +125,14 @@ export function createReservationDraftAutosave({
             return;
         }
 
-        try {
-            await deleteReservationDraft(currentDraft);
-        } catch (error) {
-            console.error("Could not delete reservation draft:", error);
-        } finally {
-            currentDraft = null;
-            lastSavedPayload = "";
-            baselinePayload = serializePayload(collectPayload());
-            showDraftBadge(false);
-        }
+        // Keep the draft in memory if the server refuses deletion so the user
+        // can retry instead of seeing a false "cleared" confirmation.
+        await deleteReservationDraft(currentDraft);
+        currentDraft = null;
+        draftLookupFailed = false;
+        lastSavedPayload = "";
+        baselinePayload = serializePayload(collectPayload());
+        showDraftBadge(false);
     }
 
     function hasChanges() {
@@ -273,6 +285,18 @@ export function createReservationDraftAutosave({
         saveNow,
         scheduleSave
     };
+}
+
+export async function discardDraftAfterReservationAction(draftAutosave, action) {
+    try {
+        await draftAutosave.discard();
+    } catch (error) {
+        console.error(`Could not delete draft after reservation was ${action}:`, error);
+        window.alert(
+            `Reservation ${action}, but its saved draft could not be deleted. ` +
+            "It may reappear when you reopen the form."
+        );
+    }
 }
 
 export function collectReservationFormDraft(form, timePicker) {

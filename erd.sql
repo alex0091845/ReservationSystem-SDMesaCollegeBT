@@ -11,7 +11,7 @@ CREATE TABLE public.users (
   last_name text,
   phone text,
   role_name text,
-  enabled boolean,
+  enabled boolean NOT NULL DEFAULT true,
   CONSTRAINT users_pkey PRIMARY KEY (id),
   CONSTRAINT users_role_name_fkey FOREIGN KEY (role_name) REFERENCES public.user_roles(name)
 );

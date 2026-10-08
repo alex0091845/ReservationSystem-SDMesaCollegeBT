@@ -28,18 +28,20 @@ After that, follow whichever track matches the work you picked up.
 ## 1. Day one — get it running
 
 The single best way to learn this codebase is to make the calendar appear in your own browser.
-Full instructions are in [`BACKEND.md` §2](BACKEND.md) and [`FRONTEND.md` §2](FRONTEND.md); this is
-the short version plus the things that will actually block you.
+Full-stack local setup instructions are in [`LOCAL_TESTING.md`](LOCAL_TESTING.md). The backend and
+frontend handover docs explain how to run each part separately; this is the short version plus the
+things that will actually block you.
 
-The frontend alone needs no build step and no backend:
+The frontend alone needs no build step. For layout-only work, serve it without the backend:
 
 ```bash
 cd frontend
 python3 -m http.server 5500      # then open http://localhost:5500
 ```
 
-The page will load and the calendar will render. Every network call will fail, because the
-backend is not up yet — that is expected, and it is already a useful place to work on CSS and layout.
+The page will load and the calendar will render, but API requests will fail because this basic
+static server does not proxy `/api` to the backend. Use the local testing guide to test full app
+behavior.
 
 **Three things that will block a beginner on the backend, in the order you will hit them:**
 
@@ -244,7 +246,9 @@ There is a short version of this in [`BACKEND.md` §9](BACKEND.md).
 ### Row Level Security
 
 - [Supabase: Row Level Security](https://supabase.com/docs/guides/database/postgres/row-level-security)
-  — matters because we use the **anon** key, not the service-role key.
+  matters as a database boundary. The EC2 backend uses a server-only `sb_secret` key that bypasses
+  RLS, so backend authorization must protect each request. The hardening migration removes direct
+  table access for the `anon` and `authenticated` API roles. See [`SECURITY.md`](SECURITY.md).
 
 ---
 
@@ -327,13 +331,15 @@ Things that will confuse you and are **not** your fault.
    "helpfully" normalize the whole file on save, which turns a three-line change into a 1400-line
    diff. If your PR shows a whole-file rewrite, this is why — check your editor's line-ending
    setting before committing.
-4. **`RESERVATION_API_ORIGIN` is hand-edited in three HTML files** at deploy time. If one page works
-   and another fails with a CORS error, you missed one.
+4. **The current deployment uses a same-origin `/api` path.** CloudFront sends API requests to EC2,
+   and the local testing server proxies that same path to the local backend. A separate API hostname
+   requires coordinated page, CORS, and cookie configuration.
 5. **The frontend and backend duplicate validation rules on purpose.** The frontend copy is for a
    fast error message; the backend copy is the one that actually protects the data. If you change a
    rule, change both — `reservationValidation.js` and `ReservationController`.
-6. **`GET /api/events` is public and returns everything**, including private events. Known gap, not
-   an accident of your change.
+6. **Private event details are masked for viewers without a faculty or admin session.** The backend
+   still returns the time interval and a generic title so the calendar can show that the slot is
+   occupied.
 7. **Nothing catches a typo except loading the page.** No tests, no linter, no compiler for the
    frontend. After touching shared code, open all three pages: `index.html`, `admin.html`,
    `login.html`.

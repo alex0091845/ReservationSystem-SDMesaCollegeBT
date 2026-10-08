@@ -1,6 +1,6 @@
 package com.reservation.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.reservation.services.AuthService;
 import com.reservation.services.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,15 +9,27 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 
 @Component
 public class AuthInterceptor implements HandlerInterceptor {
     private final SessionService sessionService;
     private final AuthService authService;
+    private final Set<String> allowedOrigins;
 
-    public AuthInterceptor(SessionService sessionService, AuthService authService) {
+    public AuthInterceptor(
+        SessionService sessionService,
+        AuthService authService,
+        @Value("${app.cors.allowed-origin-patterns}") String[] configuredOrigins
+    ) {
         this.sessionService = sessionService;
         this.authService = authService;
+        this.allowedOrigins = Arrays.stream(configuredOrigins)
+            .map(String::trim)
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
@@ -26,7 +38,27 @@ public class AuthInterceptor implements HandlerInterceptor {
         String method = request.getMethod();
         String path = request.getRequestURI();
 
-        if (!path.startsWith("/api/") || "OPTIONS".equalsIgnoreCase(method) || isPublicEndpoint(method, path)) {
+        response.setHeader("Cache-Control", "no-store");
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("X-Frame-Options", "DENY");
+        response.setHeader("Referrer-Policy", "no-referrer");
+
+        if (!path.startsWith("/api/") || "OPTIONS".equalsIgnoreCase(method)) {
+            return true;
+        }
+
+        if (isCrossSiteMutation(request)) {
+            writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Cross-site request rejected");
+            return false;
+        }
+
+        if (isPublicEndpoint(method, path)) {
+            if (isEventReadEndpoint(method, path)) {
+                JsonNode currentUser = sessionService.getCurrentUser(request);
+                if (currentUser != null) {
+                    request.setAttribute("currentUser", currentUser);
+                }
+            }
             return true;
         }
 
@@ -44,6 +76,11 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
+        if (requiresFacultyOrAdmin(method, path) && !authService.isFacultyOrAdmin(currentUser)) {
+            writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Faculty or admin access required");
+            return false;
+        }
+
         return true;
     }
 
@@ -56,9 +93,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         if ("GET".equalsIgnoreCase(method) &&
-            (path.startsWith("/api/events") ||
-             path.startsWith("/api/event-types") ||
-             path.startsWith("/api/roles"))) {
+            (isAtOrBelow(path, "/api/events") ||
+             isAtOrBelow(path, "/api/event-types") ||
+             isAtOrBelow(path, "/api/roles"))) {
             return true;
         }
 
@@ -66,7 +103,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
     private boolean requiresAdmin(String method, String path) {
-        if (path.startsWith("/api/users")) {
+        if (isAtOrBelow(path, "/api/users")) {
             return true;
         }
 
@@ -74,8 +111,32 @@ public class AuthInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        return path.startsWith("/api/roles") ||
-            path.startsWith("/api/event-types");
+        return isAtOrBelow(path, "/api/roles") ||
+            isAtOrBelow(path, "/api/event-types");
+    }
+
+    private boolean requiresFacultyOrAdmin(String method, String path) {
+        return isAtOrBelow(path, "/api/attendees");
+    }
+
+    private boolean isEventReadEndpoint(String method, String path) {
+        return "GET".equalsIgnoreCase(method) && isAtOrBelow(path, "/api/events");
+    }
+
+    private boolean isAtOrBelow(String path, String basePath) {
+        return path.equals(basePath) || path.startsWith(basePath + "/");
+    }
+
+    private boolean isCrossSiteMutation(HttpServletRequest request) {
+        String method = request.getMethod();
+        if ("GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method)) {
+            return false;
+        }
+
+        String origin = request.getHeader("Origin");
+        String fetchSite = request.getHeader("Sec-Fetch-Site");
+        return origin != null && !allowedOrigins.contains(origin) ||
+            "cross-site".equalsIgnoreCase(fetchSite);
     }
 
     private void writeJsonError(HttpServletResponse response, int status, String message) throws IOException {

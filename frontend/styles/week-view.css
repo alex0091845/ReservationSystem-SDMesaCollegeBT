@@ -33,7 +33,6 @@
 .week-row {
     position: relative;
     min-height: var(--week-hour-row-height);
-    border-bottom: 1px solid #e5e5e5;
     overflow: visible;
 }
 
@@ -65,10 +64,10 @@
 }
 
 .week-time-label {
+    position: relative;
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 10px;
     border-right: 1px solid #e5e5e5;
     background: #fafafa;
     color: #666;
@@ -78,8 +77,15 @@
 }
 
 .week-end-boundary-row .week-time-label {
-    align-items: center;
-    padding-top: 0;
+    align-items: flex-start;
+}
+
+.week-time-label-text {
+    position: absolute;
+    top: 0;
+    z-index: 1;
+    padding: 0 2px;
+    background: #fafafa;
 }
 
 .week-cell {
@@ -87,6 +93,7 @@
     min-width: 0;
     padding: 5px 4px;
     border-right: 1px solid #e5e5e5;
+    border-bottom: 1px solid #e5e5e5;
     cursor: pointer;
     overflow: visible;
     transition: background-color 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
@@ -95,6 +102,7 @@
 .week-end-boundary-row .week-cell {
     min-height: 0;
     padding: 0;
+    border-bottom: none;
     background: #fafafa;
 }
 
@@ -133,6 +141,10 @@
     box-shadow: inset 0 -2px 0 rgba(29, 78, 216, 0.25);
 }
 
+.week-cell.current-day-column {
+    border-bottom-color: #d1d5db;
+}
+
 .week-day-header:hover,
 .week-cell:hover {
     filter: brightness(0.98);
@@ -167,6 +179,27 @@
 
 .week-event:hover {
     transform: translateY(-1px);
+}
+
+.week-current-time-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 8;
+    height: 2px;
+    background: #d32f2f;
+    pointer-events: none;
+}
+
+.week-current-time-indicator::before {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d32f2f;
+    content: "";
 }
 
 /* Event Colors (Needs to be replaced to reflect a shift to department colors or event type colors) */

@@ -1,5 +1,5 @@
-// duplicate functions used in both admin.js and main.js
-// for editing reservations
+import { deleteEvent } from "../api.js";
+import { validateReservationData } from "./reservationValidation.js";
 
 export function validateEditedReservations({
     reservationsToSave,
@@ -72,11 +72,14 @@ export function removeReservations(reservationsToRemove, reservationList, attend
         reservationsToRemove.map(reservation => String(reservation.id))
     );
 
-    reservationList = reservationList.filter(reservation => {
+    const remainingReservations = reservationList.filter(reservation => {
         return !deletedReservationIds.has(String(reservation.id));
     });
 
-    attendees = attendees.filter(attendee => {
+    const remainingAttendees = attendees.filter(attendee => {
         return !deletedReservationIds.has(String(attendee.event_id));
     });
+
+    reservationList.splice(0, reservationList.length, ...remainingReservations);
+    attendees.splice(0, attendees.length, ...remainingAttendees);
 }

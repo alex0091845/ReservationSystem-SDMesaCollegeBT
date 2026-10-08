@@ -1,8 +1,7 @@
 import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
-import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
-import { renderWeekView } from "./ui/weekView.js";
+import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
@@ -16,6 +15,7 @@ import {
     clearReservationFormDraftFields,
     collectReservationFormDraft,
     createReservationDraftAutosave,
+    discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
 import {
@@ -655,6 +655,11 @@ async function openFacultyReservationEditModal(reservation) {
         { selectedValue: reservation.event_type ?? "" }
     );
     document.getElementById("facultyReservationDescription").value = reservation.description ?? "";
+    facultyReservationTimePicker.setUnavailableRanges(
+        reservedEvents
+            .filter(existing => String(existing.id) !== String(reservation.id))
+            .map(existing => ({ start: existing.start_time, end: existing.end_time }))
+    );
     facultyReservationTimePicker.setRange(
         reservation.start_time,
         reservation.end_time
@@ -758,8 +763,14 @@ async function resolveFacultyReservationDraftExit() {
     }
 
     if (draftAction === "discard") {
-        await facultyReservationDraftAutosave.discard();
-        return true;
+        try {
+            await facultyReservationDraftAutosave.discard();
+            return true;
+        } catch (error) {
+            console.error("Could not delete reservation draft:", error);
+            setFacultyReservationStatus("Could not delete the saved draft. Please try again.", "error");
+            return false;
+        }
     }
 
     try {
@@ -780,9 +791,14 @@ async function clearFacultyReservationForm() {
         facultyReservationTimePicker,
         { preserveNames: ["id", "host_user_id"] }
     );
-    await facultyReservationDraftAutosave.discard();
-    facultyReservationDraftAutosave.markClean();
-    setFacultyReservationStatus("Form cleared.", "success");
+    try {
+        await facultyReservationDraftAutosave.discard();
+        facultyReservationDraftAutosave.markClean();
+        setFacultyReservationStatus("Form cleared.", "success");
+    } catch (error) {
+        console.error("Could not delete reservation draft:", error);
+        setFacultyReservationStatus("Form cleared, but the saved draft could not be deleted. Try Clear again.", "error");
+    }
 }
 
 function blurFocusedElementInside(container) {
@@ -955,7 +971,7 @@ async function handleFacultyReservationSubmit(event) {
 
         sortReservedEvents(reservedEvents);
         renderAll();
-        await facultyReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "saved");
         closeFacultyReservationEditModal({ flushDraft: false });
     } catch (error) {
         console.error("Could not update reservation:", error);
@@ -987,7 +1003,7 @@ async function handleFacultyReservationDelete() {
 
     try {
         await deleteEvent(selectedFacultyReservation);
-        await facultyReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
         removeReservations([selectedFacultyReservation], reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
@@ -1033,7 +1049,7 @@ async function handleFacultyReservationDeleteSeries() {
 
     try {
         await deleteReservations(seriesReservations);
-        await facultyReservationDraftAutosave.discard();
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
         removeReservations(seriesReservations, reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
@@ -1331,6 +1347,9 @@ function init() {
     bindEvents();
 
     renderAll();
+    window.setInterval(() => {
+        updateCurrentTimeIndicator(elements.weekViewWrapper);
+    }, 60_000);
 }
 
 init();

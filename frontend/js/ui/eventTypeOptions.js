@@ -72,7 +72,7 @@ function normalizeEventTypeValue(value) {
         return rawValue;
     }
 
-    const aliasKey = rawValue.toLowerCase().replace(/[-\s]+/g, "_");
+    const aliasKey = rawValue.toLowerCase().replace("_", /[-\s]+/g);
 
     return EVENT_TYPE_VALUE_ALIASES[aliasKey] || rawValue;
 }

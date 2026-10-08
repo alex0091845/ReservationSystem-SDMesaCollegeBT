@@ -1,9 +1,10 @@
 package com.reservation.services;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
@@ -13,6 +14,8 @@ import org.springframework.stereotype.Service;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -43,12 +46,29 @@ public class SessionService {
         this.authService = authService;
     }
 
+    @PostConstruct
+    void validateCookieConfiguration() {
+        if (sessionHours < 1 || sessionHours > 24) {
+            throw new IllegalStateException("AUTH_SESSION_HOURS must be between 1 and 24");
+        }
+
+        if (!"Lax".equalsIgnoreCase(cookieSameSite) &&
+            !"Strict".equalsIgnoreCase(cookieSameSite) &&
+            !"None".equalsIgnoreCase(cookieSameSite)) {
+            throw new IllegalStateException("AUTH_COOKIE_SAME_SITE must be Lax, Strict, or None");
+        }
+
+        if ("None".equalsIgnoreCase(cookieSameSite) && !cookieSecure) {
+            throw new IllegalStateException("AUTH_COOKIE_SECURE must be true when AUTH_COOKIE_SAME_SITE is None");
+        }
+    }
+
     public ResponseCookie createSessionCookie(JsonNode user) {
         String token = generateSessionToken();
         Instant expiresAt = Instant.now().plus(getSessionDuration());
 
         ObjectNode sessionData = mapper.createObjectNode();
-        sessionData.put("session_id", token);
+        sessionData.put("session_id", hashSessionToken(token));
         sessionData.put("user_id", user.path("id").asInt());
         sessionData.put("expires_at", expiresAt.toString());
 
@@ -66,14 +86,22 @@ public class SessionService {
 
         JsonNode session = findSession(sessionToken);
 
-        if (session == null || isInvalidated(session) || isExpired(session)) {
+        if (session == null) {
+            return null;
+        }
+
+        if (isInvalidated(session) || isExpired(session)) {
             invalidateSession(sessionToken);
             return null;
         }
 
         touchSession(sessionToken);
 
-        return authService.findUserById(session.path("user_id").asInt());
+        JsonNode user = authService.findUserById(session.path("user_id").asInt());
+        if (user == null) {
+            invalidateSession(sessionToken);
+        }
+        return user;
     }
 
     public void invalidateCurrentSession(HttpServletRequest request) {
@@ -90,7 +118,10 @@ public class SessionService {
 
     private JsonNode findSession(String sessionToken) {
         try {
-            String response = supabase.get("sessions?session_id=eq." + encode(sessionToken) + "&select=*");
+            String response = supabase.get(
+                "sessions?session_id=eq." + encode(hashSessionToken(sessionToken)) +
+                    "&select=session_id,user_id,expires_at,invalidated_at"
+            );
             JsonNode sessions = mapper.readTree(response);
 
             if (!sessions.isArray() || sessions.isEmpty()) {
@@ -107,14 +138,20 @@ public class SessionService {
         ObjectNode invalidationData = mapper.createObjectNode();
         invalidationData.put("invalidated_at", Instant.now().toString());
 
-        supabase.patch("sessions?session_id=eq." + encode(sessionToken), invalidationData.toString());
+        supabase.patch(
+            "sessions?session_id=eq." + encode(hashSessionToken(sessionToken)),
+            invalidationData.toString()
+        );
     }
 
     private void touchSession(String sessionToken) {
         ObjectNode lastSeenData = mapper.createObjectNode();
         lastSeenData.put("last_seen_at", Instant.now().toString());
 
-        supabase.patch("sessions?session_id=eq." + encode(sessionToken), lastSeenData.toString());
+        supabase.patch(
+            "sessions?session_id=eq." + encode(hashSessionToken(sessionToken)),
+            lastSeenData.toString()
+        );
     }
 
     private boolean isInvalidated(JsonNode session) {
@@ -160,6 +197,16 @@ public class SessionService {
         random.nextBytes(tokenBytes);
 
         return Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+    }
+
+    private String hashSessionToken(String sessionToken) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256")
+                .digest(sessionToken.getBytes(StandardCharsets.UTF_8));
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(hash);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
     }
 
     private ResponseCookie buildCookie(String value, Duration maxAge) {
