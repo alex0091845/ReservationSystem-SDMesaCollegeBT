@@ -126,6 +126,12 @@
     text-underline-offset: 3px;
 }
 
+/* The red "now" line of the week grid sits on top of event blocks (see updateCurrentTimeIndicator).
+   It is see-through so an event title under it stays readable. */
+.week-current-time-indicator {
+    opacity: 0.65;
+}
+
 .year-stage[hidden],
 .month-stage[hidden],
 .day-stage[hidden] {

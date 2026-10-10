@@ -271,8 +271,10 @@ export function updateCurrentTimeIndicator(weekViewWrapper) {
     }
 
     const dateKey = formatDateKey(now.getFullYear(), now.getMonth(), now.getDate());
+    // The line is anchored in the first hour row. That row stacks above every later row,
+    // so an event that started earlier in the day can no longer cover the line.
     const currentHourRow = weekViewWrapper.querySelector(
-        `.week-row[data-hour="${now.getHours()}"]`
+        `.week-row[data-hour="${CALENDAR_START_HOUR}"]`
     );
     const currentDayCell = currentHourRow?.querySelector(
         `.week-cell[data-week-date="${dateKey}"]`
@@ -283,12 +285,12 @@ export function updateCurrentTimeIndicator(weekViewWrapper) {
     }
 
     const indicator = document.createElement("div");
-    const minuteOfHour = now.getMinutes() + (now.getSeconds() / 60);
+    const minutesIntoDay = (minutesSinceMidnight - calendarStartMinutes) + (now.getSeconds() / 60);
     const rowHeight = currentDayCell.getBoundingClientRect().height;
 
     indicator.className = "week-current-time-indicator";
     indicator.setAttribute("aria-hidden", "true");
-    indicator.style.top = `${(minuteOfHour / 60) * rowHeight}px`;
+    indicator.style.top = `${(minutesIntoDay / 60) * rowHeight}px`;
     currentDayCell.appendChild(indicator);
 }
 
