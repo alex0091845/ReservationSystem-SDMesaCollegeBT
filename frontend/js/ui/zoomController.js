@@ -16,6 +16,12 @@ const ZOOM_LEVELS = [
 let zoomOut = null;
 let isEscapeBound = false;
 
+// Remembered only so a change of level can be animated: which level was showing last,
+// and where in the panel the last click landed (the zoom grows out from that spot).
+let lastZoomLevel = null;
+let lastPointer = null;
+let isPointerBound = false;
+
 // Draws the Back button, the breadcrumb and the zoom buttons, and shows the panel
 // for the current zoom level. State lives in main.js; this module only renders.
 export function renderZoomStage({
@@ -87,6 +93,9 @@ export function renderZoomStage({
             openEventModal
         });
     }
+
+    bindPointerOnce(weekView);
+    playZoomAnimation(weekView, zoomLevel);
 }
 
 function getOrCreateChild(parent, className, position) {
@@ -247,5 +256,66 @@ function renderToolbar(toolbar, zoomLevel, onSetZoomLevel) {
         button.setAttribute("aria-pressed", String(level.id === zoomLevel));
         button.addEventListener("click", () => onSetZoomLevel(level.id));
         toolbar.appendChild(button);
+    });
+}
+
+// Remembers where the last click inside the panel landed. Clicks on the bar at the top
+// (Back, breadcrumb, zoom buttons) are ignored, so those zoom from the middle instead.
+function bindPointerOnce(weekView) {
+    if (isPointerBound) {
+        return;
+    }
+
+    isPointerBound = true;
+
+    weekView.addEventListener("pointerdown", event => {
+        const isOnBar = event.target instanceof Element && event.target.closest(".zoom-bar");
+
+        lastPointer = isOnBar ? null : { x: event.clientX, y: event.clientY };
+    });
+}
+
+// Plays a short scale-and-fade when the zoom level has changed since the last draw.
+// Zooming in grows out from the spot that was clicked; zooming out settles back from slightly larger.
+function playZoomAnimation(weekView, zoomLevel) {
+    const previousLevel = lastZoomLevel;
+    const pointer = lastPointer;
+
+    lastZoomLevel = zoomLevel;
+    lastPointer = null;
+
+    if (previousLevel === null || previousLevel === zoomLevel) {
+        return;
+    }
+
+    // People who ask their device for less motion get an instant switch.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        return;
+    }
+
+    const levelIds = ZOOM_LEVELS.map(level => level.id);
+    const isZoomingIn = levelIds.indexOf(zoomLevel) > levelIds.indexOf(previousLevel);
+    const animationClass = isZoomingIn ? "zoom-anim-in" : "zoom-anim-out";
+
+    // Everything in the panel except the bar at the top takes part.
+    Array.from(weekView.children).forEach(child => {
+        if (child.classList.contains("zoom-bar") || child.offsetParent === null) {
+            return;
+        }
+
+        const box = child.getBoundingClientRect();
+
+        child.style.transformOrigin = isZoomingIn && pointer
+            ? `${pointer.x - box.left}px ${pointer.y - box.top}px`
+            : "50% 0";
+
+        // Removing the class and reading a size first lets the animation restart on a quick second zoom.
+        child.classList.remove("zoom-anim-in", "zoom-anim-out");
+        void child.offsetWidth;
+        child.classList.add(animationClass);
+        child.addEventListener("animationend", () => {
+            child.classList.remove(animationClass);
+            child.style.transformOrigin = "";
+        }, { once: true });
     });
 }

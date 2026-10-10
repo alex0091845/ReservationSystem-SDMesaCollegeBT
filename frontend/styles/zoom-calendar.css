@@ -582,3 +582,33 @@
         transition: none;
     }
 }
+
+/* Zoom animation: a short scale-and-fade when the level changes (see playZoomAnimation). */
+@keyframes zoom-level-in {
+    from {
+        opacity: 0;
+        transform: scale(0.55);
+    }
+}
+
+@keyframes zoom-level-out {
+    from {
+        opacity: 0;
+        transform: scale(1.06);
+    }
+}
+
+.zoom-anim-in {
+    animation: zoom-level-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zoom-anim-out {
+    animation: zoom-level-out 220ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .zoom-anim-in,
+    .zoom-anim-out {
+        animation: none;
+    }
+}
