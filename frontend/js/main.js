@@ -322,7 +322,6 @@ function changeMonth(monthOffset) {
     renderAll();
 }
 
-// Draws all the page elements
 // Zoom calendar (prototype): switches the big panel between zoom levels.
 function setZoomLevel(zoomLevel) {
     state.zoomLevel = zoomLevel;
@@ -360,6 +359,7 @@ function zoomIntoDay(date) {
     setSelectedDate(date);
 }
 
+// Draws all the page elements
 function renderAll() {
     renderApplicationTitle();
     updateCreateReservationButtonState();
