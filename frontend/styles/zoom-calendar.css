@@ -668,3 +668,11 @@
         min-height: 44px;
     }
 }
+
+/* On a phone the calendar panel comes first, ahead of the small month calendar and the
+   event lists, so it is on screen without scrolling. */
+@media (max-width: 720px) {
+    .wrapper > .side-panel {
+        order: -1;
+    }
+}
