@@ -1,7 +1,6 @@
 import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
-import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
 import { renderZoomStage } from "./ui/zoomController.js";
@@ -21,6 +20,13 @@ import {
     discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
+import {
+    validateEditedReservations,
+    getReservationSeries,
+    deleteReservations,
+    bindBackdropClose,
+    removeReservations
+} from "./utils/reservationEditing.js";
 
 
 // Makes all page elements accessible in one place
@@ -248,28 +254,6 @@ const {
     openEventModal,
     closeEventModal
 } = createModalController(elements);
-
-function bindBackdropClose(overlay, closeModal) {
-    let pointerStartedOnBackdrop = false;
-
-    overlay.addEventListener(
-        "pointerdown",
-        event => {
-            pointerStartedOnBackdrop = event.target === overlay;
-        }
-    );
-
-    overlay.addEventListener(
-        "click",
-        event => {
-            if (pointerStartedOnBackdrop && event.target === overlay) {
-                closeModal();
-            }
-
-            pointerStartedOnBackdrop = false;
-        }
-    );
-}
 
 // Syncs calendar widget date with week-view widget date
 function syncCalendarToSelectedDate() {
@@ -1043,38 +1027,6 @@ async function handleFacultyReservationSubmit(event) {
     }
 }
 
-function validateEditedReservations({
-    reservationsToSave,
-    existingReservations,
-    selectedReservation,
-    users
-}) {
-    const selectedReservationId = String(selectedReservation?.id ?? "");
-    const reservationsToCheck = existingReservations.filter(reservation => {
-        return String(reservation.id) !== selectedReservationId;
-    });
-
-    for (const [index, reservationData] of reservationsToSave.entries()) {
-        const validation = validateReservationData({
-            reservationData,
-            existingReservations: reservationsToCheck,
-            users,
-            requireId: index === 0
-        });
-
-        if (!validation.isValid) {
-            return validation;
-        }
-
-        reservationsToCheck.push(reservationData);
-    }
-
-    return {
-        isValid: true,
-        message: ""
-    };
-}
-
 async function handleFacultyReservationDelete() {
     if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
         return;
@@ -1095,7 +1047,7 @@ async function handleFacultyReservationDelete() {
     try {
         await deleteEvent(selectedFacultyReservation);
         await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
-        removeReservationsFromFacultyState([selectedFacultyReservation]);
+        removeReservations([selectedFacultyReservation], reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
@@ -1141,7 +1093,7 @@ async function handleFacultyReservationDeleteSeries() {
     try {
         await deleteReservations(seriesReservations);
         await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
-        removeReservationsFromFacultyState(seriesReservations);
+        removeReservations(seriesReservations, reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
@@ -1154,38 +1106,6 @@ async function handleFacultyReservationDeleteSeries() {
     } finally {
         setFacultyReservationDeleting(false);
     }
-}
-
-function getReservationSeries(reservation, reservations) {
-    const recurrenceGroupId = reservation?.recurrence_group_id;
-
-    if (!recurrenceGroupId) {
-        return [];
-    }
-
-    return reservations.filter(candidate => {
-        return candidate.recurrence_group_id === recurrenceGroupId;
-    });
-}
-
-async function deleteReservations(reservationsToDelete) {
-    for (const reservation of reservationsToDelete) {
-        await deleteEvent(reservation);
-    }
-}
-
-function removeReservationsFromFacultyState(reservationsToRemove) {
-    const deletedReservationIds = new Set(
-        reservationsToRemove.map(reservation => String(reservation.id))
-    );
-
-    reservedEvents = reservedEvents.filter(reservation => {
-        return !deletedReservationIds.has(String(reservation.id));
-    });
-
-    attendees = attendees.filter(attendee => {
-        return !deletedReservationIds.has(String(attendee.event_id));
-    });
 }
 
 function isReservationOwnedByUser(reservation, user) {
