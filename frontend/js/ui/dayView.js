@@ -206,7 +206,7 @@ function createDayEventCard({ event, section, column, columnCount }, now, openEv
     card.style.setProperty("--day-column-count", String(columnCount));
 
     if (isPrivate) {
-        // Same words the week view shows, wrapped so the text sits above the "now" line.
+        // Same words the week view shows.
         const label = document.createElement("span");
 
         label.classList.add("day-event-title");

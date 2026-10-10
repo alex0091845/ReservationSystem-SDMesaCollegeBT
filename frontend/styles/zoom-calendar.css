@@ -430,17 +430,6 @@
     gap: 3px;
     padding: 8px 10px;
     font-size: 14px;
-    /* No z-index here, so the text below can sit above the "now" line while the card stays under it. */
-    z-index: auto;
-}
-
-/* The "now" line crosses the card but never strikes through its text. */
-.day-event > span {
-    position: relative;
-    z-index: 9;
-    margin: 0 -4px;
-    padding: 0 4px;
-    background-color: inherit;
 }
 
 .day-event-title {
@@ -468,7 +457,8 @@
     text-transform: uppercase;
 }
 
-/* Same look as the red line in the week view, so "now" reads the same at every level. */
+/* Same look as the red line in the week view: on top of event blocks and see-through,
+   so "now" reads the same at every level and a title under it stays readable. */
 .day-now-line {
     position: absolute;
     top: calc(var(--day-hour-height) * var(--day-offset-hours));
@@ -477,6 +467,7 @@
     z-index: 8;
     height: 2px;
     background: #d32f2f;
+    opacity: 0.65;
     pointer-events: none;
 }
 
