@@ -1,11 +1,12 @@
 import { monthNames, weekdayNames } from "../utils/dateUtils.js";
 import { renderDayView } from "./dayView.js";
+import { renderMonthStage } from "./monthStage.js";
 import { renderYearView } from "./yearView.js";
 
 // Zoom levels the big calendar panel can show, from farthest out to closest in.
-// Month comes in a later step.
 const ZOOM_LEVELS = [
     { id: "year", label: "Year" },
+    { id: "month", label: "Month" },
     { id: "week", label: "Week" },
     { id: "day", label: "Day" }
 ];
@@ -26,6 +27,8 @@ export function renderZoomStage({
     onSetZoomLevel,
     onShowYear,
     onSelectMonth,
+    onChangeMonth,
+    onSelectWeek,
     onSelectDate,
     openEventModal
 }) {
@@ -37,6 +40,7 @@ export function renderZoomStage({
     const nav = getOrCreateChild(bar, "zoom-nav", "append");
     const toolbar = getOrCreateChild(bar, "zoom-toolbar", "append");
     const yearStage = getOrCreateChild(weekView, "year-stage", "append");
+    const monthStage = getOrCreateChild(weekView, "month-stage", "append");
     const dayStage = getOrCreateChild(weekView, "day-stage", "append");
 
     // CSS in zoom-calendar.css hides the week header and grid while another level is showing.
@@ -46,8 +50,10 @@ export function renderZoomStage({
     bindEscapeOnce();
 
     yearStage.hidden = zoomLevel !== "year";
+    monthStage.hidden = zoomLevel !== "month";
     dayStage.hidden = zoomLevel !== "day";
     yearStage.innerHTML = "";
+    monthStage.innerHTML = "";
     dayStage.innerHTML = "";
 
     if (zoomLevel === "year") {
@@ -58,6 +64,17 @@ export function renderZoomStage({
             reservedEvents,
             onShowYear,
             onSelectMonth
+        });
+    }
+
+    if (zoomLevel === "month") {
+        renderMonthStage({
+            container: monthStage,
+            selectedDate,
+            reservedEvents,
+            onChangeMonth,
+            onSelectWeek,
+            openEventModal
         });
     }
 
@@ -87,11 +104,15 @@ function getOrCreateChild(parent, className, position) {
     return child;
 }
 
-// The words shown in the breadcrumb for one level, e.g. "2026", "Week of Oct 4", "Fri, Oct 9".
+// The words shown in the breadcrumb for one level, e.g. "2026", "October", "Week of Oct 4", "Fri, Oct 9".
 function getCrumbLabel(levelId, { zoomLevel, year, selectedDate }) {
     if (levelId === "year") {
         // In the Year view the arrows can move to a year other than the selected date's.
         return String(zoomLevel === "year" ? year : selectedDate.getFullYear());
+    }
+
+    if (levelId === "month") {
+        return monthNames[selectedDate.getMonth()];
     }
 
     if (levelId === "week") {

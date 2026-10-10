@@ -336,13 +336,20 @@ function showYear(year) {
     renderAll();
 }
 
-// Clicking a month in the Year view zooms in to a week of that month.
+// Clicking a month in the Year view zooms in to that month.
 function zoomIntoMonth(year, month) {
     const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
 
-    state.zoomLevel = "week";
+    state.zoomLevel = "month";
 
     setSelectedDate(new Date(year, month, isThisMonth ? today.getDate() : 1));
+}
+
+// Clicking a week row in the Month view zooms in to that week.
+function zoomIntoWeek(date) {
+    state.zoomLevel = "week";
+
+    setSelectedDate(date);
 }
 
 function renderAll() {
@@ -380,6 +387,8 @@ function renderAll() {
         onSetZoomLevel: setZoomLevel,
         onShowYear: showYear,
         onSelectMonth: zoomIntoMonth,
+        onChangeMonth: changeMonth,
+        onSelectWeek: zoomIntoWeek,
         onSelectDate: setSelectedDate,
         openEventModal: openCalendarEvent
     });

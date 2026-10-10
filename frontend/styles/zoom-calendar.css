@@ -1,4 +1,4 @@
-/* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, the Year level and the Day level */
+/* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, and the Year, Month and Day levels */
 
 /* One row above the calendar: Back + breadcrumb on the left, zoom buttons on the right. */
 .zoom-bar {
@@ -104,25 +104,30 @@
 .zoom-level-btn:focus-visible,
 .zoom-back-btn:focus-visible,
 .zoom-crumb:focus-visible,
+.month-day-number:focus-visible,
 .year-month:focus-visible {
     outline: 3px solid var(--district-cyan);
     outline-offset: 2px;
 }
 
-/* While the year or a single day is showing, the week header and grid step aside. */
+/* While the year, a month or a single day is showing, the week header and grid step aside. */
 .week-view[data-zoom-level="year"] .week-view-header,
 .week-view[data-zoom-level="year"] .week-grid,
+.week-view[data-zoom-level="month"] .week-view-header,
+.week-view[data-zoom-level="month"] .week-grid,
 .week-view[data-zoom-level="day"] .week-view-header,
 .week-view[data-zoom-level="day"] .week-grid {
     display: none;
 }
 
 .year-stage[hidden],
+.month-stage[hidden],
 .day-stage[hidden] {
     display: none;
 }
 
 .year-header,
+.month-header,
 .day-header {
     display: flex;
     align-items: center;
@@ -132,6 +137,7 @@
 }
 
 .year-title,
+.month-title,
 .day-title {
     flex: 1;
     margin: 0;
@@ -139,6 +145,123 @@
     font-weight: bold;
     line-height: 1.2;
     text-align: center;
+}
+
+/* Month level: one row per week; the whole row is the click target. */
+.month-weekdays,
+.month-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.month-weekdays {
+    margin-bottom: 6px;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.month-grid {
+    display: grid;
+    gap: 6px;
+}
+
+.month-week {
+    overflow: hidden;
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-card);
+    background: #fff;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.month-week:hover {
+    border-color: var(--mesa-blue);
+    box-shadow: 0 4px 12px rgba(2, 56, 103, 0.18);
+}
+
+.month-day {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    min-height: 96px;
+    padding: 6px;
+    border-left: 1px solid #e5e7eb;
+}
+
+.month-day:first-child {
+    border-left: none;
+}
+
+.month-day.is-outside {
+    background: #f3f4f6;
+}
+
+.month-day-number {
+    align-self: flex-start;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #1f2937;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 26px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.month-day.is-outside .month-day-number {
+    color: #6b7280;
+    font-weight: 400;
+}
+
+.month-day.is-today .month-day-number {
+    box-shadow: inset 0 0 0 2px var(--mesa-orange);
+}
+
+.month-day.is-selected .month-day-number {
+    background: var(--mesa-blue);
+    color: #fff;
+}
+
+.month-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+/* The team's week card, laid out in normal flow as a one-line chip. */
+.week-event.month-event {
+    position: static;
+    display: block;
+    width: 100%;
+    min-height: 0;
+    padding: 3px 6px;
+    box-shadow: none;
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    word-break: normal;
+}
+
+.month-day.is-outside .month-event {
+    opacity: 0.6;
+}
+
+.month-more {
+    color: #4b5563;
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .year-grid {
@@ -389,8 +512,32 @@
     }
 
     .year-title,
+    .month-title,
     .day-title {
         font-size: 18px;
+    }
+
+    /* On a phone there is no room for event names, so each event becomes a colored bar. */
+    .month-day {
+        min-height: 58px;
+        padding: 4px 3px;
+    }
+
+    .month-day-number {
+        align-self: center;
+    }
+
+    /* The bars are too small to tap, so a tap falls through to the week row and zooms in. */
+    .week-event.month-event {
+        height: 6px;
+        padding: 0;
+        font-size: 0;
+        pointer-events: none;
+    }
+
+    .month-more {
+        font-size: 10px;
+        text-align: center;
     }
 
     .day-timeline {
@@ -427,7 +574,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .year-month {
+    .year-month,
+    .month-week {
         transition: none;
     }
 }
