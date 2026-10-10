@@ -1,10 +1,83 @@
-/* Zoom Calendar (prototype): zoom buttons, the Year level and the Day level */
+/* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, the Year level and the Day level */
+
+/* One row above the calendar: Back + breadcrumb on the left, zoom buttons on the right. */
+.zoom-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    margin-bottom: 14px;
+}
+
+.zoom-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.zoom-back-btn {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--mesa-blue);
+    border-radius: var(--radius-card);
+    background: #fff;
+    color: var(--mesa-blue);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.zoom-back-btn:hover:not(:disabled) {
+    background: #eef2f7;
+}
+
+.zoom-back-btn:disabled {
+    border-color: #c5ccd6;
+    color: #8a94a3;
+    cursor: default;
+}
+
+.zoom-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+    min-width: 0;
+    font-size: 14px;
+}
+
+.zoom-crumb {
+    padding: 4px 2px;
+    border: none;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--mesa-blue);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.zoom-crumb-current {
+    padding: 4px 2px;
+    color: #1f2937;
+    font-weight: 700;
+}
+
+.zoom-crumb-separator {
+    color: #6b7280;
+}
 
 .zoom-toolbar {
     display: flex;
     gap: 2px;
     width: fit-content;
-    margin-bottom: 14px;
     padding: 3px;
     border-radius: 9px;
     background: #eef2f7;
@@ -29,6 +102,8 @@
 }
 
 .zoom-level-btn:focus-visible,
+.zoom-back-btn:focus-visible,
+.zoom-crumb:focus-visible,
 .year-month:focus-visible {
     outline: 3px solid var(--district-cyan);
     outline-offset: 2px;
@@ -289,9 +364,23 @@
 }
 
 @media (max-width: 720px) {
+    .zoom-bar {
+        margin-bottom: 10px;
+    }
+
+    /* On a phone the breadcrumb row sits above a full-width row of zoom buttons. */
+    .zoom-nav,
     .zoom-toolbar {
         width: 100%;
-        margin-bottom: 10px;
+    }
+
+    .zoom-back-btn {
+        min-height: 44px;
+    }
+
+    .zoom-crumb,
+    .zoom-crumb-current {
+        padding: 10px 2px;
     }
 
     .zoom-level-btn {
