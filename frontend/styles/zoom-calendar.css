@@ -612,3 +612,59 @@
         animation: none;
     }
 }
+
+/* "Today" button, next to the zoom buttons. */
+.zoom-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.zoom-today-btn {
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--mesa-blue);
+    border-radius: var(--radius-card);
+    background: #fff;
+    color: var(--mesa-blue);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.zoom-today-btn:hover:not(:disabled) {
+    background: #eef2f7;
+}
+
+.zoom-today-btn:disabled {
+    border-color: #c5ccd6;
+    color: #8a94a3;
+    cursor: default;
+}
+
+.zoom-today-btn:focus-visible {
+    outline: 3px solid var(--district-cyan);
+    outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+    .zoom-actions {
+        width: 100%;
+    }
+
+    .zoom-actions .zoom-toolbar {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+    }
+
+    /* Four zoom buttons plus Today share one row, so each gets less side padding. */
+    .zoom-actions .zoom-level-btn {
+        padding: 0 6px;
+    }
+
+    .zoom-today-btn {
+        min-height: 44px;
+    }
+}

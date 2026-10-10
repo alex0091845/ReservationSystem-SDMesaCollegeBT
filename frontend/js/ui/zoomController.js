@@ -44,7 +44,9 @@ export function renderZoomStage({
 
     const bar = getOrCreateChild(weekView, "zoom-bar", "prepend");
     const nav = getOrCreateChild(bar, "zoom-nav", "append");
-    const toolbar = getOrCreateChild(bar, "zoom-toolbar", "append");
+    const actions = getOrCreateChild(bar, "zoom-actions", "append");
+    const todaySlot = getOrCreateChild(actions, "zoom-today", "append");
+    const toolbar = getOrCreateChild(actions, "zoom-toolbar", "append");
     const yearStage = getOrCreateChild(weekView, "year-stage", "append");
     const monthStage = getOrCreateChild(weekView, "month-stage", "append");
     const dayStage = getOrCreateChild(weekView, "day-stage", "append");
@@ -52,6 +54,7 @@ export function renderZoomStage({
     // CSS in zoom-calendar.css hides the week header and grid while another level is showing.
     weekView.dataset.zoomLevel = zoomLevel;
     renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel });
+    renderTodayButton(todaySlot, { zoomLevel, year, selectedDate, onSelectDate });
     renderToolbar(toolbar, zoomLevel, onSetZoomLevel);
     bindEscapeOnce();
 
@@ -318,4 +321,33 @@ function playZoomAnimation(weekView, zoomLevel) {
             child.style.transformOrigin = "";
         }, { once: true });
     });
+}
+
+// A "Today" button that jumps back to today without changing the zoom level.
+// It is switched off while today is already on screen.
+function renderTodayButton(slot, { zoomLevel, year, selectedDate, onSelectDate }) {
+    const now = new Date();
+    const hadFocus = slot.contains(document.activeElement);
+    const isShowingToday = zoomLevel === "year"
+        ? year === now.getFullYear()
+        : selectedDate.getFullYear() === now.getFullYear() &&
+            selectedDate.getMonth() === now.getMonth() &&
+            selectedDate.getDate() === now.getDate();
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.classList.add("zoom-today-btn");
+    button.textContent = "Today";
+    button.disabled = isShowingToday;
+    button.addEventListener("click", () => {
+        onSelectDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+    });
+
+    slot.innerHTML = "";
+    slot.appendChild(button);
+
+    // Redrawing replaces the button, so hand keyboard focus back to the new one.
+    if (hadFocus && !isShowingToday) {
+        button.focus();
+    }
 }
