@@ -352,6 +352,13 @@ function zoomIntoWeek(date) {
     setSelectedDate(date);
 }
 
+// Clicking a day header in the Week view zooms in to that day.
+function zoomIntoDay(date) {
+    state.zoomLevel = "day";
+
+    setSelectedDate(date);
+}
+
 function renderAll() {
     renderApplicationTitle();
     updateCreateReservationButtonState();
@@ -375,6 +382,7 @@ function renderAll() {
         selectedDate: state.selectedDate,
         reservedEvents,
         onSelectDate: setSelectedDate,
+        onOpenDay: zoomIntoDay,
         openEventModal: openCalendarEvent
     });
 

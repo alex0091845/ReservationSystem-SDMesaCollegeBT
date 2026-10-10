@@ -120,6 +120,12 @@
     display: none;
 }
 
+/* A day header in the week grid opens that day, so its number reads as a link on hover. */
+.week-day-header:hover .week-day-number {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
 .year-stage[hidden],
 .month-stage[hidden],
 .day-stage[hidden] {

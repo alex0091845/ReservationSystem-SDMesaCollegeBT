@@ -18,6 +18,7 @@ export function renderWeekView({
     selectedDate,
     reservedEvents,
     onSelectDate,
+    onOpenDay,
     openEventModal
 }) {
     // Clears previous render
@@ -93,9 +94,9 @@ export function renderWeekView({
             </div>
         `;
 
-        // Makes day header clickable
+        // Clicking a day header opens that day when a zoom handler is given; otherwise it selects it
         headerCell.addEventListener("click", () => {
-            onSelectDate(
+            (onOpenDay || onSelectDate)(
                 new Date(
                     dateObj.getFullYear(),
                     dateObj.getMonth(),
