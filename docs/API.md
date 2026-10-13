@@ -560,7 +560,6 @@ event. If the attendee cleanup fails, the reservation is left untouched.
 | `409` | `{"error":"This reservation is still referenced by other records, so it cannot be deleted."}` |
 | `502` | `{"error":"The delete could not be completed. Please try again."}` |
 
----
 
 ---
 
@@ -587,6 +586,7 @@ After authorization succeeds, the backend collects the event IDs and deletes all
 | `502` | `{"error":"The delete could not be completed. Please try again."}` | The event deletion failed for another reason |
 
 > **Note:** attendee cleanup and event deletion are separate backend-to-Supabase requests, so this operation is not a single PostgreSQL transaction.
+
 
 ## Reservation drafts
 
