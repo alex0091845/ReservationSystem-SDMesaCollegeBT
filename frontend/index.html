@@ -33,6 +33,13 @@
             <button class="login-btn" id="loginBtn">Faculty Login</button>
         </div>
     </header>
+    <div class="qr-generation">
+        <button onclick="generateQR()">Generate QR Code</button>
+        <input type="text" id="qr-input" name="qr-input" placeholder="https://example.com">
+        <div id="qrcode"></div>
+    </div>
+    <script src="js/qrCode.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <!-- Widget Wrapper -->
     <div class="wrapper">
         <div class="left-column">
