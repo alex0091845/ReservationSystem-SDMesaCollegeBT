@@ -1,7 +1,9 @@
 import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
+import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
 import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
+import { renderZoomStage } from "./ui/zoomController.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
@@ -183,7 +185,11 @@ async function loadReservedEvents() {
     } catch (error) {
         console.error("Error loading events:", error);
 
-        reservedEvents = [];
+        // DEV ONLY: with no backend running locally, show fake events instead of an empty calendar.
+        const isLocalDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+        reservedEvents = isLocalDev ? getSampleEvents() : [];
+        sortReservedEvents(reservedEvents);
     }
 
     renderAll();
@@ -239,7 +245,9 @@ const state = {
     ),
 
     currentYear: today.getFullYear(),
-    currentMonth: today.getMonth()
+    currentMonth: today.getMonth(),
+    // On a phone the week grid only fits about half the week, so the page starts on a single day.
+    zoomLevel: window.matchMedia("(max-width: 720px)").matches ? "day" : "week"
 };
 
 // Pulls open and close functions from modal file
@@ -314,6 +322,43 @@ function changeMonth(monthOffset) {
     renderAll();
 }
 
+// Zoom calendar (prototype): switches the big panel between zoom levels.
+function setZoomLevel(zoomLevel) {
+    state.zoomLevel = zoomLevel;
+
+    renderAll();
+}
+
+// Shows another year in the Year view (the small month calendar follows along).
+function showYear(year) {
+    state.currentYear = year;
+
+    renderAll();
+}
+
+// Clicking a month in the Year view zooms in to that month.
+function zoomIntoMonth(year, month) {
+    const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    state.zoomLevel = "month";
+
+    setSelectedDate(new Date(year, month, isThisMonth ? today.getDate() : 1));
+}
+
+// Clicking a week row in the Month view zooms in to that week.
+function zoomIntoWeek(date) {
+    state.zoomLevel = "week";
+
+    setSelectedDate(date);
+}
+
+// Clicking a day header in the Week view zooms in to that day.
+function zoomIntoDay(date) {
+    state.zoomLevel = "day";
+
+    setSelectedDate(date);
+}
+
 // Draws all the page elements
 function renderAll() {
     renderApplicationTitle();
@@ -337,6 +382,22 @@ function renderAll() {
         weekViewTitle: elements.weekViewTitle,
         selectedDate: state.selectedDate,
         reservedEvents,
+        onSelectDate: setSelectedDate,
+        onOpenDay: zoomIntoDay,
+        openEventModal: openCalendarEvent
+    });
+
+    renderZoomStage({
+        weekView: elements.weekViewWrapper?.closest(".week-view"),
+        zoomLevel: state.zoomLevel,
+        year: state.currentYear,
+        selectedDate: state.selectedDate,
+        reservedEvents,
+        onSetZoomLevel: setZoomLevel,
+        onShowYear: showYear,
+        onSelectMonth: zoomIntoMonth,
+        onChangeMonth: changeMonth,
+        onSelectWeek: zoomIntoWeek,
         onSelectDate: setSelectedDate,
         openEventModal: openCalendarEvent
     });
