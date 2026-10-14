@@ -540,6 +540,10 @@ public class ReservationController {
             throw new IllegalArgumentException("End time must be after start time.");
         }
 
+        if (!startTime.toLocalDate().equals(endTime.toLocalDate())) {
+            throw new IllegalArgumentException("Reservations must start and end on the same day.");
+        }
+
         if (!startTime.toLocalTime().isBefore(RESERVATION_DAY_END)) {
             throw new IllegalArgumentException("Start time must be before 5:00 PM.");
         }

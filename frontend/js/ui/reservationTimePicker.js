@@ -5,8 +5,12 @@ import {
     weekdayNames
 } from "../utils/dateUtils.js";
 
-const SLOT_MINUTES = 30;
+const SLOT_MINUTES = 15;
 const MS_PER_MINUTE = 60 * 1000;
+
+function isSingleDayView() {
+    return window.matchMedia("(max-width: 720px)").matches;
+}
 
 export function createReservationTimePicker({
     container,
@@ -23,13 +27,19 @@ export function createReservationTimePicker({
         start: parseLocalDateTimeInput(startInput.value),
         end: parseLocalDateTimeInput(endInput.value)
     }]);
+    let displayedDate = selectedRanges[0]?.start || new Date();
     let unavailableRanges = [];
     let dragAnchor = null;
     let dragPreviewRanges = [];
     let dragShouldSelect = true;
     let isDragging = false;
+    let isSyncingInputs = false;
 
     container.classList.add("reservation-time-picker");
+
+    startInput.addEventListener("change", applyExactInputRange);
+    endInput.addEventListener("change", applyExactInputRange);
+    window.matchMedia("(max-width: 720px)").addEventListener("change", render);
 
     function render() {
         container.innerHTML = "";
@@ -52,23 +62,39 @@ export function createReservationTimePicker({
         const header = document.createElement("div");
         header.className = "reservation-time-picker-header";
 
-        const previousButton = createWeekButton("Previous week", "<");
-        const nextButton = createWeekButton("Next week", ">");
+        const singleDayView = isSingleDayView();
+        const previousButton = createWeekButton(
+            singleDayView ? "Previous day" : "Previous week",
+            "<"
+        );
+        const nextButton = createWeekButton(
+            singleDayView ? "Next day" : "Next week",
+            ">"
+        );
         const title = document.createElement("div");
         title.className = "reservation-time-picker-title";
-        title.textContent = formatShortDateRange(
-            weekStart,
-            addDays(weekStart, 6)
-        );
+        title.textContent = singleDayView
+            ? formatDayLabel(displayedDate)
+            : formatShortDateRange(weekStart, addDays(weekStart, 6));
 
         previousButton.addEventListener("click", () => {
-            weekStart = addDays(weekStart, -7);
+            if (singleDayView) {
+                displayedDate = addDays(displayedDate, -1);
+                weekStart = getStartOfWeek(displayedDate);
+            } else {
+                weekStart = addDays(weekStart, -7);
+            }
             render();
             dispatchPickerChange();
         });
 
         nextButton.addEventListener("click", () => {
-            weekStart = addDays(weekStart, 7);
+            if (singleDayView) {
+                displayedDate = addDays(displayedDate, 1);
+                weekStart = getStartOfWeek(displayedDate);
+            } else {
+                weekStart = addDays(weekStart, 7);
+            }
             render();
             dispatchPickerChange();
         });
@@ -84,21 +110,23 @@ export function createReservationTimePicker({
 
         grid.appendChild(createGridCorner());
 
-        getWeekDates().forEach(date => {
+        const visibleDates = getVisibleDates();
+
+        visibleDates.forEach(date => {
             grid.appendChild(createDayHeader(date));
         });
 
         getSlotTimes().forEach(({ hour, minute }) => {
             grid.appendChild(createTimeLabel(hour, minute));
 
-            getWeekDates().forEach(date => {
+            visibleDates.forEach(date => {
                 grid.appendChild(createSlotCell(date, hour, minute));
             });
         });
 
         grid.appendChild(createTimeBoundaryLabel());
 
-        getWeekDates().forEach(() => {
+        visibleDates.forEach(() => {
             const boundaryCell = document.createElement("div");
 
             boundaryCell.className = "reservation-time-picker-boundary-cell";
@@ -132,9 +160,18 @@ export function createReservationTimePicker({
 
     function createTimeLabel(hour, minute) {
         const label = document.createElement("div");
-        const startText = document.createElement("span");
 
         label.className = "reservation-time-picker-time";
+        if (hour === CALENDAR_START_HOUR && minute === 0) {
+            label.classList.add("reservation-time-picker-first-label");
+        }
+
+        if (minute % 30 !== 0) {
+            return label;
+        }
+
+        const startText = document.createElement("span");
+
         startText.className = "reservation-time-picker-time-start";
         startText.textContent = formatTimeLabel(hour, minute);
         label.append(startText);
@@ -171,6 +208,9 @@ export function createReservationTimePicker({
 
         cell.type = "button";
         cell.className = "reservation-time-picker-slot";
+        if (minute === 45) {
+            cell.classList.add("reservation-time-picker-hour-boundary");
+        }
         cell.dataset.pickerCell = "true";
         cell.dataset.start = String(slotStart.getTime());
         cell.dataset.end = String(slotEnd.getTime());
@@ -239,7 +279,7 @@ export function createReservationTimePicker({
     function applyDragRange(cell) {
         const currentRange = getCellRange(cell);
 
-        if (!dragAnchor || !currentRange) {
+        if (!dragAnchor || !currentRange || !isSameDay(dragAnchor.start, currentRange.start)) {
             return;
         }
 
@@ -277,6 +317,7 @@ export function createReservationTimePicker({
 
         if (selectedStart) {
             weekStart = getStartOfWeek(selectedStart);
+            displayedDate = selectedStart;
         }
 
         selectedRanges = normalizeRanges([{
@@ -289,9 +330,13 @@ export function createReservationTimePicker({
 
     function setRanges(ranges = []) {
         selectedRanges = normalizeRanges(ranges);
+        selectedRanges = selectedRanges.filter(range => {
+            return isSameDay(range.start, selectedRanges[0].start);
+        });
 
         if (selectedRanges[0]?.start) {
             weekStart = getStartOfWeek(selectedRanges[0].start);
+            displayedDate = selectedRanges[0].start;
         }
 
         syncInputs();
@@ -318,6 +363,7 @@ export function createReservationTimePicker({
         const date = parseAnyDate(dateValue) || new Date();
 
         weekStart = getStartOfWeek(date);
+        displayedDate = date;
         render();
         dispatchPickerChange();
     }
@@ -326,6 +372,7 @@ export function createReservationTimePicker({
         selectedRanges = [];
         startInput.value = "";
         endInput.value = "";
+        endInput.setCustomValidity("");
         updateSelectionStyles();
         updateSummary();
         dispatchPickerChange();
@@ -336,12 +383,14 @@ export function createReservationTimePicker({
         const previousStartValue = startInput.value;
         const previousEndValue = endInput.value;
 
+        isSyncingInputs = true;
         startInput.value = primaryRange?.start
             ? formatDateTimeLocalInput(primaryRange.start)
             : "";
         endInput.value = primaryRange?.end
             ? formatDateTimeLocalInput(primaryRange.end)
             : "";
+        endInput.setCustomValidity("");
 
         if (startInput.value !== previousStartValue) {
             dispatchFieldChange(startInput);
@@ -350,8 +399,36 @@ export function createReservationTimePicker({
         if (endInput.value !== previousEndValue) {
             dispatchFieldChange(endInput);
         }
+        isSyncingInputs = false;
 
         dispatchPickerChange();
+    }
+
+    function applyExactInputRange() {
+        if (isSyncingInputs) {
+            return;
+        }
+
+        const start = parseLocalDateTimeInput(startInput.value);
+        const end = parseLocalDateTimeInput(endInput.value);
+
+        if (!start || !end) {
+            endInput.setCustomValidity("");
+            return;
+        }
+
+        if (end <= start) {
+            endInput.setCustomValidity("End time must be after start time.");
+            return;
+        }
+
+        if (!isSameDay(start, end)) {
+            endInput.setCustomValidity("Reservations must start and end on the same day.");
+            return;
+        }
+
+        endInput.setCustomValidity("");
+        setRange(start, end);
     }
 
     function updateSelectionStyles() {
@@ -359,11 +436,34 @@ export function createReservationTimePicker({
 
         container.querySelectorAll("[data-picker-cell='true']").forEach(cell => {
             const range = getCellRange(cell);
-            const isSelected = Boolean(range && renderedRanges.some(selectedRange => {
-                return rangesOverlap(range, selectedRange);
-            }));
+            const selectedRange = range && renderedRanges.find(candidate => {
+                return rangesOverlap(range, candidate);
+            });
+            const isSelected = Boolean(selectedRange);
 
             cell.classList.toggle("selected", isSelected);
+            cell.setAttribute("aria-pressed", String(isSelected));
+
+            if (!range || !selectedRange) {
+                cell.style.removeProperty("--selection-top");
+                cell.style.removeProperty("--selection-bottom");
+                return;
+            }
+
+            const visibleStart = Math.max(
+                range.start.getTime(),
+                selectedRange.start.getTime()
+            );
+            const visibleEnd = Math.min(
+                range.end.getTime(),
+                selectedRange.end.getTime()
+            );
+            const cellDuration = range.end.getTime() - range.start.getTime();
+            const top = ((visibleStart - range.start.getTime()) / cellDuration) * 100;
+            const bottom = 100 - ((visibleEnd - range.start.getTime()) / cellDuration) * 100;
+
+            cell.style.setProperty("--selection-top", `${top}%`);
+            cell.style.setProperty("--selection-bottom", `${bottom}%`);
         });
     }
 
@@ -434,6 +534,10 @@ export function createReservationTimePicker({
         });
     }
 
+    function getVisibleDates() {
+        return isSingleDayView() ? [new Date(displayedDate)] : getWeekDates();
+    }
+
     function dispatchPickerChange() {
         container.dispatchEvent(new Event("input", { bubbles: true }));
         container.dispatchEvent(new Event("change", { bubbles: true }));
@@ -495,8 +599,9 @@ function getSlotTimes() {
     const slots = [];
 
     for (let hour = CALENDAR_START_HOUR; hour < CALENDAR_END_HOUR; hour += 1) {
-        slots.push({ hour, minute: 0 });
-        slots.push({ hour, minute: 30 });
+        for (let minute = 0; minute < 60; minute += SLOT_MINUTES) {
+            slots.push({ hour, minute });
+        }
     }
 
     return slots;
@@ -517,14 +622,6 @@ function getCellRange(cell) {
 }
 
 function buildDailyDragRanges(anchorRange, currentRange) {
-    const startDay = stripTime(new Date(Math.min(
-        anchorRange.start.getTime(),
-        currentRange.start.getTime()
-    )));
-    const endDay = stripTime(new Date(Math.max(
-        anchorRange.start.getTime(),
-        currentRange.start.getTime()
-    )));
     const startMinutes = Math.min(
         getMinutesSinceMidnight(anchorRange.start),
         getMinutesSinceMidnight(currentRange.start)
@@ -533,20 +630,10 @@ function buildDailyDragRanges(anchorRange, currentRange) {
         getMinutesSinceMidnight(anchorRange.end),
         getMinutesSinceMidnight(currentRange.end)
     );
-    const ranges = [];
-
-    for (
-        let date = new Date(startDay);
-        date <= endDay;
-        date = addDays(date, 1)
-    ) {
-        ranges.push({
-            start: createDateAtMinutes(date, startMinutes),
-            end: createDateAtMinutes(date, endMinutes)
-        });
-    }
-
-    return ranges;
+    return [{
+        start: createDateAtMinutes(anchorRange.start, startMinutes),
+        end: createDateAtMinutes(anchorRange.start, endMinutes)
+    }];
 }
 
 function isRangeSelected(cellRange, selectedRanges = []) {
@@ -558,7 +645,9 @@ function isRangeSelected(cellRange, selectedRanges = []) {
 function applySelectionOperation(selectedRanges, operationRanges, shouldSelect) {
     if (shouldSelect) {
         return normalizeRanges([
-            ...selectedRanges,
+            ...selectedRanges.filter(range => {
+                return isSameDay(range.start, operationRanges[0].start);
+            }),
             ...operationRanges
         ]);
     }
@@ -639,18 +728,6 @@ function normalizeRanges(ranges = []) {
         });
         return mergedRanges;
     }, []);
-}
-
-function stripTime(date) {
-    return new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        0,
-        0,
-        0,
-        0
-    );
 }
 
 function getMinutesSinceMidnight(date) {
