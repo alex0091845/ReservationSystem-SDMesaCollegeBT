@@ -1,0 +1,678 @@
+/* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, and the Year, Month and Day levels */
+
+/* One row above the calendar: Back + breadcrumb on the left, zoom buttons on the right. */
+.zoom-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+    margin-bottom: 14px;
+}
+
+.zoom-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.zoom-back-btn {
+    flex-shrink: 0;
+    min-height: 36px;
+    padding: 0 12px;
+    border: 1px solid var(--mesa-blue);
+    border-radius: var(--radius-card);
+    background: #fff;
+    color: var(--mesa-blue);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.zoom-back-btn:hover:not(:disabled) {
+    background: #eef2f7;
+}
+
+.zoom-back-btn:disabled {
+    border-color: #c5ccd6;
+    color: #8a94a3;
+    cursor: default;
+}
+
+.zoom-breadcrumb {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 6px;
+    min-width: 0;
+    font-size: 14px;
+}
+
+.zoom-crumb {
+    padding: 4px 2px;
+    border: none;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--mesa-blue);
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.zoom-crumb-current {
+    padding: 4px 2px;
+    color: #1f2937;
+    font-weight: 700;
+}
+
+.zoom-crumb-separator {
+    color: #6b7280;
+}
+
+.zoom-toolbar {
+    display: flex;
+    gap: 2px;
+    width: fit-content;
+    padding: 3px;
+    border-radius: 9px;
+    background: #eef2f7;
+}
+
+.zoom-level-btn {
+    min-height: 36px;
+    padding: 0 16px;
+    border: none;
+    border-radius: var(--radius-card);
+    background: transparent;
+    color: var(--mesa-blue);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.zoom-level-btn[aria-pressed="true"] {
+    background: var(--mesa-blue);
+    color: #fff;
+}
+
+.zoom-level-btn:focus-visible,
+.zoom-back-btn:focus-visible,
+.zoom-crumb:focus-visible,
+.month-day-number:focus-visible,
+.year-month:focus-visible {
+    outline: 3px solid var(--district-cyan);
+    outline-offset: 2px;
+}
+
+/* While the year, a month or a single day is showing, the week header and grid step aside. */
+.week-view[data-zoom-level="year"] .week-view-header,
+.week-view[data-zoom-level="year"] .week-grid,
+.week-view[data-zoom-level="month"] .week-view-header,
+.week-view[data-zoom-level="month"] .week-grid,
+.week-view[data-zoom-level="day"] .week-view-header,
+.week-view[data-zoom-level="day"] .week-grid {
+    display: none;
+}
+
+/* A day header in the week grid opens that day, so its number reads as a link on hover. */
+.week-day-header:hover .week-day-number {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+/* The red "now" line of the week grid sits on top of event blocks (see updateCurrentTimeIndicator).
+   It is see-through so an event title under it stays readable. */
+.week-current-time-indicator {
+    opacity: 0.65;
+}
+
+.year-stage[hidden],
+.month-stage[hidden],
+.day-stage[hidden] {
+    display: none;
+}
+
+.year-header,
+.month-header,
+.day-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.year-title,
+.month-title,
+.day-title {
+    flex: 1;
+    margin: 0;
+    font-size: 24px;
+    font-weight: bold;
+    line-height: 1.2;
+    text-align: center;
+}
+
+/* Month level: one row per week; the whole row is the click target. */
+.month-weekdays,
+.month-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.month-weekdays {
+    margin-bottom: 6px;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.month-grid {
+    display: grid;
+    gap: 6px;
+}
+
+.month-week {
+    overflow: hidden;
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-card);
+    background: #fff;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.month-week:hover {
+    border-color: var(--mesa-blue);
+    box-shadow: 0 4px 12px rgba(2, 56, 103, 0.18);
+}
+
+.month-day {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    min-height: 96px;
+    padding: 6px;
+    border-left: 1px solid #e5e7eb;
+}
+
+.month-day:first-child {
+    border-left: none;
+}
+
+.month-day.is-outside {
+    background: #f3f4f6;
+}
+
+.month-day-number {
+    align-self: flex-start;
+    min-width: 26px;
+    height: 26px;
+    padding: 0 6px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #1f2937;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 26px;
+    text-align: center;
+    cursor: pointer;
+}
+
+.month-day.is-outside .month-day-number {
+    color: #6b7280;
+    font-weight: 400;
+}
+
+.month-day.is-today .month-day-number {
+    box-shadow: inset 0 0 0 2px var(--mesa-orange);
+}
+
+.month-day.is-selected .month-day-number {
+    background: var(--mesa-blue);
+    color: #fff;
+}
+
+.month-day-events {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+/* The team's week card, laid out in normal flow as a one-line chip. */
+.week-event.month-event {
+    position: static;
+    display: block;
+    width: 100%;
+    min-height: 0;
+    padding: 3px 6px;
+    box-shadow: none;
+    font-size: 11px;
+    line-height: 1.3;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    word-break: normal;
+}
+
+.month-day.is-outside .month-event {
+    opacity: 0.6;
+}
+
+.month-more {
+    color: #4b5563;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.year-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.year-month {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: var(--radius-card);
+    background: #fff;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.year-month:hover {
+    border-color: var(--mesa-blue);
+    box-shadow: 0 4px 12px rgba(2, 56, 103, 0.18);
+}
+
+.year-month.is-current-month {
+    border-color: var(--mesa-blue);
+    box-shadow: inset 0 0 0 1px var(--mesa-blue);
+}
+
+.year-month-name {
+    color: var(--mesa-blue);
+    font-family: var(--font-primary);
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.year-month-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.year-day {
+    aspect-ratio: 1;
+    border-radius: 2px;
+}
+
+.year-day.is-empty {
+    visibility: hidden;
+}
+
+.year-day.is-selected {
+    background: var(--mesa-blue);
+}
+
+.year-day.is-today {
+    outline: 2px solid var(--mesa-orange);
+    outline-offset: 1px;
+}
+
+.year-legend {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    margin-top: 14px;
+    color: #4b5563;
+    font-size: 12px;
+}
+
+.year-legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 2px;
+}
+
+/* Day level */
+
+.day-summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: -6px 0 14px;
+    color: #4b5563;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.day-today-badge {
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: #e1eaf3;
+    color: var(--mesa-blue);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.day-timeline {
+    --day-hour-height: 68px;
+    --day-time-column-width: 70px;
+    display: grid;
+    grid-template-columns: var(--day-time-column-width) minmax(0, 1fr);
+    padding: 8px 0 10px;
+    border: 1px solid #ddd;
+    border-radius: var(--radius-card);
+    background: #fff;
+}
+
+.day-hour-labels,
+.day-column {
+    position: relative;
+    height: calc(var(--day-hour-height) * var(--day-visible-hours));
+}
+
+.day-hour-label {
+    position: absolute;
+    top: calc(var(--day-hour-height) * var(--day-offset-hours) - 7px);
+    right: 8px;
+    color: #666;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.day-column {
+    border-left: 1px solid #e5e5e5;
+}
+
+.day-hour-line {
+    position: absolute;
+    top: calc(var(--day-hour-height) * var(--day-offset-hours));
+    right: 0;
+    left: 0;
+    border-top: 1px solid #e5e5e5;
+}
+
+/* Builds on .week-event from week-view.css; these rules set the position and the extra text lines. */
+.week-event.day-event {
+    top: calc(var(--day-hour-height) * var(--day-offset-hours) + 1px);
+    left: calc(100% / var(--day-column-count) * var(--day-column) + 4px);
+    right: auto;
+    width: calc(100% / var(--day-column-count) - 8px);
+    height: calc(var(--day-hour-height) * var(--day-duration-hours) - 2px);
+    min-height: 24px;
+    flex-direction: column;
+    gap: 3px;
+    padding: 8px 10px;
+    font-size: 14px;
+}
+
+.day-event-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.day-event-time,
+.day-event-details {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.92;
+}
+
+.day-event-now {
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: #fff;
+    color: #b71c1c;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+/* Same look as the red line in the week view: on top of event blocks and see-through,
+   so "now" reads the same at every level and a title under it stays readable. */
+.day-now-line {
+    position: absolute;
+    top: calc(var(--day-hour-height) * var(--day-offset-hours));
+    right: 0;
+    left: 0;
+    z-index: 8;
+    height: 2px;
+    background: #d32f2f;
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+.day-now-line::before {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #d32f2f;
+    content: "";
+}
+
+@media (max-width: 1200px) {
+    .year-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+}
+
+@media (max-width: 720px) {
+    .zoom-bar {
+        margin-bottom: 10px;
+    }
+
+    /* On a phone the breadcrumb row sits above a full-width row of zoom buttons. */
+    .zoom-nav,
+    .zoom-toolbar {
+        width: 100%;
+    }
+
+    .zoom-back-btn {
+        min-height: 44px;
+    }
+
+    .zoom-crumb,
+    .zoom-crumb-current {
+        padding: 10px 2px;
+    }
+
+    .zoom-level-btn {
+        flex: 1;
+        min-height: 44px;
+    }
+
+    .year-title,
+    .month-title,
+    .day-title {
+        font-size: 18px;
+    }
+
+    /* On a phone there is no room for event names, so each event becomes a colored bar. */
+    .month-day {
+        min-height: 58px;
+        padding: 4px 3px;
+    }
+
+    .month-day-number {
+        align-self: center;
+    }
+
+    /* The bars are too small to tap, so a tap falls through to the week row and zooms in. */
+    .week-event.month-event {
+        height: 6px;
+        padding: 0;
+        font-size: 0;
+        pointer-events: none;
+    }
+
+    .month-more {
+        font-size: 10px;
+        text-align: center;
+    }
+
+    .day-timeline {
+        --day-hour-height: 60px;
+        --day-time-column-width: 54px;
+    }
+
+    .day-hour-label {
+        right: 5px;
+        font-size: 11px;
+    }
+
+    .week-event.day-event {
+        padding: 6px 8px;
+        font-size: 13px;
+    }
+
+    .year-grid {
+        gap: 8px;
+    }
+
+    .year-month {
+        gap: 6px;
+        padding: 7px;
+    }
+
+    .year-month-name {
+        font-size: 13px;
+    }
+
+    .year-month-days {
+        gap: 2px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .year-month,
+    .month-week {
+        transition: none;
+    }
+}
+
+/* Zoom animation: a short scale-and-fade when the level changes (see playZoomAnimation). */
+@keyframes zoom-level-in {
+    from {
+        opacity: 0;
+        transform: scale(0.55);
+    }
+}
+
+@keyframes zoom-level-out {
+    from {
+        opacity: 0;
+        transform: scale(1.06);
+    }
+}
+
+.zoom-anim-in {
+    animation: zoom-level-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zoom-anim-out {
+    animation: zoom-level-out 220ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .zoom-anim-in,
+    .zoom-anim-out {
+        animation: none;
+    }
+}
+
+/* "Today" button, next to the zoom buttons. */
+.zoom-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.zoom-today-btn {
+    min-height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--mesa-blue);
+    border-radius: var(--radius-card);
+    background: #fff;
+    color: var(--mesa-blue);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.zoom-today-btn:hover:not(:disabled) {
+    background: #eef2f7;
+}
+
+.zoom-today-btn:disabled {
+    border-color: #c5ccd6;
+    color: #8a94a3;
+    cursor: default;
+}
+
+.zoom-today-btn:focus-visible {
+    outline: 3px solid var(--district-cyan);
+    outline-offset: 2px;
+}
+
+@media (max-width: 720px) {
+    .zoom-actions {
+        width: 100%;
+    }
+
+    .zoom-actions .zoom-toolbar {
+        flex: 1;
+        width: auto;
+        min-width: 0;
+    }
+
+    /* Four zoom buttons plus Today share one row, so each gets less side padding. */
+    .zoom-actions .zoom-level-btn {
+        padding: 0 6px;
+    }
+
+    .zoom-today-btn {
+        min-height: 44px;
+    }
+}
+
+/* On a phone the calendar panel comes first, ahead of the small month calendar and the
+   event lists, so it is on screen without scrolling. */
+@media (max-width: 720px) {
+    .wrapper > .side-panel {
+        order: -1;
+    }
+}

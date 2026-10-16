@@ -174,6 +174,24 @@
     font-weight: 600;
 }
 
+.reservation-exact-time-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.reservation-exact-time-field {
+    display: grid;
+    gap: 5px;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.reservation-exact-time-field .reservation-input {
+    min-width: 0;
+}
+
 .reservation-time-picker-shell {
     overflow: hidden;
     border: 1px solid #d1d5db;
@@ -222,6 +240,7 @@
     grid-template-columns: 88px repeat(7, minmax(56px, 1fr));
     overflow-x: auto;
     overflow-y: hidden;
+    padding-bottom: 8px;
     user-select: none;
     touch-action: none;
 }
@@ -231,8 +250,8 @@
 .reservation-time-picker-time,
 .reservation-time-picker-boundary-cell,
 .reservation-time-picker-slot {
-    border-right: 1px solid #e5e7eb;
-    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #9ca3af;
+    border-bottom: 1px solid #9ca3af;
 }
 
 .reservation-time-picker-corner,
@@ -271,7 +290,7 @@
     left: 0;
     z-index: 4;
     display: block;
-    min-height: 31px;
+    min-height: 16px;
     padding: 0 8px 0 6px;
     border-bottom: none;
     background: #fafafa;
@@ -293,14 +312,38 @@
     font-weight: 500;
 }
 
+.reservation-time-picker-first-label .reservation-time-picker-time-start {
+    top: -5px;
+    transform: none;
+}
+
+.reservation-time-picker-first-label {
+    z-index: 6;
+}
+
+.reservation-time-picker-first-label::before {
+    position: absolute;
+    top: -6px;
+    right: 0;
+    left: 0;
+    height: 6px;
+    background: #fafafa;
+    content: "";
+}
+
 .reservation-time-picker-slot {
     position: relative;
-    min-height: 31px;
+    overflow: hidden;
+    min-height: 16px;
     border-top: none;
     border-left: none;
     background: #fff;
     cursor: pointer;
     transition: background-color 0.08s ease, box-shadow 0.08s ease;
+}
+
+.reservation-time-picker-hour-boundary {
+    border-bottom: 2px solid #64748b;
 }
 
 .reservation-time-picker-current-time {
@@ -329,12 +372,24 @@
 }
 
 .reservation-time-picker-slot.selected {
+    background: #fff;
+}
+
+.reservation-time-picker-slot.selected::after {
+    position: absolute;
+    z-index: 0;
+    top: var(--selection-top, 0%);
+    right: 0;
+    bottom: var(--selection-bottom, 0%);
+    left: 0;
     background: rgba(2, 56, 103, 0.88);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.64),
-        inset 0 -1px 0 rgba(255, 255, 255, 0.64),
-        inset 1px 0 0 rgba(255, 255, 255, 0.26),
-        inset -1px 0 0 rgba(255, 255, 255, 0.26);
+        inset 0 1px 0 #9ca3af,
+        inset 0 -1px 0 #9ca3af,
+        inset 1px 0 0 #9ca3af,
+        inset -1px 0 0 #9ca3af;
+    content: "";
+    pointer-events: none;
 }
 
 /* Slots that have already started cannot be booked. Declared after .selected so a
@@ -342,29 +397,37 @@
    reservation visible when an earlier booking is opened for editing. */
 .reservation-time-picker-slot.past,
 .reservation-time-picker-slot.past:hover {
-    background: #f1f2f4;
-    color: #9aa1a9;
+    background: #cbd5e1;
+    color: #64748b;
     cursor: not-allowed;
 }
 
 .reservation-time-picker-slot.past.selected,
 .reservation-time-picker-slot.past.selected:hover {
+    background: #cbd5e1;
+}
+
+.reservation-time-picker-slot.past.selected::after {
     background: rgba(2, 56, 103, 0.38);
 }
 
 .reservation-time-picker-slot.booked,
 .reservation-time-picker-slot.booked:hover {
-    background: #d1d5db;
+    background: #94a3b8;
 }
 
 .reservation-time-picker-boundary-label,
 .reservation-time-picker-boundary-cell {
-    min-height: 18px;
+    height: 0;
+    min-height: 0;
+    padding: 0;
     border-bottom: none;
     background: #fafafa;
 }
 
 .reservation-time-picker-boundary-label .reservation-time-picker-time-start {
+    top: 0;
+    transform: translateY(-50%);
     font-size: 12px;
 }
 
@@ -738,6 +801,30 @@
 }
 
 @media (max-width: 720px) {
+    #reservationModalOverlay,
+    #facultyReservationModalOverlay,
+    #adminReservationModalOverlay {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 8px;
+    }
+
+    .reservation-modal {
+        max-height: calc(100dvh - 16px);
+    }
+
+    .reservation-modal .modal-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 16px;
+        background: #fff;
+    }
+
+    .reservation-form {
+        padding: 16px;
+    }
+
     .reservation-grid {
         grid-template-columns: 1fr;
     }
@@ -751,11 +838,23 @@
         flex-direction: column;
     }
 
+    .reservation-actions-split,
+    .reservation-danger-group,
+    .reservation-action-group {
+        align-items: stretch;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .reservation-danger-group,
+    .reservation-action-group {
+        margin: 0;
+    }
+
     .reservation-actions .reservation-primary-btn,
     .reservation-actions .reservation-secondary-btn,
     .reservation-actions .reservation-danger-btn {
-        flex: 0 0 auto;
-        width: auto;
+        width: 100%;
     }
 
     .reservation-time-label-row {
@@ -768,11 +867,12 @@
     }
 
     .reservation-time-picker-grid {
-        grid-template-columns: 72px repeat(7, minmax(46px, 1fr));
+        grid-template-columns: 72px minmax(0, 1fr);
+        overflow-x: hidden;
     }
 
     .reservation-time-picker-time {
-        min-height: 30px;
+        min-height: 16px;
         padding-inline: 5px;
     }
 
@@ -782,7 +882,7 @@
     }
 
     .reservation-time-picker-slot {
-        min-height: 30px;
+        min-height: 16px;
     }
 
     .reservation-time-picker-day {
@@ -791,6 +891,10 @@
 
     .reservation-time-picker-day strong {
         font-size: 12px;
+    }
+
+    .reservation-exact-time-fields {
+        grid-template-columns: 1fr;
     }
 
     .recurrence-section {
@@ -1035,6 +1139,12 @@
     margin-top: 20px;
 }
 
+.draft-exit-actions .reservation-primary-btn,
+.draft-exit-actions .reservation-secondary-btn,
+.draft-exit-actions .reservation-danger-btn {
+    font-size: 13px;
+}
+
 @media (max-width: 720px) {
     .modal-event-title {
         font-size: 21px;
@@ -1049,8 +1159,24 @@
     }
 
     .draft-exit-actions {
-        overflow-x: auto;
-        padding-bottom: 2px;
+        display: grid;
+        grid-template-columns: 1fr;
+        overflow: visible;
+    }
+
+    .draft-exit-prompt {
+        align-items: flex-end;
+        padding: 12px;
+    }
+
+    .draft-exit-card {
+        width: 100%;
+        border-radius: 16px;
+        padding: 20px;
+    }
+
+    .draft-exit-actions button {
+        width: 100%;
     }
 
     .modal-label {

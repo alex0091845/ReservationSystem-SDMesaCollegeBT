@@ -1,6 +1,7 @@
 import { getCurrentSession, loginUser } from "./api.js";
 
 const loginBtn = document.getElementById("loginBtn");
+const backBtn = document.getElementById("backBtn");
 
 const email = document.getElementById("email");
 const password = document.getElementById("password");
@@ -162,3 +163,10 @@ loginFields.forEach(field => {
     }
   });
 });
+
+backBtn.addEventListener(
+            "click",
+            async () => {
+                window.location.href = "index.html";
+            }
+        );

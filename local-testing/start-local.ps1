@@ -11,10 +11,16 @@ if (Test-Path $localSettingsPath) {
     . $localSettingsPath
 }
 $mavenVersion = '3.9.16'
-$toolsPath = Join-Path $env:LOCALAPPDATA 'ReservationSystem\tools'
+$isWindowsPlatform = $env:OS -eq 'Windows_NT'
+$toolsPath = if ($isWindowsPlatform) {
+    Join-Path $env:LOCALAPPDATA 'ReservationSystem\tools'
+} else {
+    Join-Path $env:HOME '.reservation-system/tools'
+}
 $mavenHome = Join-Path $toolsPath "apache-maven-$mavenVersion"
-$mavenCommand = Join-Path $mavenHome 'bin\mvn.cmd'
-$pythonServerScriptPath = Join-Path $env:TEMP 'reservation-local-http-server.py'
+$mavenExecutable = if ($isWindowsPlatform) { 'mvn.cmd' } else { 'mvn' }
+$mavenCommand = Join-Path $mavenHome "bin/$mavenExecutable"
+$pythonServerScriptPath = Join-Path ([System.IO.Path]::GetTempPath()) 'reservation-local-http-server.py'
 $frontendProcess = $null
 $secureApiKey = $null
 $apiKey = $null
@@ -53,83 +59,146 @@ try {
         throw 'Run this script from a copy of the reservation system repository.'
     }
 
-    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
-        throw 'Windows Package Manager is missing. Install App Installer from Microsoft Store, restart PowerShell, then run this script again.'
-    }
-
-    $java = Get-Command java -ErrorAction SilentlyContinue
-    $javac = Get-Command javac -ErrorAction SilentlyContinue
-    $javaMajor = 0
-    if ($java) {
-        $versionOutput = (& $env:ComSpec /d /c 'java -version 2>&1' | Out-String)
-        if ($versionOutput -match 'version "(?<major>\d+)') {
-            $javaMajor = [int]$Matches.major
+    if ($isWindowsPlatform) {
+        if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            throw 'Windows Package Manager is missing. Install App Installer from Microsoft Store, restart PowerShell, then run this script again.'
         }
-    }
-    if (-not $java -or -not $javac -or $javaMajor -lt 17) {
-        Install-WinGetPackage 'EclipseAdoptium.Temurin.17.JDK'
+
         $java = Get-Command java -ErrorAction SilentlyContinue
         $javac = Get-Command javac -ErrorAction SilentlyContinue
-        if (-not $java -or -not $javac -or $javaMajor -lt 17) {
-            $jdkRoots = @(
-                (Join-Path $env:ProgramFiles 'Eclipse Adoptium'),
-                (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium')
-            ) | Where-Object { Test-Path $_ }
-            $installedJdk = Get-ChildItem -Path $jdkRoots -Directory -Filter 'jdk-17*' -ErrorAction SilentlyContinue |
-                Sort-Object Name -Descending |
-                Select-Object -First 1
-            if ($installedJdk) {
-                $env:Path = "$(Join-Path $installedJdk.FullName 'bin');$env:Path"
-                $java = Get-Command java -ErrorAction SilentlyContinue
-                $javac = Get-Command javac -ErrorAction SilentlyContinue
+        $javaMajor = 0
+        if ($java) {
+            $versionOutput = (& $env:ComSpec /d /c 'java -version 2>&1' | Out-String)
+            if ($versionOutput -match 'version "(?<major>\d+)') {
+                $javaMajor = [int]$Matches.major
             }
         }
-        $versionOutput = if ($java) { (& $env:ComSpec /d /c 'java -version 2>&1' | Out-String) } else { '' }
-        $javaMajor = if ($versionOutput -match 'version "(?<major>\d+)') { [int]$Matches.major } else { 0 }
         if (-not $java -or -not $javac -or $javaMajor -lt 17) {
-            throw 'The Java installer completed, but java and javac are not available yet. Restart PowerShell and run this script again.'
+            Install-WinGetPackage 'EclipseAdoptium.Temurin.17.JDK'
+            $java = Get-Command java -ErrorAction SilentlyContinue
+            $javac = Get-Command javac -ErrorAction SilentlyContinue
+            if (-not $java -or -not $javac -or $javaMajor -lt 17) {
+                $jdkRoots = @(
+                    (Join-Path $env:ProgramFiles 'Eclipse Adoptium'),
+                    (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium')
+                ) | Where-Object { Test-Path $_ }
+                $installedJdk = Get-ChildItem -Path $jdkRoots -Directory -Filter 'jdk-17*' -ErrorAction SilentlyContinue |
+                    Sort-Object Name -Descending |
+                    Select-Object -First 1
+                if ($installedJdk) {
+                    $env:Path = "$(Join-Path $installedJdk.FullName 'bin');$env:Path"
+                    $java = Get-Command java -ErrorAction SilentlyContinue
+                    $javac = Get-Command javac -ErrorAction SilentlyContinue
+                }
+            }
+            $versionOutput = if ($java) { (& $env:ComSpec /d /c 'java -version 2>&1' | Out-String) } else { '' }
+            $javaMajor = if ($versionOutput -match 'version "(?<major>\d+)') { [int]$Matches.major } else { 0 }
+            if (-not $java -or -not $javac -or $javaMajor -lt 17) {
+                throw 'The Java installer completed, but java and javac are not available yet. Restart PowerShell and run this script again.'
+            }
         }
+
+        $javaBinPath = Split-Path $javac.Source -Parent
+        $jdkHome = Split-Path $javaBinPath -Parent
+        if (-not (Test-Path (Join-Path $jdkHome 'bin\java.exe'))) {
+            throw "Could not locate the JDK from javac at $($javac.Source)."
+        }
+        $env:JAVA_HOME = $jdkHome
+        $env:Path = "$javaBinPath;$env:Path"
+    } else {
+        $java = Get-Command java -ErrorAction SilentlyContinue
+        $javac = Get-Command javac -ErrorAction SilentlyContinue
+        $javaMajor = 0
+        if ($java) {
+            $versionOutput = (& $java.Source -version 2>&1 | Out-String)
+            if ($versionOutput -match 'version "(?<major>\d+)') {
+                $javaMajor = [int]$Matches.major
+            }
+        }
+        if (-not $java -or -not $javac -or $javaMajor -lt 17) {
+            $brew = Get-Command brew -ErrorAction SilentlyContinue
+            if (-not $brew) {
+                throw 'Java 17 and Homebrew are required. Install Homebrew, then run: brew install openjdk@17'
+            }
+            Write-Host 'Checking or installing openjdk@17...'
+            & $brew.Source install openjdk@17
+            if ($LASTEXITCODE -ne 0) {
+                throw 'Homebrew could not install openjdk@17.'
+            }
+        }
+
+        $javaHomeVersion = if ($javaMajor -ge 17) { $javaMajor } else { 17 }
+        $jdkHome = (& /usr/libexec/java_home -v $javaHomeVersion 2>$null | Out-String).Trim()
+        if ([string]::IsNullOrWhiteSpace($jdkHome) -and $javaHomeVersion -eq 17 -and $brew) {
+            $jdkHome = (& $brew.Source --prefix openjdk@17 | Out-String).Trim()
+        }
+        if ([string]::IsNullOrWhiteSpace($jdkHome)) {
+            throw 'Java 17 or newer is installed but macOS could not locate its JDK home.'
+        }
+        $javaBinPath = Join-Path $jdkHome 'bin'
+        if (-not (Test-Path (Join-Path $javaBinPath 'java')) -or -not (Test-Path (Join-Path $javaBinPath 'javac'))) {
+            throw "Could not locate Java and javac in $javaBinPath."
+        }
+        $env:JAVA_HOME = $jdkHome
+        $env:Path = "$javaBinPath$([System.IO.Path]::PathSeparator)$env:Path"
     }
 
-    $javaBinPath = Split-Path $javac.Source -Parent
-    $jdkHome = Split-Path $javaBinPath -Parent
-    if (-not (Test-Path (Join-Path $jdkHome 'bin\java.exe'))) {
-        throw "Could not locate the JDK from javac at $($javac.Source)."
-    }
-    $env:JAVA_HOME = $jdkHome
-    $env:Path = "$javaBinPath;$env:Path"
-
-    $pythonLauncher = Get-Command py -ErrorAction SilentlyContinue
-    $python = Get-Command python -ErrorAction SilentlyContinue
-    $pythonUsable = $false
-    if ($pythonLauncher) {
-        & $pythonLauncher.Source -3 --version *> $null
-        $pythonUsable = $LASTEXITCODE -eq 0
-    }
-    if (-not $pythonUsable -and $python) {
-        & $python.Source --version *> $null
-        $pythonUsable = $LASTEXITCODE -eq 0
-    }
-    if (-not $pythonUsable) {
-        Install-WinGetPackage 'Python.Python.3.12'
+    if ($isWindowsPlatform) {
         $pythonLauncher = Get-Command py -ErrorAction SilentlyContinue
         $python = Get-Command python -ErrorAction SilentlyContinue
+        $pythonUsable = $false
         if ($pythonLauncher) {
             & $pythonLauncher.Source -3 --version *> $null
             $pythonUsable = $LASTEXITCODE -eq 0
-        } elseif ($python) {
+        }
+        if (-not $pythonUsable -and $python) {
             & $python.Source --version *> $null
             $pythonUsable = $LASTEXITCODE -eq 0
         }
         if (-not $pythonUsable) {
-            throw 'The Python installer completed, but Python is not available yet. Restart PowerShell and run this script again.'
+            Install-WinGetPackage 'Python.Python.3.12'
+            $pythonLauncher = Get-Command py -ErrorAction SilentlyContinue
+            $python = Get-Command python -ErrorAction SilentlyContinue
+            if ($pythonLauncher) {
+                & $pythonLauncher.Source -3 --version *> $null
+                $pythonUsable = $LASTEXITCODE -eq 0
+            } elseif ($python) {
+                & $python.Source --version *> $null
+                $pythonUsable = $LASTEXITCODE -eq 0
+            }
+            if (-not $pythonUsable) {
+                throw 'The Python installer completed, but Python is not available yet. Restart PowerShell and run this script again.'
+            }
         }
+        $pythonCommand = if ($pythonLauncher) {
+            (& $pythonLauncher.Source -3 -c 'import sys; print(sys.executable)' | Out-String).Trim()
+        } else {
+            $python.Source
+        }
+    } else {
+        $pythonCommand = Get-Command python3 -ErrorAction SilentlyContinue
+        if (-not $pythonCommand) {
+            $brew = Get-Command brew -ErrorAction SilentlyContinue
+            if (-not $brew) {
+                throw 'Python 3 is required. Install it with Homebrew (brew install python) and run this script again.'
+            }
+            Write-Host 'Checking or installing Python 3...'
+            & $brew.Source install python
+            if ($LASTEXITCODE -ne 0) {
+                throw 'Homebrew could not install Python 3.'
+            }
+            $pythonCommand = Get-Command python3 -ErrorAction SilentlyContinue
+        }
+        if (-not $pythonCommand) {
+            throw 'Python 3 is not available yet. Open a new PowerShell window and run this script again.'
+        }
+        $pythonCommand = $pythonCommand.Source
     }
 
     if (-not (Test-Path $mavenCommand)) {
         New-Item -ItemType Directory -Path $toolsPath -Force | Out-Null
         $archiveName = "apache-maven-$mavenVersion-bin.zip"
-        $archivePath = Join-Path $env:TEMP $archiveName
+        $archivePath = Join-Path ([System.IO.Path]::GetTempPath()) $archiveName
         $downloadUrl = "https://dlcdn.apache.org/maven/maven-3/$mavenVersion/binaries/$archiveName"
         $checksumUrl = "$downloadUrl.sha512"
 
@@ -146,9 +215,15 @@ try {
         Remove-Item -LiteralPath $archivePath -Force
     }
 
-    $mavenCommand = Join-Path $mavenHome 'bin\mvn.cmd'
+    $mavenCommand = Join-Path $mavenHome "bin/$mavenExecutable"
     if (-not (Test-Path $mavenCommand)) {
         throw "Maven was not found at $mavenCommand. Remove the incomplete local Maven folder and run this script again."
+    }
+    if (-not $isWindowsPlatform) {
+        & chmod +x $mavenCommand
+        if ($LASTEXITCODE -ne 0) {
+            throw "Could not make Maven executable at $mavenCommand."
+        }
     }
 
     foreach ($port in @(5500, 8080)) {
@@ -178,11 +253,6 @@ try {
     $env:AUTH_COOKIE_SAME_SITE = 'Lax'
     $env:AUTH_SESSION_HOURS = '8'
 
-    if ($pythonLauncher) {
-        $pythonCommand = (& $pythonLauncher.Source -3 -c 'import sys; print(sys.executable)' | Out-String).Trim()
-    } else {
-        $pythonCommand = $python.Source
-    }
     if (-not (Test-Path $pythonCommand)) {
         throw 'Could not locate the Python executable for the frontend server.'
     }

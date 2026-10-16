@@ -267,11 +267,21 @@
                     <div class="modal-field reservation-full reservation-time-section">
                         <div class="reservation-time-label-row">
                             <label class="modal-label" for="facultyReservationTimePicker">Reservation Time</label>
-                            <span class="reservation-time-range-summary" id="facultyReservationTimeSummary"></span>
+                            <span class="reservation-time-range-summary" id="facultyReservationTimeSummary" hidden aria-hidden="true"></span>
                         </div>
                         <div id="facultyReservationTimePicker" aria-label="Reservation time selector"></div>
-                        <input id="facultyReservationStart" name="start" type="hidden" required>
-                        <input id="facultyReservationEnd" name="end" type="hidden" required>
+                        <div class="reservation-exact-time-fields">
+                            <label class="reservation-exact-time-field" for="facultyReservationStart">
+                                <span>Start</span>
+                                <input class="reservation-input" id="facultyReservationStart" name="start"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                            <label class="reservation-exact-time-field" for="facultyReservationEnd">
+                                <span>End</span>
+                                <input class="reservation-input" id="facultyReservationEnd" name="end"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="modal-field reservation-full">
@@ -406,11 +416,21 @@
                     <div class="modal-field reservation-full reservation-time-section">
                         <div class="reservation-time-label-row">
                             <label class="modal-label" for="reservationTimePicker">Reservation Time</label>
-                            <span class="reservation-time-range-summary" id="reservationTimeSummary"></span>
+                            <span class="reservation-time-range-summary" id="reservationTimeSummary" hidden aria-hidden="true"></span>
                         </div>
                         <div id="reservationTimePicker" aria-label="Reservation time selector"></div>
-                        <input id="reservationStart" name="start" type="hidden" required>
-                        <input id="reservationEnd" name="end" type="hidden" required>
+                        <div class="reservation-exact-time-fields">
+                            <label class="reservation-exact-time-field" for="reservationStart">
+                                <span>Start</span>
+                                <input class="reservation-input" id="reservationStart" name="start"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                            <label class="reservation-exact-time-field" for="reservationEnd">
+                                <span>End</span>
+                                <input class="reservation-input" id="reservationEnd" name="end"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="modal-field reservation-full recurrence-section">
