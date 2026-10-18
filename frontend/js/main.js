@@ -199,6 +199,7 @@ async function loadReservedEvents() {
         sortReservedEvents(reservedEvents);
     }
 
+    openLinkedEvent();
     renderAll();
 }
 
@@ -704,6 +705,15 @@ function openCalendarEvent(reservation) {
     }
 
     openEventModal(reservation);
+}
+
+// opens the event modal for the event id in the query string
+function openLinkedEvent()
+{
+    let urlParams = new URLSearchParams(window.location.search);
+    const linkedEventID = urlParams.get('eventID');
+
+    openEventModal(reservedEvents.find(item => item.id === Number(linkedEventID)));
 }
 
 async function openFacultyReservationEditModal(reservation) {
