@@ -801,10 +801,26 @@ function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
     setFacultyReservationDeleting(false);
 }
 
+function generateQR()
+{
+    let qrInput = currentEventLink;
+    let container = document.getElementById("QRcode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
 function openQRCodeModal() {
     elements.QRmodalOverlay.classList.add("open");
     elements.QRmodalOverlay.setAttribute("aria-hidden", "false");
     elements.QRmodalCloseBtn.focus();
+    generateQR();
 }
 
 function closeQRCodeModal() {
