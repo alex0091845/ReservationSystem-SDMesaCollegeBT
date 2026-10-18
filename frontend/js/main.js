@@ -56,6 +56,7 @@ const elements = {
     ShareLinkModalOverlay: document.getElementById("ShareLinkModalOverlay"),
     ShareLinkModalCloseBtn: document.getElementById("ShareLinkModalCloseBtn"),
     ShareLink: document.getElementById("ShareLink"),
+    CopyShareLinkBtn: document.getElementById("CopyShareLinkBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
@@ -846,6 +847,15 @@ function openShareLinkModal() {
     elements.ShareLink.innerHTML = currentEventLink;
 }
 
+async function copyShareLink() {
+    console.log("Copied Link");
+    let copyText = elements.ShareLink.innerHTML;
+
+    await navigator.clipboard.writeText(copyText);
+    elements.CopyShareLinkBtn.textContent = 'Copied!';
+    setTimeout(() => elements.CopyShareLinkBtn.textContent = 'Copy Link', 2000);
+}
+
 function closeShareLinkModal() {
     elements.ShareLinkModalOverlay.classList.remove("open");
     elements.ShareLinkModalOverlay.setAttribute("aria-hidden", "true");
@@ -1359,6 +1369,7 @@ function bindEvents() {
     if (elements.shareLinkBtn && elements.ShareLinkModalOverlay && elements.ShareLinkModalCloseBtn) {
         elements.shareLinkBtn.addEventListener("click", openShareLinkModal);
         elements.ShareLinkModalCloseBtn.addEventListener("click", closeShareLinkModal);
+        elements.CopyShareLinkBtn.addEventListener("click", copyShareLink);
         bindBackdropClose(elements.ShareLinkModalOverlay, closeShareLinkModal);
     }
 
