@@ -714,7 +714,8 @@ function openLinkedEvent()
     let urlParams = new URLSearchParams(window.location.search);
     const linkedEventID = urlParams.get('eventID');
 
-    openEventModal(reservedEvents.find(item => item.id === Number(linkedEventID)));
+    if(linkedEventID)
+        openEventModal(reservedEvents.find(item => item.id === Number(linkedEventID)));
 }
 
 async function openFacultyReservationEditModal(reservation) {
