@@ -68,6 +68,7 @@ let reservationClosePromptOpen = false;
 let eventModalReturnFocusElement = null;
 let reservationModalReturnFocusElement = null;
 let selectedCheckInEvent = null;
+export let currentEventLink = "";
 
 export function createModalController(elements) {
     const {
@@ -127,6 +128,8 @@ export function createModalController(elements) {
 
         eventModalOverlay.classList.add("active");
         eventModalOverlay.setAttribute("aria-hidden", "false");
+
+        currentEventLink = `${window.location.origin}${window.location.pathname}?eventID=${eventData.id}`;
     }
 
     // Closes event details modal

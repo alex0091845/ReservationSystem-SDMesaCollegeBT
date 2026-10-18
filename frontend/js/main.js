@@ -8,7 +8,7 @@ import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
 import { renderEventAttendees } from "./ui/attendees.js";
-import { createModalController } from "./ui/modal.js";
+import { createModalController, currentEventLink } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import { createActionMenu } from "./ui/actionMenu.js";
@@ -55,6 +55,7 @@ const elements = {
     shareLinkBtn: document.getElementById("shareLinkBtn"),
     ShareLinkModalOverlay: document.getElementById("ShareLinkModalOverlay"),
     ShareLinkModalCloseBtn: document.getElementById("ShareLinkModalCloseBtn"),
+    ShareLink: document.getElementById("ShareLink"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
@@ -816,6 +817,7 @@ function openShareLinkModal() {
     elements.ShareLinkModalOverlay.classList.add("open");
     elements.ShareLinkModalOverlay.setAttribute("aria-hidden", "false");
     elements.ShareLinkModalCloseBtn.focus();
+    elements.ShareLink.innerHTML = currentEventLink;
 }
 
 function closeShareLinkModal() {
