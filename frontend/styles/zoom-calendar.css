@@ -616,6 +616,7 @@
 /* "Today" button, next to the zoom buttons. */
 .zoom-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
 }
@@ -654,7 +655,7 @@
     }
 
     .zoom-actions .zoom-toolbar {
-        flex: 1;
+        flex: 1 1 190px;
         width: auto;
         min-width: 0;
     }
