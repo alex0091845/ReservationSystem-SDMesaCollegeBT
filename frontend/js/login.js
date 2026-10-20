@@ -16,6 +16,8 @@ async function handleLogin() {
   const userPassword = password.value.trim();
 
   if (username === "" || userPassword === "") {
+    message.classList.remove("success", "error");
+    message.classList.add("error");
     message.textContent =
       "Please fill in both fields.";
 
@@ -29,7 +31,7 @@ async function handleLogin() {
     if (!matchedUser) {
     
       message.classList.remove("success", "error");
-      message.classList.add("success");
+      message.classList.add("error");
       message.textContent = "Invalid email or password.";
       return;
     }
@@ -37,6 +39,9 @@ async function handleLogin() {
     completeLogin(matchedUser);
   } catch (error) {
     console.error("Login failed:", error);
+
+     message.classList.remove("success", "error");
+      message.classList.add("error");
 
     message.textContent = isServerUnavailableError(error)
       ? "Could not reach the server. Please try again later."

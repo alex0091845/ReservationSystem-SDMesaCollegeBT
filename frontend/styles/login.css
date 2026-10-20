@@ -116,11 +116,11 @@ button:hover {
 }
 
 #message.success {
-  color: rgb(13, 219, 130);
+  color: #1B6525;
 }
 
 #message.error {
-  color: rgb(255, 35, 35);
+  color: #9E0000;
 }
 
 @media (max-width: 420px) {
