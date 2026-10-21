@@ -90,8 +90,6 @@ let isFacultyLoggedIn =
     sessionStorage.getItem("facultyLoggedIn") === "true";
 let currentUserId = sessionStorage.getItem("currentUserId");
 let currentUserRole = sessionStorage.getItem("currentUserRole") || "";
-const largeScreenQuery = window.matchMedia("(min-width: 1680px)");
-
 if (elements.openReservationModalBtn) {
     elements.openReservationModalBtn.disabled = !isFacultyLoggedIn;
     elements.openReservationModalBtn.title = !isFacultyLoggedIn
@@ -570,10 +568,9 @@ function renderSideWidget() {
     );
 }
 
+// Check-In and My Events sit at the top of the left column, above Upcoming Events.
 function syncSideWidgetPlacement() {
-    const widgetTarget = largeScreenQuery.matches
-        ? elements.sidePanel
-        : elements.leftColumn;
+    const widgetTarget = elements.leftColumn;
 
     if (!widgetTarget) {
         return;
@@ -581,14 +578,9 @@ function syncSideWidgetPlacement() {
 
     getSideWidgets().forEach(widget => {
         if (widget.parentElement !== widgetTarget) {
-            widgetTarget.appendChild(widget);
+            widgetTarget.insertBefore(widget, widgetTarget.querySelector(".upcoming-events"));
         }
     });
-}
-
-function syncSideWidgetLayout() {
-    syncSideWidgetPlacement();
-    syncSideWidgetMaxHeight();
 }
 
 function syncSideWidgetMaxHeight() {
@@ -1300,15 +1292,6 @@ function bindEvents() {
         "reservation:created",
         handleReservationCreated
     );
-
-    if (largeScreenQuery.addEventListener) {
-        largeScreenQuery.addEventListener(
-            "change",
-            syncSideWidgetLayout
-        );
-    } else {
-        largeScreenQuery.addListener(syncSideWidgetLayout);
-    }
 
     window.addEventListener("resize", syncSideWidgetMaxHeight);
 
