@@ -1,7 +1,6 @@
 import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
-import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
 import { renderZoomStage } from "./ui/zoomController.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
@@ -32,11 +31,7 @@ import {
 // Makes all page elements accessible in one place
 const elements = {
     leftColumn: document.querySelector(".left-column"),
-    datesContainer: document.getElementById("dates"),
-    calendarTitle: document.getElementById("calendarTitle"),
     weekViewTitle: document.getElementById("weekViewTitle"),
-    prevMonthBtn: document.getElementById("prevMonthBtn"),
-    nextMonthBtn: document.getElementById("nextMonthBtn"),
     prevWeekBtn: document.getElementById("prevWeekBtn"),
     nextWeekBtn: document.getElementById("nextWeekBtn"),
     sidePanel: document.getElementById("sidePanel"),
@@ -366,16 +361,6 @@ function renderAll() {
     updateAdminDashboardButtonState();
     renderCurrentUserIdentity();
     renderSideWidget();
-
-    renderCalendar({
-        datesContainer: elements.datesContainer,
-        calendarTitle: elements.calendarTitle,
-        currentYear: state.currentYear,
-        currentMonth: state.currentMonth,
-        selectedDate: state.selectedDate,
-        reservedEvents,
-        onSelectDate: setSelectedDate
-    });
 
     renderWeekView({
         weekViewWrapper: elements.weekViewWrapper,
@@ -1262,16 +1247,6 @@ function getUserRoleName(user) {
 
 // Starts event listeners for button and modal interactivity
 function bindEvents() {
-    elements.prevMonthBtn.addEventListener(
-        "click",
-        () => changeMonth(-1)
-    );
-
-    elements.nextMonthBtn.addEventListener(
-        "click",
-        () => changeMonth(1)
-    );
-
     elements.prevWeekBtn.addEventListener(
         "click",
         () => moveSelectedDateByDays(-7)
