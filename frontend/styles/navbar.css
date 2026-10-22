@@ -2,6 +2,8 @@
 
 .navbar {
     display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
     align-items: center;
     justify-content: space-between;
     width: 100%;
@@ -49,9 +51,12 @@
 
 .nav-right {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
     gap: 10px;
     min-width: 0;
+    max-width: 100%;
 }
 
 .nav-user-chip {
