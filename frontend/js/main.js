@@ -1423,7 +1423,7 @@ function bindEvents() {
     );
 
     if (elements.loginBtn) {
-        elements.loginBtn.textContent = isFacultyLoggedIn ? "Sign Out" : "Faculty Login";
+        elements.loginBtn.textContent = isFacultyLoggedIn ? "Log Out" : "Faculty/Admin Login";
 
         elements.loginBtn.addEventListener(
             "click",
