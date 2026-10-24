@@ -38,6 +38,13 @@
     animation: modalPop 0.18s ease-out;
 }
 
+.QRcode {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 400px;
+}
+
 @keyframes modalPop {
     from {
         opacity: 0;
