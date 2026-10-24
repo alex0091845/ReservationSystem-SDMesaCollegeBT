@@ -26,6 +26,18 @@
     animation: modalPop 0.18s ease-out;
 }
 
+.QRmodal {
+    width: 390px;
+    height: 490px;
+    max-width: none;
+    max-height: none;
+    overflow-y: auto;
+    border-radius: var(--radius-modal);
+    background: #ffffff;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+    animation: modalPop 0.18s ease-out;
+}
+
 @keyframes modalPop {
     from {
         opacity: 0;

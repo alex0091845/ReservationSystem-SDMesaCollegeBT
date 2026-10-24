@@ -30,6 +30,7 @@
                 Admin Dashboard
             </a>
             <button class="login-btn" id="openReservationModalBtn">Create Reservation</button>
+            <button class = "login-btn" id="calendarQRCodeBtn">QR Code for Calendar</button>
             <button class="login-btn" id="loginBtn">Faculty Login</button>
         </div>
     </header>
@@ -189,6 +190,16 @@
                     </div>
                 </form>
             </section>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="calendarQRModalOverlay" aria-hidden="true">
+        <div class="QRmodal" id="calendarQRModal" role="dialog" aria-modal="true" aria-labelledby="calendarQRModalTitle">
+            <div class="modal-topbar">
+                <h2 class="modal-event-title" id="calendarQRModalTitle">Calendar QR Code</h2>
+                <button type="button" class="modal-close-btn" id="calendarQRModalCloseBtn"
+                    aria-label="Close QR code">&times;</button>
+            </div>
         </div>
     </div>
 
