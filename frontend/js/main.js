@@ -707,6 +707,23 @@ function openCalendarQRCodeModal() {
     elements.calendarQRCodeModalOverlay.classList.add("active");
     elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
     elements.calendarQRCodeModalCloseBtn.focus();
+    generateCalendarQR();
+    console.log(window.location.origin);
+}
+
+function generateCalendarQR()
+{
+    let qrInput = window.location.origin;
+    let container = document.getElementById("CalendarQRcode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
 }
 
 function closeCalendarQRCodeModal() {
