@@ -397,23 +397,30 @@ Written down so the design leaves room for them; **not in current scope**.
 
 1. **Last-minute bookings:** can someone book a slot that starts in 10 minutes or less? If not, what's
    the minimum notice? *(Right now, any time after the current moment is allowed [#34].)*
+   - Down to a minute before the event starts, as long as the selected time is not yet in the past.
 2. **Winter and summer sessions:** is the room open during them, and with what hours? *(Admins can now
    mark any date as bookable, see AD3.)*
+   - Up to the admin
 3. **How far ahead can people book?** Up to the admin's last bookable date (AD3). Is that enough, or is
    another limit needed?
+   - Just end of semester for each school year
 4. **Maximum length of a reservation:** is there one?
+   - A day maximum. 8am - 5pm currently will show up as all day. If need more, other days are separate events
 5. **Landing page content:** confirm with Monica (see V5 and [#70]).
+   - Double-checked. See David's PR. All contents are there besides the mini calendar
 6. **Calendar on other pages:** does this mean embedding on other college sites, a link, or something else?
-7. **Reminder timing:** how long before the event?
-8. **Deactivated users:** what happens to their future reservations?
-9. **Check-in window:** 15 minutes before and after [#71], or opening 10 minutes before the start [#50]?
-10. **Check-in data:** how long are check-in records kept, and who besides the organizer can see them?
+   - TBD - later. Not part of MVP.
+9. **Reminder timing:** how long before the event?
+10. **Deactivated users:** what happens to their future reservations?
+   - Have those future events not show up somehow?
+11. **Check-in window:** 15 minutes before and after [#71], or opening 10 minutes before the start [#50]?
+12. **Check-in data:** how long are check-in records kept, and who besides the organizer can see them?
     When an event is deleted (or a series, or a blocked date), are its check-ins deleted or kept [#56]?
-11. **Deleting events:** confirm the proposed delete vs. cancel rules in C1 [#71], and where cancelled
+13. **Deleting events:** confirm the proposed delete vs. cancel rules in C1 [#71], and where cancelled
     events are shown.
-12. **Private events and check-in:** can attendees check in to a private event the same way [#68]?
-13. **Event type look:** is the color + label design too cluttered? Do we want icons or emoji [#69]?
-14. Should admins be able to override unavailable days to create special reservations?
+14. **Private events and check-in:** can attendees check in to a private event the same way [#68]?
+15. **Event type look:** is the color + label design too cluttered? Do we want icons or emoji [#69]?
+16. Should admins be able to override unavailable days to create special reservations?
 
 [#33]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/33
 [#34]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/34
