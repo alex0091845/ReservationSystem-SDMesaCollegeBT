@@ -3,7 +3,7 @@
 @media (max-width: 1200px) {
     .wrapper {
         display: grid;
-        grid-template-columns: 320px 1fr;
+        grid-template-columns: 320px minmax(0, 1fr);
         align-items: start;
         gap: 20px;
     }
@@ -104,8 +104,8 @@
         min-width: 0;
     }
 
-    .left-column > .my-events,
-    .left-column > .check-in-widget {
+    .left-column>.my-events,
+    .left-column>.check-in-widget {
         grid-column: 1;
         grid-row: 2;
         align-self: start;
@@ -114,8 +114,8 @@
         padding: 16px;
     }
 
-    .left-column > .my-events[hidden],
-    .left-column > .check-in-widget[hidden] {
+    .left-column>.my-events[hidden],
+    .left-column>.check-in-widget[hidden] {
         display: none;
     }
 
@@ -147,15 +147,13 @@
 @media (min-width: 721px) and (max-width: 1200px) {
     .week-grid {
         --week-day-column-min: 92px;
-        overflow-x: hidden;
+        overflow-x: auto;
     }
 
     .week-header,
     .week-row {
-        width: max(
-            100%,
-            calc(var(--week-time-column-width) + (7 * var(--week-day-column-min)))
-        );
+        width: max(100%,
+                calc(var(--week-time-column-width) + (7 * var(--week-day-column-min))));
     }
 }
 
@@ -167,7 +165,7 @@
         --week-header-height: 50px;
         --week-time-column-width: 54px;
         --week-boundary-row-height: 28px;
-        overflow-x: hidden;
+        overflow-x: auto;
     }
 
     .week-day-name {
@@ -332,7 +330,7 @@
         align-items: flex-start;
         position: sticky;
         left: 0;
-        z-index: 8;
+        z-index: 10;
         padding: 5px 1px 0;
         background: #fafafa;
         font-size: 9px;
@@ -361,7 +359,7 @@
 
 @media (max-width: 320px) {
     body {
-        padding: 10px;
+        padding: 0;
     }
 
     .calendar {

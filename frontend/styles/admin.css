@@ -9,6 +9,8 @@
 }
 
 .admin-panel {
+    min-width: 0;
+    overflow-wrap: anywhere;
     background: #fff;
     border-radius: var(--radius-panel);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
@@ -423,6 +425,16 @@
     opacity: 0.72;
 }
 
+@media (max-width: 1150px) {
+    .faculty-user-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .faculty-user-search {
+        grid-column: 1 / -1;
+    }
+}
+
 @media (max-width: 900px) {
     .admin-layout {
         grid-template-columns: 1fr;
@@ -438,6 +450,14 @@
 }
 
 @media (max-width: 560px) {
+    .admin-layout {
+        padding: 16px;
+    }
+
+    .admin-panel {
+        padding: 16px;
+    }
+
     .admin-dashboard-intro {
         flex-direction: column;
     }
@@ -461,5 +481,12 @@
 
     .selected-user-actions {
         flex-direction: column;
+    }
+}
+
+@media (pointer: coarse) {
+    .faculty-user-controls input,
+    .faculty-user-controls select {
+        font-size: 16px;
     }
 }
