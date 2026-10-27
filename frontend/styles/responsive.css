@@ -446,3 +446,29 @@
         font-size: 9px;
     }
 }
+
+/* Medium screens without the small month calendar: Check-In (or My Events) and
+   Upcoming Events share the top row, and the calendar gets the full width below. */
+@media (min-width: 721px) and (max-width: 1200px) {
+    .upcoming-events {
+        grid-column: 1 / -1;
+        grid-row: 1;
+    }
+
+    .wrapper:has(.side-panel.has-side-widget) .upcoming-events {
+        grid-column: 2;
+    }
+
+    .left-column > .my-events,
+    .left-column > .check-in-widget {
+        grid-row: 1;
+        height: 320px;
+        max-height: none;
+    }
+
+    .side-panel,
+    .side-panel.has-side-widget {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+}
