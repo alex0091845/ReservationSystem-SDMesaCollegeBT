@@ -6,13 +6,16 @@ import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 import com.reservation.config.SupabaseClient;
 import com.reservation.services.AuthService;
+import com.reservation.services.ReservationAvailabilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -20,6 +23,8 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/events")
@@ -31,11 +36,14 @@ public class ReservationController {
     private final SupabaseClient supabase;
     private final ObjectMapper objectMapper;
     private final AuthService authService;
+    private final ReservationAvailabilityService availability;
 
-    public ReservationController(SupabaseClient supabase, ObjectMapper objectMapper, AuthService authService) {
+    public ReservationController(SupabaseClient supabase, ObjectMapper objectMapper, AuthService authService,
+                                 ReservationAvailabilityService availability) {
         this.supabase = supabase;
         this.objectMapper = objectMapper;
         this.authService = authService;
+        this.availability = availability;
     }
 
     @GetMapping
@@ -105,7 +113,10 @@ public class ReservationController {
                 return jsonError(403, "You do not have permission to save this reservation for that host.");
             }
 
+            availability.validateDates(List.of(reservationDate(eventBody)));
             return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBody)));
+        } catch (ResponseStatusException error) {
+            return jsonError(error.getStatusCode().value(), error.getReason());
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -141,7 +152,10 @@ public class ReservationController {
                 eventBodies.add(eventBody);
             }
 
+            validateAvailability(eventBodies);
             return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBodies)));
+        } catch (ResponseStatusException error) {
+            return jsonError(error.getStatusCode().value(), error.getReason());
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -221,7 +235,10 @@ public class ReservationController {
                 }
             }
 
+            validateAvailability(eventBodies);
             return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBodies)));
+        } catch (ResponseStatusException error) {
+            return jsonError(error.getStatusCode().value(), error.getReason());
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -238,6 +255,10 @@ public class ReservationController {
                 return jsonError(404, "Reservation not found.");
             }
 
+            if (existingEvent.path("is_closure").asBoolean(false)) {
+                return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+            }
+
             if (!canModifyExistingEvent(request, existingEvent)) {
                 return jsonError(403, "You do not have permission to modify this reservation.");
             }
@@ -248,7 +269,12 @@ public class ReservationController {
                 return jsonError(403, "You do not have permission to save this reservation for that host.");
             }
 
+            if (reservationTimesChanged(existingEvent, eventBody)) {
+                availability.validateDates(List.of(reservationDate(eventBody)));
+            }
             return fromSupabase(supabase.patchResponse("events?id=eq." + id, objectMapper.writeValueAsString(eventBody)));
+        } catch (ResponseStatusException error) {
+            return jsonError(error.getStatusCode().value(), error.getReason());
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -262,6 +288,10 @@ public class ReservationController {
 
         if (existingEvent == null) {
             return jsonError(404, "Reservation not found.");
+        }
+
+        if (existingEvent.path("is_closure").asBoolean(false)) {
+            return jsonError(403, "Manage unavailable dates in Bookable Dates.");
         }
 
         if (!canModifyExistingEvent(request, existingEvent)) {
@@ -321,6 +351,11 @@ public class ReservationController {
     private ObjectNode normalizeEventInput(JsonNode input) {
         if (!input.isObject()) {
             throw new IllegalArgumentException("Event body must be a JSON object.");
+        }
+
+        if (input.path("is_closure").asBoolean(false)
+            || "Unavailable".equalsIgnoreCase(input.path("event_type").asText())) {
+            throw new IllegalArgumentException("Manage unavailable dates in Bookable Dates.");
         }
 
         ObjectNode event = objectMapper.createObjectNode();
@@ -393,7 +428,7 @@ public class ReservationController {
 
     private JsonNode getExistingEvent(int id) {
         try {
-            String response = supabase.get("events?id=eq." + id + "&select=id,host_user_id");
+            String response = supabase.get("events?id=eq." + id + "&select=id,host_user_id,start_time,end_time,is_closure");
             JsonNode events = objectMapper.readTree(response);
 
             if (!events.isArray() || events.isEmpty()) {
@@ -551,6 +586,9 @@ public class ReservationController {
         if (endTime.toLocalTime().isAfter(RESERVATION_DAY_END)) {
             throw new IllegalArgumentException("Reservations must end by 5:00 PM.");
         }
+
+        event.put("start_time", startTime.toInstant().toString());
+        event.put("end_time", endTime.toInstant().toString());
     }
 
     private void validateStartsInFuture(ObjectNode event) {
@@ -562,6 +600,28 @@ public class ReservationController {
         if (!startTime.isAfter(ZonedDateTime.now(RESERVATION_TIME_ZONE))) {
             throw new IllegalArgumentException("Reservations cannot be scheduled in the past.");
         }
+    }
+
+    private LocalDate reservationDate(JsonNode event) {
+        return parseReservationDateTime(event.path("start_time").asText(), "start_time").toLocalDate();
+    }
+
+    private void validateAvailability(ArrayNode events) {
+        List<LocalDate> dates = new ArrayList<>();
+        for (JsonNode event : events) {
+            dates.add(reservationDate(event));
+        }
+        availability.validateDates(dates);
+    }
+
+    private boolean reservationTimesChanged(JsonNode existing, JsonNode updated) {
+        for (String field : List.of("start_time", "end_time")) {
+            if (!existing.hasNonNull(field) || !parseReservationDateTime(existing.path(field).asText(), field).toInstant()
+                .equals(parseReservationDateTime(updated.path(field).asText(), field).toInstant())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private ZonedDateTime parseReservationDateTime(String value, String fieldName) {
@@ -594,6 +654,17 @@ public class ReservationController {
 
     private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response) {
         if (!response.isSuccessful()) {
+            try {
+                String code = objectMapper.readTree(response.body()).path("code").asText();
+                if ("23P01".equals(code)) {
+                    return jsonError(409, "This time overlaps an existing reservation. Choose a different time.");
+                }
+                if ("40P01".equals(code) || "40001".equals(code)) {
+                    return jsonError(409, "Another reservation changed while saving. Please try again.");
+                }
+            } catch (Exception ignored) {
+                // Keep unexpected database responses private
+            }
             return jsonError(502, "The database could not complete this request.");
         }
         return ResponseEntity.status(response.statusCode())

@@ -56,4 +56,32 @@ class AuthInterceptorSecurityTest {
         when(request.getRequestURI()).thenReturn(path);
         return request;
     }
+
+    @Test
+    void onlyAdminsCanChangeReservationAvailability() throws Exception {
+        HttpServletRequest request = request("PATCH", "/api/reservation-availability");
+        var faculty = new ObjectMapper().readTree("{\"role_name\":\"faculty\"}");
+        when(sessions.getCurrentUser(request)).thenReturn(faculty);
+        when(auth.isAdmin(faculty)).thenReturn(false);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        assertFalse(interceptor.preHandle(request, response, new Object()));
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus());
+    }
+
+    @Test
+    void facultyCanReadReservationAvailability() throws Exception {
+        HttpServletRequest request = request("GET", "/api/reservation-availability");
+        var faculty = new ObjectMapper().readTree("{\"role_name\":\"faculty\"}");
+        when(sessions.getCurrentUser(request)).thenReturn(faculty);
+        when(auth.isFacultyOrAdmin(faculty)).thenReturn(true);
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
+    @Test
+    void anonymousUsersCannotReadReservationAvailability() throws Exception {
+        HttpServletRequest request = request("GET", "/api/reservation-availability");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        assertFalse(interceptor.preHandle(request, response, new Object()));
+        assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.getStatus());
+    }
 }

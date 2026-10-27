@@ -1149,7 +1149,7 @@ function isReservationOwnedByUser(reservation, user) {
 }
 
 function canCurrentUserEditReservation(reservation) {
-    if (!isFacultyLoggedIn || !currentUser) {
+    if (!isFacultyLoggedIn || !currentUser || reservation.is_closure) {
         return false;
     }
 
