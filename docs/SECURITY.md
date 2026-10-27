@@ -153,6 +153,37 @@ secret key. Direct client requests should be denied. Separately, verify website 
 check-in, draft saving, and faculty/admin actions through the backend because its `sb_secret` key
 bypasses RLS and its authorization checks remain essential.
 
+### Semesters and unavailable days (migration 20261021_001)
+
+`database/migrations/20261021_001_semesters_unavailable_days.sql` adds three tables:
+`semesters`, `unavailable_days`, and `calendar_override_audit`. It applies the same controls to
+them inside the migration itself:
+
+- RLS is enabled, with a restrictive `deny_direct_api_access` policy for `anon` and
+  `authenticated`.
+- All table privileges for `PUBLIC`, `anon`, and `authenticated` are revoked. These revocations
+  are explicit because Supabase's default privileges would otherwise grant them.
+- `service_role` gets `SELECT/INSERT/UPDATE/DELETE` on the first two tables, and only
+  `SELECT/INSERT` on the audit table, so the backend cannot rewrite the audit trail.
+- `EXECUTE` on every new function is revoked from `PUBLIC`, `anon`, and `authenticated`.
+
+When rerunning the verification queries above, add the three table names to the `array[...]` lists.
+
+Admin overrides of calendar rules (booking a closed day or a date outside every semester, or
+closing a day that already has reservations) go only through four RPC functions. Each one confirms
+in the database that the acting user id belongs to an enabled admin, then sets a
+transaction-local marker that the triggers check again. The backend takes that id from the
+session, never from the request body, and browsers cannot reach PostgREST because the server key
+stays on EC2. A request body therefore cannot forge an override. The `sb_secret` key remains the
+trust root: anyone holding it could call these functions with an admin's id.
+
+Only `GET /api/unavailable-days` (the list, without `created_by`) and `GET /api/semesters` are
+public. `GET /api/unavailable-days/{id}/affected-reservations` lists private bookings and host
+emails, so it is admin-only like every other path below `/api/unavailable-days/`.
+`AuthInterceptor` matches the percent-decoded path with `;params` removed, which is how Spring
+routes requests, so a differently spelled URL cannot reach an admin endpoint without the admin
+check.
+
 ## AWS checks before calling production secure
 
 These are external settings. They are not changed by repository commits.

@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import java.io.IOException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -36,12 +38,18 @@ public class AuthInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
         throws IOException {
         String method = request.getMethod();
-        String path = request.getRequestURI();
 
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("X-Frame-Options", "DENY");
         response.setHeader("Referrer-Policy", "no-referrer");
+
+        String path = routedPath(request.getRequestURI());
+
+        if (path == null) {
+            writeJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Malformed request path");
+            return false;
+        }
 
         if (!path.startsWith("/api/") || "OPTIONS".equalsIgnoreCase(method)) {
             return true;
@@ -95,7 +103,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         if ("GET".equalsIgnoreCase(method) &&
             (isAtOrBelow(path, "/api/events") ||
              isAtOrBelow(path, "/api/event-types") ||
-             isAtOrBelow(path, "/api/roles"))) {
+             isAtOrBelow(path, "/api/roles") ||
+             isAtOrBelow(path, "/api/semesters") ||
+             path.equals("/api/unavailable-days"))) {
             return true;
         }
 
@@ -103,7 +113,9 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
     private boolean requiresAdmin(String method, String path) {
-        if (isAtOrBelow(path, "/api/users")) {
+        // Only the unavailable-days list itself is public. Everything below it, including
+        // the affected-reservations list with private booking details, is admin-only.
+        if (isAtOrBelow(path, "/api/users") || path.startsWith("/api/unavailable-days/")) {
             return true;
         }
 
@@ -112,7 +124,9 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         return isAtOrBelow(path, "/api/roles") ||
-            isAtOrBelow(path, "/api/event-types");
+            isAtOrBelow(path, "/api/event-types") ||
+            isAtOrBelow(path, "/api/semesters") ||
+            isAtOrBelow(path, "/api/unavailable-days");
     }
 
     private boolean requiresFacultyOrAdmin(String method, String path) {
@@ -121,6 +135,19 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     private boolean isEventReadEndpoint(String method, String path) {
         return "GET".equalsIgnoreCase(method) && isAtOrBelow(path, "/api/events");
+    }
+
+    // The path as Spring routes it: ";param" segments removed, then percent-decoded.
+    // Matching the raw URI instead would let "/api/%73emesters" or "/api/semesters;x=1"
+    // reach a controller while skipping the admin rule for "/api/semesters".
+    // Returns null for a path that cannot be decoded.
+    private String routedPath(String requestUri) {
+        try {
+            String withoutParams = requestUri.replaceAll(";[^/]*", "");
+            return URLDecoder.decode(withoutParams.replace("+", "%2B"), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException error) {
+            return null;
+        }
     }
 
     private boolean isAtOrBelow(String path, String basePath) {

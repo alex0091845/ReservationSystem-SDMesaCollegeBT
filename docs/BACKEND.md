@@ -119,8 +119,16 @@ backend/src/main/java/com/reservation/
     ├── EventTypeController.java        /api/event-types
     ├── UserController.java             /api/users
     ├── UserRoleController.java         /api/roles
+    ├── SemesterController.java         /api/semesters — bookable periods (admin writes)
+    ├── UnavailableDayController.java   /api/unavailable-days — closed days (admin writes)
+    ├── CalendarRuleErrors.java         maps the database's calendar rule errors to 400/403/409
+    ├── CalendarOverrides.java          reads admin_override / override_reason for both of the above
     └── DeleteOutcome.java              shared helper for DELETE responses (not a controller)
 ```
+
+Semester and closed-day rules are enforced by database triggers added in
+`database/migrations/20261021_001_semesters_unavailable_days.sql`. See `docs/API.md`, under
+"Calendar rules", for the behaviour.
 
 Start reading in this order: `SupabaseClient` → `AuthInterceptor` → `ReservationController`.
 After those three, the rest is repetition of the same patterns.
@@ -154,7 +162,8 @@ Registered in `CorsConfig` against `/api/**`. It runs before every controller an
 
 1. **Lets some requests through without a session** (`isPublicEndpoint`):
    - `/api/login`, `/api/logout`, `/api/session`, `/api/health`
-   - **any `GET`** on `/api/events`, `/api/event-types`, `/api/roles`
+   - **any `GET`** on `/api/events`, `/api/event-types`, `/api/roles`, `/api/semesters`, and
+     `GET /api/unavailable-days` (the list only)
    - `POST /api/attendees` (public check-in — anyone attending an event can sign in without an account)
    - all `OPTIONS` requests (CORS preflight)
 2. For event reads, resolves a presented session so the controller can decide whether to show
@@ -162,8 +171,12 @@ Registered in `CorsConfig` against `/api/**`. It runs before every controller an
 3. Other protected requests resolve the session cookie; **401** if there is no active session. The
    user is stored as request attribute `currentUser` for ownership checks.
 4. Applies role rules; **403** if they fail:
-   - everything under `/api/users` is admin-only, **including GET**
-   - non-GET on `/api/roles` and `/api/event-types` is admin-only
+   - everything under `/api/users` and below `/api/unavailable-days/` is admin-only, **including
+     GET**
+   - paths are matched the way Spring routes them (percent-decoded, `;params` removed), so a
+     differently spelled URL cannot skip these rules
+   - non-GET on `/api/roles`, `/api/event-types`, `/api/semesters`, and `/api/unavailable-days` is
+     admin-only
    - attendee reads, updates, and deletes require faculty or admin
    - state-changing requests with an unapproved `Origin` or `Sec-Fetch-Site: cross-site` are rejected
 
@@ -253,6 +266,22 @@ offsets, validates every occurrence, and inserts them all in a single Supabase P
 errors name the exact range and week so the user gets a useful message. Excluding *every* week is
 rejected.
 
+**Calendar rules (semesters and unavailable days)** are enforced in the database, not in this
+controller. Triggers from migration `20261021_001` refuse any reservation insert, or any update that
+moves a reservation to different dates, when a date is outside every semester or is an unavailable
+day. A batch or recurring request is one insert, so one bad date refuses all of it. The controller
+only does three things here:
+
+- turns the database's refusal (SQLSTATE `BTC01`) into a `409` with the dates, via
+  `CalendarRuleErrors`;
+- refuses `admin_override` from non-admins with `403`;
+- for an admin override, calls `rpc/create_events_with_calendar_override` or
+  `rpc/update_event_with_calendar_override` instead of the table. It passes the admin's id from the
+  session, and the database checks that account again and writes `calendar_override_audit`.
+
+It also stores the validated instant for `start_time`/`end_time`, so a time sent without an offset
+is judged on the same Los Angeles date in Java and in the database.
+
 **`DELETE /api/events/{id}`** has a wrinkle worth knowing. The `attendees.event_id` foreign key has
 no `ON DELETE` rule, so Postgres refuses to delete an event that has check-ins. The controller
 therefore deletes the attendee rows first — deleting a reservation is taken to discard its
@@ -319,6 +348,33 @@ required on create. Text fields are length-limited.
 GET is public and writes are admin-only. Both controllers whitelist request fields before they
 reach PostgREST. Role routes use the actual `user_roles.name` primary key.
 
+### `SemesterController` / `UnavailableDayController` — calendar configuration
+
+`/api/semesters` and `/api/unavailable-days`. The lists are public; writes and the
+affected-reservations list are admin-only. Both
+whitelist their fields, validate dates as `YYYY-MM-DD`, and return `404` for unknown ids. The rules
+that depend on other rows are left to the database triggers, which also settle concurrent writes:
+
+- semesters may not overlap;
+- shrinking or deleting a semester may not strand upcoming reservations or its closures;
+- a closure must sit inside a semester, must not be in the past, and must not repeat a date.
+
+`CalendarRuleErrors` maps those refusals to `400`/`409` bodies with details.
+
+Closing a day that already has reservations returns `409` with the list and
+`override_available: true`. An admin can close it anyway, for an emergency or maintenance, by
+adding `admin_override` and `override_reason`. The controller then calls
+`rpc/create_unavailable_day_with_override` (or the `update_` variant). The reservations are kept,
+and the database writes one `close_day` row per affected reservation to `calendar_override_audit`.
+`GET /api/unavailable-days/{id}/affected-reservations` (admin-only) lists the reservations
+currently on that day. It is queried live from `events`, so nothing goes stale when a reservation
+is moved or deleted. `CalendarOverrides` reads the override fields for both this controller and
+`ReservationController`.
+
+Closure emails to affected hosts are agreed but not built, because the backend has no email
+service yet. The planned behavior and the integration points are listed in
+[API.md](API.md#closure-emails-agreed-not-built-yet).
+
 ### `GlobalExceptionHandler`
 
 - `IllegalArgumentException` → **400** with the message (that's how validation failures surface).
@@ -351,6 +407,11 @@ checks marked ★ happen inside the controller.
 | POST | `/api/events/recurring` | login ★ | template + week ranges |
 | PATCH | `/api/events/{id}` | faculty owner/admin ★ | |
 | DELETE | `/api/events/{id}` | faculty owner/admin ★ | deletes the event's attendees first |
+| GET | `/api/semesters` | public | |
+| POST / PATCH / DELETE | `/api/semesters…` | admin | 409 on overlap or stranded records |
+| GET | `/api/unavailable-days` | public | `from`, `to`, `semester_id` filters; no `created_by` |
+| GET | `/api/unavailable-days/{id}/affected-reservations` | admin | live list, includes private bookings |
+| POST / PATCH / DELETE | `/api/unavailable-days…` | admin | 409 on booked day unless `admin_override` |
 | GET | `/api/reservation-drafts` | login | always scoped to the caller |
 | POST | `/api/reservation-drafts` | login ★ | upsert |
 | DELETE | `/api/reservation-drafts/{id}` | login | permanently deletes the caller's draft |
@@ -394,6 +455,19 @@ recurring booking shares one, which is how "delete the whole series" works.
 
 `reservation_drafts` has a partial unique index guaranteeing one active draft per
 (user, draft_type, source_event_id).
+
+**Semesters and unavailable days** come from `database/migrations/20261021_001_semesters_unavailable_days.sql`.
+Read [`database/README.md`](../database/README.md) before applying it.
+
+| Table | Key columns |
+|---|---|
+| `semesters` | `id`, `name` (unique, case-insensitive), `start_date`, `end_date` (inclusive, no overlaps) |
+| `unavailable_days` | `id`, `semester_id` → `semesters`, `unavailable_date` (unique), `reason`, `created_by` |
+| `calendar_override_audit` | append-only history of admin overrides, one row per reservation: `create`/`update` (booked on a restricted date) or `close_day` (was on a day closed anyway) |
+
+The migration also adds triggers on `events`, `semesters`, and `unavailable_days`, and four RPC
+functions for admin overrides. All calendar writes take one transaction-scoped advisory lock, so a
+reservation and a closure for the same day cannot both commit.
 
 ---
 

@@ -99,13 +99,18 @@ public class ReservationController {
     @PostMapping
     public ResponseEntity<String> create(@RequestBody String body, HttpServletRequest request) {
         try {
-            ObjectNode eventBody = normalizeNewEventBody(body);
+            JsonNode input = readEventJson(body);
+            ObjectNode eventBody = normalizeNewEventInput(input);
 
             if (!canSaveWithRequestedHost(request, eventBody)) {
                 return jsonError(403, "You do not have permission to save this reservation for that host.");
             }
 
-            return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBody)));
+            if (CalendarOverrides.requested(input) && !isAdmin(request)) {
+                return jsonError(403, CalendarRuleErrors.OVERRIDE_FORBIDDEN_MESSAGE);
+            }
+
+            return insertEvents(eventBody, CalendarOverrides.reason(input), request);
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -123,6 +128,15 @@ public class ReservationController {
                 return jsonError(400, "At least one reservation is required.");
             }
 
+            // An override covers the whole batch, so it is read from the
+            // top-level object ({"events": [...], "admin_override": true, ...}).
+            JsonNode overrideInput = input.isObject() ? input : objectMapper.createObjectNode();
+
+            if (CalendarOverrides.requested(overrideInput) && !isAdmin(request)) {
+                return jsonError(403, CalendarRuleErrors.OVERRIDE_FORBIDDEN_MESSAGE);
+            }
+
+            String overrideReason = CalendarOverrides.reason(overrideInput);
             ArrayNode eventBodies = objectMapper.createArrayNode();
 
             for (int index = 0; index < inputEvents.size(); index++) {
@@ -141,7 +155,7 @@ public class ReservationController {
                 eventBodies.add(eventBody);
             }
 
-            return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBodies)));
+            return insertEvents(eventBodies, overrideReason, request);
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -169,6 +183,11 @@ public class ReservationController {
                 return jsonError(400, "At least one recurring reservation time range is required.");
             }
 
+            if (CalendarOverrides.requested(input) && !isAdmin(request)) {
+                return jsonError(403, CalendarRuleErrors.OVERRIDE_FORBIDDEN_MESSAGE);
+            }
+
+            String overrideReason = CalendarOverrides.reason(input);
             ArrayNode eventBodies = objectMapper.createArrayNode();
 
             for (int rangeIndex = 0; rangeIndex < ranges.size(); rangeIndex++) {
@@ -221,7 +240,9 @@ public class ReservationController {
                 }
             }
 
-            return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBodies)));
+            // Every occurrence goes to the database in one statement, so one
+            // restricted date rejects the whole series and nothing is saved.
+            return insertEvents(eventBodies, overrideReason, request);
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -242,13 +263,38 @@ public class ReservationController {
                 return jsonError(403, "You do not have permission to modify this reservation.");
             }
 
-            ObjectNode eventBody = normalizeEventBody(body);
+            JsonNode input = readEventJson(body);
+            ObjectNode eventBody = normalizeEventInput(input);
 
             if (!canSaveWithRequestedHost(request, eventBody)) {
                 return jsonError(403, "You do not have permission to save this reservation for that host.");
             }
 
-            return fromSupabase(supabase.patchResponse("events?id=eq." + id, objectMapper.writeValueAsString(eventBody)));
+            if (CalendarOverrides.requested(input) && !isAdmin(request)) {
+                return jsonError(403, CalendarRuleErrors.OVERRIDE_FORBIDDEN_MESSAGE);
+            }
+
+            String overrideReason = CalendarOverrides.reason(input);
+
+            // The database re-checks the calendar rules only when the edit moves the
+            // reservation to different dates, comparing the stored row with this one.
+            if (overrideReason == null) {
+                return fromSupabase(
+                    supabase.patchResponse("events?id=eq." + id, objectMapper.writeValueAsString(eventBody))
+                );
+            }
+
+            ObjectNode call = CalendarOverrides.rpcCall(objectMapper, getCurrentUser(request), overrideReason);
+            call.put("p_event_id", id);
+            call.set("p_event", eventBody);
+            SupabaseClient.SupabaseResponse response =
+                supabase.postResponse("rpc/update_event_with_calendar_override", call.toString());
+
+            if (response.isSuccessful() && objectMapper.readTree(response.body()).isEmpty()) {
+                return jsonError(404, "Reservation not found.");
+            }
+
+            return fromSupabase(response);
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {
@@ -288,28 +334,24 @@ public class ReservationController {
         );
     }
 
-    private ObjectNode normalizeEventBody(String body) {
-        try {
-            JsonNode input = objectMapper.readTree(body);
+    private JsonNode readEventJson(String body) {
+        JsonNode input;
 
-            return normalizeEventInput(input);
-        } catch (IllegalArgumentException error) {
-            throw error;
+        try {
+            input = objectMapper.readTree(body);
         } catch (Exception error) {
             throw new IllegalArgumentException("Event body could not be parsed.");
         }
+
+        if (input == null) {
+            throw new IllegalArgumentException("Event body could not be parsed.");
+        }
+
+        return input;
     }
 
     // New reservations may not start in the past. Updates deliberately skip this check so
     // an already-past reservation stays correctable (fixing a title, host, or attendees).
-    private ObjectNode normalizeNewEventBody(String body) {
-        ObjectNode event = normalizeEventBody(body);
-
-        validateStartsInFuture(event);
-
-        return event;
-    }
-
     private ObjectNode normalizeNewEventInput(JsonNode input) {
         ObjectNode event = normalizeEventInput(input);
 
@@ -338,6 +380,34 @@ public class ReservationController {
         validateEventBody(event);
 
         return event;
+    }
+
+    // Semester and unavailable-day rules apply to everyone, admins included; only an admin
+    // may ask to bypass them (see CalendarOverrides).
+    private boolean isAdmin(HttpServletRequest request) {
+        JsonNode currentUser = getCurrentUser(request);
+
+        return currentUser != null && authService.isAdmin(currentUser);
+    }
+
+    // Without an override the rows go straight to the table, where the database's
+    // calendar triggers accept or refuse the whole statement. With one, they go
+    // through the override RPC, which also writes the audit trail.
+    private ResponseEntity<String> insertEvents(JsonNode events, String overrideReason, HttpServletRequest request) {
+        if (overrideReason == null) {
+            return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(events)));
+        }
+
+        ArrayNode eventList = events.isArray()
+            ? (ArrayNode) events
+            : objectMapper.createArrayNode().add(events);
+        ObjectNode call = CalendarOverrides.rpcCall(objectMapper, getCurrentUser(request), overrideReason);
+        call.set("p_events", eventList);
+
+        return fromSupabase(
+            supabase.postResponse("rpc/create_events_with_calendar_override", call.toString()),
+            201
+        );
     }
 
     private String requiredText(JsonNode input, String fieldName, String message) {
@@ -551,6 +621,12 @@ public class ReservationController {
         if (endTime.toLocalTime().isAfter(RESERVATION_DAY_END)) {
             throw new IllegalArgumentException("Reservations must end by 5:00 PM.");
         }
+
+        // Save the instants checked above. A time sent without an offset is read here as
+        // Los Angeles time; passed through raw, the database would read it as UTC and
+        // could judge the calendar rules against a different date.
+        event.put("start_time", startTime.toInstant().toString());
+        event.put("end_time", endTime.toInstant().toString());
     }
 
     private void validateStartsInFuture(ObjectNode event) {
@@ -593,10 +669,18 @@ public class ReservationController {
     }
 
     private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response) {
+        return fromSupabase(response, response.statusCode());
+    }
+
+    private ResponseEntity<String> fromSupabase(SupabaseClient.SupabaseResponse response, int successStatus) {
         if (!response.isSuccessful()) {
-            return jsonError(502, "The database could not complete this request.");
+            ResponseEntity<String> calendarRuleError = CalendarRuleErrors.toResponse(response);
+
+            return calendarRuleError != null
+                ? calendarRuleError
+                : jsonError(502, "The database could not complete this request.");
         }
-        return ResponseEntity.status(response.statusCode())
+        return ResponseEntity.status(successStatus)
             .contentType(MediaType.APPLICATION_JSON)
             .body(response.body());
     }

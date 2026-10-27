@@ -14,6 +14,8 @@ Base URL: `<backend origin>/api` — e.g. `http://localhost:8080/api`.
 - [Auth](#auth) — `/login`, `/logout`, `/session`
 - [Health](#health) — `/health`
 - [Events](#events) — `/events`, `/events/batch`, `/events/recurring`
+- [Semesters](#semesters) — `/semesters`
+- [Unavailable days](#unavailable-days) — `/unavailable-days`
 - [Reservation drafts](#reservation-drafts) — `/reservation-drafts`
 - [Attendees](#attendees) — `/attendees`
 - [Event types](#event-types) — `/event-types`
@@ -107,7 +109,8 @@ errors so constraint details and database messages are not exposed to clients.
 
 | Endpoint group | Behaviour |
 |---|---|
-| `POST`/`PATCH` on `/events`, `/events/batch`, `/events/recurring`, `/reservation-drafts`, `/users` | Input errors return 400; database errors use a generic 502 response. |
+| `POST`/`PATCH` on `/events`, `/events/batch`, `/events/recurring`, `/reservation-drafts`, `/users` | Input errors return 400; database errors use a generic 502 response. Event writes refused by the [calendar rules](#calendar-rules-semesters-and-unavailable-days) return 409 with the conflicting dates. |
+| `POST`/`PATCH`/`DELETE` on `/semesters`, `/unavailable-days` | Input errors return 400, missing ids 404, and calendar conflicts 409 with details. Other database errors return a generic 502. |
 | All `DELETE` | **Inspected properly** — 204 / 409 / 502 (see `DeleteOutcome`). Draft deletion also verifies the row is absent. |
 | Every `GET` | Successful reads return 200; database failures return a generic 500. |
 | `POST` on `/attendees`, `/event-types`, `/roles` | Successful writes return 201; database rejections return a generic 502. |
@@ -137,6 +140,15 @@ table names, constraint details, and database configuration are not exposed.
 | `POST` | `/api/events/recurring` | login ★ | Create a weekly series compactly |
 | `PATCH` | `/api/events/{id}` | faculty owner/admin ★ | Update one, including its event type |
 | `DELETE` | `/api/events/{id}` | faculty owner/admin ★ | Delete one (+ its check-ins) |
+| `GET` | `/api/semesters` | public | All semesters |
+| `POST` | `/api/semesters` | admin | Create a semester |
+| `PATCH` | `/api/semesters/{id}` | admin | Rename a semester or change its dates |
+| `DELETE` | `/api/semesters/{id}` | admin | Delete a semester |
+| `GET` | `/api/unavailable-days` | public | Closed days, optionally filtered by date range or semester |
+| `GET` | `/api/unavailable-days/{id}/affected-reservations` | admin | Reservations currently on a closed day |
+| `POST` | `/api/unavailable-days` | admin | Close a whole day |
+| `PATCH` | `/api/unavailable-days/{id}` | admin | Move a closure or change its reason |
+| `DELETE` | `/api/unavailable-days/{id}` | admin | Reopen a day |
 | `GET` | `/api/reservation-drafts` | login | Your drafts |
 | `POST` | `/api/reservation-drafts` | login ★ | Save/update a draft |
 | `DELETE` | `/api/reservation-drafts/{id}` | login | Discard a draft |
@@ -318,7 +330,17 @@ including `id`, which is why the frontend can safely send a whole event object b
 
 Integers may be sent as numeric strings (`"3"`); booleans may be sent as `"true"`/`"false"`.
 Timestamps are accepted as ISO instant (`2026-03-04T17:00:00Z`), offset date-time
-(`2026-03-04T09:00:00-08:00`), or bare local date-time (`2026-03-04T09:00:00`).
+(`2026-03-04T09:00:00-08:00`), or bare local date-time (`2026-03-04T09:00:00`). A bare local
+date-time means `America/Los_Angeles` time. The server stores the validated instant, so responses
+return times in UTC (`2026-03-04T17:00:00+00:00`).
+
+Two more request fields control the [calendar rules](#calendar-rules-semesters-and-unavailable-days).
+They are never stored on the event:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `admin_override` | boolean | `true` asks to book outside the semester rules or on an unavailable day. Admins only. |
+| `override_reason` | string | Required when `admin_override` is `true`. 1–500 characters, saved in the audit trail. |
 
 ### Validation rules
 
@@ -343,6 +365,45 @@ Two things this does **not** do:
 
 Because the window is evaluated in Pacific time, the same UTC timestamp can be valid in winter and
 invalid in summer. Send zoned timestamps and let the server convert.
+
+### Calendar rules: semesters and unavailable days
+
+A reservation can only be placed on a `America/Los_Angeles` calendar date that is:
+
+1. inside a configured [semester](#semesters) (start and end dates are inclusive), and
+2. not an [unavailable day](#unavailable-days).
+
+These rules apply to faculty **and to admins**. An admin can bypass them only by sending
+`"admin_override": true` with an `override_reason`. A faculty member who sends `admin_override`
+gets a `403`. Each reservation saved through an override that actually bypassed a rule gets a row
+in the `calendar_override_audit` table, recording the admin, the reason, the rules, and the dates.
+
+The database enforces these rules, not just the API, and it judges a batch or recurring request as
+a whole. If one occurrence breaks a rule, **nothing is saved** and the response names every
+conflicting date:
+
+```json
+HTTP/1.1 409 Conflict
+
+{
+  "error": "Reservation date is unavailable.",
+  "date": "2026-12-10",
+  "dates": ["2026-12-10", "2027-01-05"],
+  "unavailable_dates": ["2026-12-10"],
+  "outside_semester_dates": ["2027-01-05"]
+}
+```
+
+`date` is the first conflicting date. The message reads `"Reservation date is outside the configured
+semester."` when no date is an unavailable day. If no semester has been configured at all, every
+reservation write gets this `409`.
+
+An update (`PATCH`) is re-checked only when it moves the reservation to different local dates. Fixing
+the title of a reservation on a day that was later closed (or that was booked through an override)
+still works. Moving any reservation onto a restricted date does not.
+
+Overrides go through a database function that confirms again that the signed-in account is an
+enabled admin. The acting admin's id is taken from the session, never from the request body.
 
 ---
 
@@ -401,8 +462,28 @@ straight from PostgREST, so treat `2xx` rather than exactly `201` as success.)
 | Status | Body | Cause |
 |---|---|---|
 | `400` | `{"error":"title is required."}` etc. | Validation |
+| `400` | `{"error":"override_reason is required when admin_override is true."}` | Override without a reason |
 | `403` | `{"error":"You do not have permission to save this reservation for that host."}` | `host_user_id` isn't yours |
-| 4xx/5xx | PostgREST body | Passed through — e.g. `event_type` not in `event_types` |
+| `403` | `{"error":"Only administrators can override calendar restrictions."}` | `admin_override` from a non-admin |
+| `409` | `{"error":"Reservation date is unavailable.","date":"2026-12-10",…}` | [Calendar rules](#calendar-rules-semesters-and-unavailable-days) |
+| `502` | `{"error":"The database could not complete this request."}` | Other database refusal, e.g. `event_type` not in `event_types` |
+
+An admin booking a closed day:
+
+```json
+{
+  "host_user_id": 3,
+  "start_time": "2026-12-10T10:00:00-08:00",
+  "end_time": "2026-12-10T11:00:00-08:00",
+  "event_type": "Workshop",
+  "title": "Department finals review",
+  "description": "Approved by the dean",
+  "department": "Computer Science",
+  "is_public": true,
+  "admin_override": true,
+  "override_reason": "Special department event"
+}
+```
 
 ```bash
 curl -b jar -X POST http://localhost:8080/api/events \
@@ -433,6 +514,12 @@ single bad element aborts the whole request and nothing is written. Messages are
 | `400` | `{"error":"At least one reservation is required."}` |
 | `400` | `{"error":"Reservation 3: End time must be after start time."}` |
 | `403` | `{"error":"You do not have permission to save reservation 2 for that host."}` |
+| `409` | Calendar rule body listing every conflicting date. Nothing is inserted. |
+
+To override the calendar rules for the whole batch, use the object form and put
+`admin_override` / `override_reason` next to `events`:
+`{"events": [ … ], "admin_override": true, "override_reason": "…"}`. A bare array cannot carry an
+override.
 
 ---
 
@@ -493,9 +580,15 @@ Set the same `recurrence_group_id` on the template for every occurrence to be de
 | `400` | `{"error":"A recurring reservation cannot exclude every week."}` |
 | `400` | `{"error":"Recurring reservation range 1, week 7: Reservations must end by 5:00 PM."}` |
 | `403` | `{"error":"You do not have permission to save this recurring reservation for that host."}` |
+| `403` | `{"error":"Only administrators can override calendar restrictions."}` |
+| `409` | Calendar rule body. For example, weekly Dec 3 / Dec 10 / Dec 17 with Dec 10 closed returns `"dates":["2026-12-10"]` and inserts **zero** occurrences. |
 
-Note the last `400` example: validation errors name **both** the range and the week, so the user
-can be told exactly which occurrence is the problem.
+Note the `400` example for week 7: validation errors name **both** the range and the week, so the
+user can be told exactly which occurrence is the problem.
+
+`admin_override` and `override_reason` go at the top level, next to `event` and `ranges`, and apply to
+every occurrence. Without an override, a series that runs past the semester end, or lands on a
+closed day, is refused as a whole. Use `excluded_week_offsets` to skip those weeks.
 
 **Note on daylight saving:** occurrences are generated with `plusWeeks()` on a zoned date-time in
 `America/Los_Angeles`, so a series spanning a DST change keeps its **wall-clock** time, which is
@@ -526,7 +619,13 @@ matches their user ID. Admins can update any event.
 | `404` | `{"error":"Reservation not found."}` |
 | `403` | `{"error":"You do not have permission to modify this reservation."}` |
 | `403` | `{"error":"You do not have permission to save this reservation for that host."}` (you tried to reassign the host to someone else) |
+| `403` | `{"error":"Only administrators can override calendar restrictions."}` |
 | `400` | Validation message |
+| `409` | Calendar rule body, when the edit moves the reservation onto a restricted date |
+
+An admin can move a reservation onto a restricted date by adding `admin_override` and
+`override_reason` to the body. That update goes through the
+`update_event_with_calendar_override` database function and is audited.
 
 The stored event ownership and the submitted `host_user_id` are both checked. Faculty can update
 their own event, including its event type, but cannot take over another faculty member's event or
@@ -563,6 +662,242 @@ event. If the attendee cleanup fails, the reservation is left untouched.
 **There is no "delete series" endpoint.** The frontend deletes a recurring series by looking up
 every event sharing the `recurrence_group_id` and issuing one `DELETE` each, sequentially. That is
 not atomic — a failure part-way leaves the earlier ones deleted.
+
+---
+
+## Semesters
+
+The periods when BT-216 can be booked. Dates are `America/Los_Angeles` calendar dates and both
+ends are inclusive. Requires migration `20261021_001` (see [`database/README.md`](../database/README.md)).
+
+**Semester object**
+
+```json
+{ "id": 1, "name": "Fall 2026", "start_date": "2026-08-24", "end_date": "2026-12-19" }
+```
+
+Rules, all enforced by the database:
+
+- `start_date` must be on or before `end_date`, and a semester may span at most one year.
+- Two semesters may not share a day, so a date belongs to at most one semester.
+- Names are unique, ignoring case and surrounding spaces.
+- A change may not leave **upcoming** reservations, or the semester's own unavailable days, outside
+  every semester. Past reservations do not count, so a finished semester can be cleaned up once its
+  unavailable days are removed.
+
+### `GET /api/semesters`
+
+**Auth:** public. Array of semesters ordered by `start_date`.
+
+### `POST /api/semesters`
+
+**Auth:** admin. Body: `name`, `start_date`, and `end_date` (all required, dates as `YYYY-MM-DD`).
+Other fields are ignored.
+
+```bash
+curl -b jar -X POST http://localhost:8080/api/semesters \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Fall 2026","start_date":"2026-08-24","end_date":"2026-12-19"}'
+```
+
+**Success — `201`**: array containing the created row (also includes `created_at` and `updated_at`).
+
+### `PATCH /api/semesters/{id}`
+
+**Auth:** admin. Partial update. Send any of `name`, `start_date`, `end_date`. Date order is checked
+against the merged result, so `{"end_date":"2026-12-20"}` alone is fine. **Success — `200`**: array
+containing the updated row.
+
+### `DELETE /api/semesters/{id}`
+
+**Auth:** admin. **Success — `204`**. Remove the semester's unavailable days first.
+
+**Errors (all semester endpoints)**
+
+| Status | Body |
+|---|---|
+| `400` | `{"error":"start_date must be on or before end_date."}`, `{"error":"name is required."}`, `{"error":"start_date must be a date in YYYY-MM-DD format."}`, `{"error":"A semester can be at most one year long."}` |
+| `401` / `403` | Not signed in / not an admin (writes only) |
+| `404` | `{"error":"Semester not found."}` |
+| `409` | `{"error":"This semester overlaps an existing semester."}` |
+| `409` | `{"error":"A semester with this name already exists."}` |
+| `409` | Shrinking or deleting would strand records (see below) |
+| `502` | `{"error":"The database could not complete this request."}` |
+
+```json
+HTTP/1.1 409 Conflict
+
+{
+  "error": "This change would leave reservations or unavailable days outside every semester.",
+  "semester_id": 1,
+  "reservations": [
+    { "id": 42, "title": "CS Club", "start_time": "2026-12-18T18:00:00+00:00",
+      "end_time": "2026-12-18T19:00:00+00:00", "host_user_id": 3 }
+  ],
+  "unavailable_days": [ { "id": 7, "unavailable_date": "2026-12-17" } ]
+}
+```
+
+---
+
+## Unavailable days
+
+Whole days on which BT-216 cannot be booked, such as holidays, closures, and emergencies. Each is
+one `America/Los_Angeles` calendar date inside a semester. Requires migration `20261021_001`.
+
+**Unavailable day object** (as returned by `GET`)
+
+```json
+{ "id": 7, "semester_id": 1, "unavailable_date": "2026-12-10", "reason": "Finals preparation" }
+```
+
+`reason` is public, so do not put private notes in it. Write responses also include `created_by`
+(the admin's user id, taken from the session), `created_at`, and `updated_at`. The public list
+leaves `created_by` out.
+
+Rules, all enforced by the database:
+
+- The date must fall inside a semester. `semester_id` is optional on writes. When it is omitted the
+  database fills it in, and a `semester_id` that does not contain the date is refused.
+- The date must be today or later (Los Angeles time). An existing closure in the past can still have
+  its reason edited or be deleted.
+- One closure per date.
+- A day that already has reservations needs an explicit admin override to close (see
+  [emergency closures](#emergency-closures)).
+- Closures and reservations for the same day are serialized in the database, so a reservation and
+  a non-override closure can never both succeed.
+
+### Emergency closures
+
+Closing a booked day takes two steps, so the admin always sees who is affected first:
+
+1. `POST /api/unavailable-days` as usual. If the day has reservations, the response is `409`:
+
+   ```json
+   HTTP/1.1 409 Conflict
+
+   {
+     "error": "Reservations already exist on this date.",
+     "date": "2026-12-10",
+     "reservations": [
+       { "id": 42, "title": "CS Club", "start_time": "2026-12-10T18:00:00+00:00",
+         "end_time": "2026-12-10T19:00:00+00:00", "host_user_id": 3 }
+     ],
+     "override_available": true
+   }
+   ```
+
+2. To close the day anyway, send the same request again with `"admin_override": true` and an
+   `override_reason` (1–500 characters):
+
+   ```json
+   {
+     "unavailable_date": "2026-12-10",
+     "reason": "Building maintenance",
+     "admin_override": true,
+     "override_reason": "Water leak - facilities closed the room"
+   }
+   ```
+
+   The response is `201`, with the same body as a normal create.
+
+After an emergency closure:
+
+- The existing reservations are **kept, not cancelled**. Use
+  [`GET /api/unavailable-days/{id}/affected-reservations`](#get-apiunavailable-daysidaffected-reservations)
+  to list them, contact the hosts, and move or delete them as needed.
+- New bookings on that day are refused. Title-only edits of the kept reservations still work.
+- The database writes one `close_day` row per affected reservation to the append-only
+  `calendar_override_audit` table, with the admin, the reason, and the date. That history stays
+  even after the reservations are moved or deleted.
+
+The override bypasses only the existing-reservations check. The past-date, semester, and
+one-per-date rules still apply. Only admins can send it.
+
+#### Closure emails (agreed, not built yet)
+
+The backend sends no email today, and the repository has no email service. The agreed behavior is:
+
+1. When an emergency closure succeeds, each affected host gets an automatic email. It says the
+   notice is system-generated and that an admin has not yet reviewed their reservation.
+2. After reviewing the affected reservations, an admin can send follow-up emails about any changes.
+
+To build this, the backend needs:
+
+- An email provider, a sender address, and server-side credentials. None of these exist yet. The
+  same service would cover the planned booking emails (user story R7).
+- A send step after a successful override call in `UnavailableDayController.create` and `update`.
+  It should use the same live query as `affected-reservations` to find the hosts.
+- Sending must not undo the closure if email fails. A queued or outbox approach keeps the two apart.
+- If the team wants to track which reservations an admin has reviewed or emailed, it needs a
+  status table. Nothing in the current schema records this.
+- A follow-up email endpoint for admins (step 2), which also belongs in the admin interface.
+
+### `GET /api/unavailable-days`
+
+**Auth:** public. Ordered by date. Optional query parameters:
+
+| Parameter | Example | Meaning |
+|---|---|---|
+| `from` | `2026-12-01` | Only dates on or after this |
+| `to` | `2026-12-31` | Only dates on or before this |
+| `semester_id` | `1` | Only this semester's closures |
+
+```bash
+curl 'http://localhost:8080/api/unavailable-days?from=2026-12-01&to=2026-12-31'
+```
+
+### `GET /api/unavailable-days/{id}/affected-reservations`
+
+**Auth:** admin. The reservations that currently overlap the closed day, worked out from `events` on
+every call. A reservation that has been moved to another day, or deleted, no longer appears. An
+empty array means nobody is affected. Ordered by start time.
+
+```json
+[
+  { "id": 42, "title": "CS Club", "start_time": "2026-12-10T18:00:00+00:00",
+    "end_time": "2026-12-10T19:00:00+00:00", "is_public": false, "host_user_id": 3,
+    "users": { "first_name": "Ada", "last_name": "Lovelace", "email": "ada@sdmesa.edu" } }
+]
+```
+
+Private reservations are listed in full, with the host's email, because only admins can call this.
+`404` if the closure does not exist.
+
+### `POST /api/unavailable-days`
+
+**Auth:** admin.
+
+```json
+{ "unavailable_date": "2026-12-10", "reason": "Finals preparation" }
+```
+
+`reason` is optional (up to 200 characters). **Success — `201`**: array containing the created row.
+For a booked day, see [emergency closures](#emergency-closures).
+
+### `PATCH /api/unavailable-days/{id}`
+
+**Auth:** admin. Partial update of `unavailable_date`, `reason` (send `null` or `""` to clear it),
+or `semester_id`. Moving a closure re-runs every rule for the new date. Moving it onto a booked day
+takes the same two steps as an emergency closure. **Success — `200`**.
+
+### `DELETE /api/unavailable-days/{id}`
+
+**Auth:** admin. **Success — `204`**. The day becomes bookable again.
+
+**Errors (all unavailable-day endpoints)**
+
+| Status | Body |
+|---|---|
+| `400` | `{"error":"unavailable_date is required."}`, `{"error":"unavailable_date must be a date in YYYY-MM-DD format."}`, `{"error":"from must be on or before to."}` |
+| `400` | `{"error":"Unavailable days cannot be set in the past.","date":"2026-09-01"}` |
+| `400` | `{"error":"override_reason is required when admin_override is true."}` |
+| `401` / `403` | Not signed in / not an admin (everything except the public list) |
+| `404` | `{"error":"Unavailable day not found."}` |
+| `409` | `{"error":"This date is already marked unavailable."}` |
+| `409` | `{"error":"Unavailable days must fall within a configured semester.","date":"2027-01-05"}` |
+| `409` | Reservations exist on that day and there is no override (see [emergency closures](#emergency-closures)) |
+| `502` | `{"error":"The database could not complete this request."}` |
 
 ---
 
@@ -978,12 +1313,20 @@ Series deletion is N sequential requests from the browser, and is not atomic.
 Only the 5:00 PM end is checked server-side. The API accepts a 6 AM booking; the UI just never
 offers one.
 
+### 10. With no semester configured, nothing can be booked
+
+Once migration `20261021_001` is applied, every new or moved reservation must fall inside a
+semester. Create the current semester right after applying the migration. Until then, reservation
+writes return `409`.
+
 ---
 
 ## Verification
 
 The backend test suite runs with `mvn clean verify`. It includes tests for private event masking,
 faculty/admin access, disabled-account login rejection, session token hashing, exact-origin request
-checks, and correct Supabase secret-key headers. These are local automated tests. Apply the database
-migration and exercise the production API before treating live permissions or deployment behavior
-as verified.
+checks, and correct Supabase secret-key headers. It also includes the semester, unavailable-day,
+and admin-override behaviour. When Docker is available, it runs database integration tests that
+apply the migration to a throwaway PostgreSQL 16 container. These are local automated tests. Apply
+the database migration and exercise the production API before treating live permissions or
+deployment behavior as verified.

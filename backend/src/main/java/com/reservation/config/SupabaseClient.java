@@ -6,7 +6,9 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.MissingNode;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -26,12 +28,28 @@ public class SupabaseClient {
         // SQLSTATE. 23503 means another table still references this row, which is
         // what a delete hits when child records exist.
         public boolean isForeignKeyViolation() {
+            return POSTGRES_FOREIGN_KEY_VIOLATION.equals(errorCode());
+        }
+
+        // The Postgres SQLSTATE of a refused request, or "" when there is none.
+        public String errorCode() {
             try {
-                return POSTGRES_FOREIGN_KEY_VIOLATION.equals(
-                    RESPONSE_MAPPER.readTree(body).path("code").asText()
-                );
+                return RESPONSE_MAPPER.readTree(body).path("code").asText("");
             } catch (Exception ignored) {
-                return false;
+                return "";
+            }
+        }
+
+        // The error DETAIL parsed as JSON. Database functions that raise their own
+        // errors put structured details there; anything else yields a missing node.
+        public JsonNode errorDetails() {
+            try {
+                JsonNode details = RESPONSE_MAPPER.readTree(body).path("details");
+                return details.isTextual()
+                    ? RESPONSE_MAPPER.readTree(details.asText())
+                    : MissingNode.getInstance();
+            } catch (Exception ignored) {
+                return MissingNode.getInstance();
             }
         }
     }

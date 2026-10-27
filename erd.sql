@@ -76,3 +76,54 @@ CREATE TABLE public.reservation_drafts (
 CREATE UNIQUE INDEX reservation_drafts_active_unique_idx
   ON public.reservation_drafts (user_id, draft_type, COALESCE(source_event_id, -1))
   WHERE discarded_at IS NULL;
+-- Added by database/migrations/20261021_001_semesters_unavailable_days.sql, which
+-- also creates the triggers, RPC functions, RLS policies, and grants that
+-- enforce semester and closed-day rules. Apply that file, not this excerpt.
+CREATE TABLE public.semesters (
+  id bigint GENERATED ALWAYS AS IDENTITY,
+  name text NOT NULL,
+  start_date date NOT NULL,
+  end_date date NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT semesters_pkey PRIMARY KEY (id),
+  CONSTRAINT semesters_name_check CHECK (char_length(btrim(name)) BETWEEN 1 AND 100),
+  CONSTRAINT semesters_date_order_check CHECK (start_date <= end_date),
+  CONSTRAINT semesters_length_check CHECK (end_date - start_date <= 365),
+  CONSTRAINT semesters_no_overlap EXCLUDE USING gist (daterange(start_date, end_date, '[]') WITH &&)
+);
+CREATE UNIQUE INDEX semesters_name_unique_idx ON public.semesters (lower(btrim(name)));
+CREATE TABLE public.unavailable_days (
+  id bigint GENERATED ALWAYS AS IDENTITY,
+  semester_id bigint NOT NULL,
+  unavailable_date date NOT NULL,
+  reason text,
+  created_by integer,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT unavailable_days_pkey PRIMARY KEY (id),
+  CONSTRAINT unavailable_days_date_key UNIQUE (unavailable_date),
+  CONSTRAINT unavailable_days_semester_id_fkey FOREIGN KEY (semester_id) REFERENCES public.semesters(id) ON DELETE RESTRICT,
+  CONSTRAINT unavailable_days_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id) ON DELETE SET NULL,
+  CONSTRAINT unavailable_days_reason_check CHECK (reason IS NULL OR char_length(reason) <= 200)
+);
+CREATE INDEX unavailable_days_semester_id_idx ON public.unavailable_days (semester_id);
+CREATE TABLE public.calendar_override_audit (
+  id bigint GENERATED ALWAYS AS IDENTITY,
+  event_id integer,
+  action text NOT NULL,
+  actor_user_id integer,
+  actor_email text NOT NULL,
+  reason text NOT NULL,
+  overridden_rules text[] NOT NULL,
+  restricted_dates date[] NOT NULL,
+  event_start_time timestamp with time zone NOT NULL,
+  event_end_time timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT calendar_override_audit_pkey PRIMARY KEY (id),
+  CONSTRAINT calendar_override_audit_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id) ON DELETE SET NULL,
+  CONSTRAINT calendar_override_audit_actor_user_id_fkey FOREIGN KEY (actor_user_id) REFERENCES public.users(id) ON DELETE SET NULL,
+  CONSTRAINT calendar_override_audit_action_check CHECK (action IN ('create', 'update', 'close_day')),
+  CONSTRAINT calendar_override_audit_reason_check CHECK (char_length(btrim(reason)) BETWEEN 1 AND 500)
+);
+CREATE INDEX calendar_override_audit_event_id_idx ON public.calendar_override_audit (event_id);
