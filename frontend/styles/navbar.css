@@ -130,7 +130,7 @@
 
 /* Makes the create reservation button invisible before login validation: interactivity is already disabled, this is just for visual continuity */
 .login-btn:disabled {
-    opacity: 0;
+    display:none ;
     cursor: not-allowed;
 }
 
