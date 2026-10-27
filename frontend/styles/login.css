@@ -7,7 +7,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: 24px;
-  height: 100vh;
+  min-height: 100dvh;
   margin: 0;
 }
 
