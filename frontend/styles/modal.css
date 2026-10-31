@@ -40,6 +40,13 @@
     animation: modalPop 0.18s ease-out;
 }
 
+.QRcode {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 400px;
+}
+
 .ShareLinkModal {
     width: 510px;
     height: 220px;

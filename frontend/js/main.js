@@ -85,6 +85,10 @@ const elements = {
     navUserIdentity: document.getElementById("navUserIdentity"),
     navUserInitials: document.getElementById("navUserInitials"),
     navUserName: document.getElementById("navUserName"),
+    calendarQRCodeBtn: document.getElementById("calendarQRCodeBtn"),
+    calendarQRCodeModalOverlay: document.getElementById("calendarQRModalOverlay"),
+    calendarQRCodeModal: document.getElementById("calendarQRModal"),
+    calendarQRCodeModalCloseBtn: document.getElementById("calendarQRModalCloseBtn")
 };
 
 const facultyReservationDeleteMenu = createActionMenu({
@@ -680,6 +684,35 @@ function openCalendarEvent(reservation) {
     }
 
     openEventModal(reservation);
+}
+
+function openCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.add("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
+    elements.calendarQRCodeModalCloseBtn.focus();
+    generateCalendarQR();
+    console.log(window.location.origin);
+}
+
+function generateCalendarQR()
+{
+    let qrInput = window.location.origin;
+    let container = document.getElementById("CalendarQRcode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
+function closeCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.remove("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "true");
+    elements.calendarQRCodeBtn.focus();
 }
 
 async function openFacultyReservationEditModal(reservation) {
@@ -1284,6 +1317,16 @@ function bindEvents() {
         closeEventModal
     );
 
+    if (
+        elements.calendarQRCodeBtn &&
+        elements.calendarQRCodeModalOverlay &&
+        elements.calendarQRCodeModalCloseBtn
+    ) {
+        elements.calendarQRCodeBtn.addEventListener("click", openCalendarQRCodeModal);
+        elements.calendarQRCodeModalCloseBtn.addEventListener("click", closeCalendarQRCodeModal);
+        bindBackdropClose(elements.calendarQRCodeModalOverlay, closeCalendarQRCodeModal);
+    }
+
     elements.facultyReservationModalCloseBtn.addEventListener(
         "click",
         requestCloseFacultyReservationEditModal
@@ -1348,6 +1391,13 @@ function bindEvents() {
     document.addEventListener(
         "keydown",
         event => {
+            if (
+                event.key === "Escape" &&
+                elements.calendarQRCodeModalOverlay.classList.contains("active")
+            ) {
+                closeCalendarQRCodeModal();
+            }
+
             if (
                 event.key === "Escape" &&
                 elements.QRmodalOverlay.classList.contains("open")
