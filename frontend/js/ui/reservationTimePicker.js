@@ -83,6 +83,7 @@ export function createReservationTimePicker({
                 weekStart = getStartOfWeek(displayedDate);
             } else {
                 weekStart = addDays(weekStart, -7);
+                displayedDate = addDays(displayedDate, -7);
             }
             render();
             dispatchPickerChange();
@@ -94,6 +95,7 @@ export function createReservationTimePicker({
                 weekStart = getStartOfWeek(displayedDate);
             } else {
                 weekStart = addDays(weekStart, 7);
+                displayedDate = addDays(displayedDate, 7);
             }
             render();
             dispatchPickerChange();
@@ -241,6 +243,13 @@ export function createReservationTimePicker({
 
             event.preventDefault();
             beginDrag(cell);
+        });
+
+        cell.addEventListener("click", event => {
+            if (event.detail === 0) {
+                beginDrag(cell);
+                endDrag();
+            }
         });
 
         return cell;
