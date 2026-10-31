@@ -40,7 +40,7 @@
 .week-event.private-event-card {
     border: 1px solid #7f8792;
     background: #9ca3af;
-    color: #374151;
+    color: #111827;
     cursor: default;
     box-shadow: none;
 }
@@ -54,7 +54,7 @@
 
 .private-event-card .upcoming-event-title {
     margin-bottom: 0;
-    color: #374151;
+    color: #111827;
 }
 
 .upcoming-event-title {

@@ -274,7 +274,7 @@
 }
 
 .month-day.is-outside .month-event {
-    opacity: 0.6;
+    opacity: 0.8; /* 0.6 failed contrast; at 0.8 every chip stays above 4.5:1 */
 }
 
 .month-more {
