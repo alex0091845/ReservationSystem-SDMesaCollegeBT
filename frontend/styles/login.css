@@ -7,7 +7,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: 24px;
-  height: 100vh;
+  min-height: 100dvh;
   margin: 0;
 }
 
@@ -55,7 +55,7 @@ input {
   align-items: center;
   gap: 8px;
   margin: 0 0 16px;
-  color: #333;
+  color: #333333;
   font-size: 14px;
   cursor: pointer;
   user-select: none;
@@ -113,7 +113,14 @@ button:hover {
 #message {
   margin-top: 15px;
   text-align: center;
-  color: red;
+}
+
+#message.success {
+  color: #1B6525;
+}
+
+#message.error {
+  color: #9E0000;
 }
 
 @media (max-width: 420px) {

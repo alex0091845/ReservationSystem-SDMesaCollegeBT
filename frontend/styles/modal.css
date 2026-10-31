@@ -19,9 +19,11 @@
     width: 100%;
     max-width: 700px;
     max-height: 85vh;
+    max-height: min(85vh, calc(100dvh - 40px));
+    overflow-wrap: anywhere;
     overflow-y: auto;
     border-radius: var(--radius-modal);
-    background: #fff;
+    background: #ffffff;
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
     animation: modalPop 0.18s ease-out;
 }
@@ -43,6 +45,48 @@
     justify-content: center;
     align-items: center;
     height: 400px;
+}
+
+.ShareLinkModal {
+    width: 510px;
+    height: 220px;
+    max-width: none;
+    max-height: none;
+    overflow-y: auto;
+    border-radius: var(--radius-modal);
+    background: #ffffff;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+    animation: modalPop 0.18s ease-out;
+}
+
+.QRmodal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(17, 24, 39, 0.45);
+}
+
+.ShareLinkModal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(17, 24, 39, 0.45);
+}
+
+.QRmodal-overlay.open {
+    display: flex;
+}
+
+.ShareLinkModal-overlay.open {
+    display: flex;
 }
 
 @keyframes modalPop {
@@ -110,6 +154,7 @@
 
 .modal-field {
     display: grid;
+    min-width: 0;
     gap: 4px;
 }
 
@@ -148,6 +193,7 @@
 
 .reservation-input {
     width: 100%;
+    min-width: 0;
     border: 1px solid #d1d5db;
     border-radius: var(--radius-control);
     padding: 10px 12px;
@@ -541,7 +587,7 @@
 
 .reservation-actions {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: flex-end;
     gap: 10px;
     margin-top: 18px;
@@ -765,7 +811,7 @@
 .reservation-action-group {
     display: flex;
     flex: 0 0 auto;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: flex-end;
     gap: 10px;
@@ -835,7 +881,7 @@
     .reservation-modal .modal-topbar {
         position: sticky;
         top: 0;
-        z-index: 2;
+        z-index: 10;
         padding: 16px;
         background: #fff;
     }
@@ -1015,13 +1061,18 @@
 
     .modal {
         max-width: 95%;
-        max-height: 90vh;
+        max-height: calc(100dvh - 40px);
+    }
+
+    .reservation-modal {
+        max-width: 100%;
+        max-height: calc(100dvh - 16px);
     }
 }
 
 .modal-two-column {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.5rem;
     align-items: stretch;
 }
@@ -1079,6 +1130,7 @@
 
 .modal-title-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     min-width: 0;
@@ -1130,6 +1182,8 @@
 
 .draft-exit-card {
     width: min(100%, 560px);
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
     border-radius: var(--radius-modal);
     padding: 22px;
     background: #fff;
@@ -1165,6 +1219,10 @@
 }
 
 @media (max-width: 720px) {
+    .modal-two-column {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
     .modal-event-title {
         font-size: 21px;
     }
@@ -1206,10 +1264,13 @@
         font-size: 15px;
     }
 
-    .reservation-input,
     .reservation-primary-btn,
     .reservation-secondary-btn {
         font-size: 13px;
+    }
+
+    .reservation-input {
+        font-size: 16px;
     }
 
     .visibility-title {
@@ -1222,5 +1283,25 @@
 
     .modal-close-btn {
         font-size: 18px;
+    }
+}
+
+@media (pointer: coarse) {
+    .reservation-input {
+        font-size: 16px;
+    }
+
+    .reservation-time-picker-slot {
+        min-height: 24px;
+    }
+
+    .reservation-time-picker-nav,
+    .modal-close-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+
+    .reservation-time-picker-header {
+        grid-template-columns: 44px minmax(0, 1fr) 44px;
     }
 }
