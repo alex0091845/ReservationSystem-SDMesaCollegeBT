@@ -127,7 +127,7 @@
 
 .week-day-name {
     margin-bottom: 3px;
-    color: #6b7280;
+    color: var(--a11y-text-muted);
     font-size: 13px;
     line-height: 1.1;
 }
@@ -233,4 +233,28 @@
 .red {
     background: var(--mesa-maroon);
     border-left-color: var(--mesa-maroon);
+}
+
+/* Text on the Mesa orange and green fills (WCAG 1.4.3). White text fails on these (orange 2.81:1, green 3.54:1),
+   so they use black text instead: 7.48:1 on orange and 5.93:1 on green. Blue, purple and maroon keep white text.
+   The reasoning is in docs/ACCESSIBILITY_COLORS.md */
+.green,
+.orange {
+    color: #000;
+}
+
+.green .upcoming-event-title,
+.orange .upcoming-event-title,
+.green .upcoming-event-date,
+.orange .upcoming-event-date,
+.green .upcoming-event-time,
+.orange .upcoming-event-time,
+.green .event-card-attendee-count,
+.orange .event-card-attendee-count {
+    color: inherit;
+}
+
+.green .event-card-attendee-count,
+.orange .event-card-attendee-count {
+    background: rgba(0, 0, 0, 0.12);
 }
