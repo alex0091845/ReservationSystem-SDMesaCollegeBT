@@ -23,9 +23,63 @@
     overflow-wrap: anywhere;
     overflow-y: auto;
     border-radius: var(--radius-modal);
-    background: #fff;
+    background: #ffffff;
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
     animation: modalPop 0.18s ease-out;
+}
+
+.QRmodal {
+    width: 390px;
+    height: 490px;
+    max-width: none;
+    max-height: none;
+    overflow-y: auto;
+    border-radius: var(--radius-modal);
+    background: #ffffff;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+    animation: modalPop 0.18s ease-out;
+}
+
+.ShareLinkModal {
+    width: 510px;
+    height: 220px;
+    max-width: none;
+    max-height: none;
+    overflow-y: auto;
+    border-radius: var(--radius-modal);
+    background: #ffffff;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+    animation: modalPop 0.18s ease-out;
+}
+
+.QRmodal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(17, 24, 39, 0.45);
+}
+
+.ShareLinkModal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(17, 24, 39, 0.45);
+}
+
+.QRmodal-overlay.open {
+    display: flex;
+}
+
+.ShareLinkModal-overlay.open {
+    display: flex;
 }
 
 @keyframes modalPop {

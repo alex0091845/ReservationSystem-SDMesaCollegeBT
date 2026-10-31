@@ -44,6 +44,12 @@ const elements = {
     checkInWidgetList: document.getElementById("checkInWidgetList"),
     facultyReservationModalOverlay: document.getElementById("facultyReservationModalOverlay"),
     facultyReservationModalCloseBtn: document.getElementById("facultyReservationModalCloseBtn"),
+    QRcodeBtn: document.getElementById("QRcodeBtn"),    
+    QRmodalOverlay: document.getElementById("QRmodalOverlay"),
+    QRmodalCloseBtn: document.getElementById("QRmodalCloseBtn"),
+    shareLinkBtn: document.getElementById("shareLinkBtn"),
+    ShareLinkModalOverlay: document.getElementById("ShareLinkModalOverlay"),
+    ShareLinkModalCloseBtn: document.getElementById("ShareLinkModalCloseBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
@@ -78,7 +84,7 @@ const elements = {
     navTitle: document.querySelector(".nav-title"),
     navUserIdentity: document.getElementById("navUserIdentity"),
     navUserInitials: document.getElementById("navUserInitials"),
-    navUserName: document.getElementById("navUserName")
+    navUserName: document.getElementById("navUserName"),
 };
 
 const facultyReservationDeleteMenu = createActionMenu({
@@ -771,6 +777,30 @@ function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
     setFacultyReservationDeleting(false);
 }
 
+function openQRCodeModal() {
+    elements.QRmodalOverlay.classList.add("open");
+    elements.QRmodalOverlay.setAttribute("aria-hidden", "false");
+    elements.QRmodalCloseBtn.focus();
+}
+
+function closeQRCodeModal() {
+    elements.QRmodalOverlay.classList.remove("open");
+    elements.QRmodalOverlay.setAttribute("aria-hidden", "true");
+    elements.QRcodeBtn.focus();
+}
+
+function openShareLinkModal() {
+    elements.ShareLinkModalOverlay.classList.add("open");
+    elements.ShareLinkModalOverlay.setAttribute("aria-hidden", "false");
+    elements.ShareLinkModalCloseBtn.focus();
+}
+
+function closeShareLinkModal() {
+    elements.ShareLinkModalOverlay.classList.remove("open");
+    elements.ShareLinkModalOverlay.setAttribute("aria-hidden", "true");
+    elements.shareLinkBtn.focus();
+}
+
 async function requestCloseFacultyReservationEditModal() {
     if (facultyReservationClosePromptOpen) {
         return;
@@ -1259,6 +1289,18 @@ function bindEvents() {
         requestCloseFacultyReservationEditModal
     );
 
+    if (elements.QRcodeBtn && elements.QRmodalOverlay && elements.QRmodalCloseBtn) {
+        elements.QRcodeBtn.addEventListener("click", openQRCodeModal);
+        elements.QRmodalCloseBtn.addEventListener("click", closeQRCodeModal);
+        bindBackdropClose(elements.QRmodalOverlay, closeQRCodeModal);
+    }
+
+    if (elements.shareLinkBtn && elements.ShareLinkModalOverlay && elements.ShareLinkModalCloseBtn) {
+        elements.shareLinkBtn.addEventListener("click", openShareLinkModal);
+        elements.ShareLinkModalCloseBtn.addEventListener("click", closeShareLinkModal);
+        bindBackdropClose(elements.ShareLinkModalOverlay, closeShareLinkModal);
+    }
+
     elements.facultyReservationCancelBtn.addEventListener(
         "click",
         requestCloseFacultyReservationEditModal
@@ -1308,6 +1350,22 @@ function bindEvents() {
         event => {
             if (
                 event.key === "Escape" &&
+                elements.QRmodalOverlay.classList.contains("open")
+            ) {
+                closeQRCodeModal();
+                return;
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.ShareLinkModalOverlay.classList.contains("open")
+            ) {
+                closeShareLinkModal();
+                return;
+            }
+
+            if (
+                event.key === "Escape" &&
                 elements.eventModalOverlay.classList.contains("active")
             ) {
                 closeEventModal();
@@ -1323,7 +1381,7 @@ function bindEvents() {
     );
 
     if (elements.loginBtn) {
-        elements.loginBtn.textContent = isFacultyLoggedIn ? "Sign Out" : "Faculty Login";
+        elements.loginBtn.textContent = isFacultyLoggedIn ? "Log Out" : "Faculty/Admin Login";
 
         elements.loginBtn.addEventListener(
             "click",

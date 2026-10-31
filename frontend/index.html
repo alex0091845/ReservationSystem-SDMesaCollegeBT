@@ -166,9 +166,43 @@
                         <button type="submit" class="reservation-primary-btn" id="eventCheckInSubmitBtn">
                             Check In
                         </button>
+
+                        <p class="check-in-status" id="generateQRCode" role="QRCode"></p>
+                        <button type="button" class="reservation-primary-btn" id="QRcodeBtn">
+                            QR Code
+                        </button>
+
+                        <p class="check-in-status" id="shareLink" role="shareLink"></p>
+                        <button  type="button" class="reservation-primary-btn" id="shareLinkBtn">
+                            Share Link
+                        </button>
+
                     </div>
                 </form>
             </section>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <div class="QRmodal-overlay" id="QRmodalOverlay" aria-hidden="true">
+        <div class="QRmodal" id="QRmodal" role="dialog" aria-modal="true" aria-labelledby="QRmodalTitle">
+            <div class="modal-topbar">
+                <h2 class="modal-event-title" id="QRmodalTitle">QR Code</h2>
+                <button type="button" class="modal-close-btn" id="QRmodalCloseBtn"
+                    aria-label="Close QR code">&times;</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Link Modal -->
+    <div class="ShareLinkModal-overlay" id="ShareLinkModalOverlay" aria-hidden="true">
+        <div class="ShareLinkModal" id="ShareLinkModal" role="dialog" aria-modal="true"
+            aria-labelledby="ShareLinkModalTitle">
+            <div class="modal-topbar">
+                <h2 class="modal-event-title" id="ShareLinkModalTitle">Share Link</h2>
+                <button type="button" class="modal-close-btn" id="ShareLinkModalCloseBtn"
+                    aria-label="Close share link">&times;</button>
+            </div>
         </div>
     </div>
 

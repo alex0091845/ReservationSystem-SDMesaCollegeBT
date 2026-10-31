@@ -86,6 +86,7 @@ export function createModalController(elements) {
         eventCheckInStatus
     } = elements;
 
+    
     bindEventCheckInForm();
 
     // Opens event details modal
