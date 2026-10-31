@@ -4,6 +4,7 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import com.reservation.config.SupabaseClient;
 import com.reservation.services.AuthService;
+import com.reservation.services.ReservationAvailabilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +16,7 @@ class ReservationControllerPrivacyTest {
     private final SupabaseClient supabase = mock(SupabaseClient.class);
     private final AuthService authService = mock(AuthService.class);
     private final ReservationController controller = new ReservationController(
-        supabase, new ObjectMapper(), authService
+        supabase, new ObjectMapper(), authService, mock(ReservationAvailabilityService.class)
     );
     private final ObjectMapper mapper = new ObjectMapper();
 

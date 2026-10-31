@@ -1,0 +1,431 @@
+.admin-availability-panel {
+    grid-column: 1 / -1;
+    width: 100%;
+}
+
+#availabilityTitle {
+    font-size: 2em;
+}
+
+.availability-confirm-modal {
+    width: calc(100% - 32px);
+    max-width: 520px;
+    padding: 0;
+    border: 0;
+}
+
+.availability-confirm-modal::backdrop {
+    background: rgba(17, 24, 39, 0.45);
+}
+
+.availability-confirm-modal .modal-topbar {
+    padding: 20px 22px;
+    align-items: center;
+}
+
+.availability-confirm-modal .modal-content {
+    gap: 12px;
+    padding: 20px 22px;
+}
+
+.availability-confirm-modal .reservation-actions {
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.availability-confirm-modal [hidden] {
+    display: none;
+}
+
+.availability-confirm-modal p {
+    margin: 0;
+    color: #374151;
+    line-height: 1.5;
+}
+
+.availability-confirm-modal .availability-confirm-hint {
+    color: #4b5563;
+    font-size: 14px;
+}
+
+.availability-confirm-modal .availability-confirm-warning {
+    padding: 12px;
+    border: 1px solid #d97706;
+    border-radius: var(--radius-control);
+    background: #fffbeb;
+    color: #78350f;
+    font-size: 14px;
+    white-space: pre-line;
+}
+
+.availability-confirm-modal .reservation-actions button {
+    white-space: normal;
+}
+
+#reservationAvailability .availability-toolbar {
+    grid-column: 1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+}
+
+#reservationAvailability .availability-cutoff {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    color: #1f2937;
+    font-size: 13px;
+}
+
+#reservationAvailability input[type="date"] {
+    min-width: 0;
+    max-width: 100%;
+    border: 1px solid #64748b;
+    border-radius: var(--radius-control);
+    padding: 7px 8px;
+    background: #fff;
+    color: #1f2937;
+}
+
+#availabilitySave {
+    min-height: 40px;
+}
+
+#availabilitySave:disabled {
+    background: #475569;
+    color: #fff;
+    opacity: 1;
+}
+
+#availabilityDiscard {
+    min-height: 40px;
+}
+
+#reservationAvailability .availability-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 24px;
+    margin-top: 20px;
+}
+
+#reservationAvailability .availability-calendar-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+#reservationAvailability .year-header {
+    grid-column: 2;
+    justify-self: center;
+    gap: 12px;
+    margin: 0;
+}
+
+#reservationAvailability .year-title {
+    font-size: 18px;
+}
+
+#reservationAvailability .nav-btn {
+    border: 1px solid #64748b;
+    background: #fff;
+    color: var(--mesa-blue);
+}
+
+#reservationAvailability .nav-btn:disabled {
+    background: #f1f5f9;
+    color: #475569;
+    opacity: 1;
+}
+
+#reservationAvailability .availability-selection-toolbar {
+    grid-column: 3;
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0;
+}
+
+#reservationAvailability .availability-month-select {
+    display: none;
+}
+
+#reservationAvailability .year-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+#reservationAvailability .availability-control {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 28px;
+    color: #1f2937;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+#reservationAvailability input[type="checkbox"] {
+    appearance: none;
+    position: relative;
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    border: 1px solid #64748b;
+    border-radius: 4px;
+    background: #fff;
+    color: #fff;
+    cursor: inherit;
+}
+
+#reservationAvailability input[type="checkbox"]:checked,
+#reservationAvailability input[type="checkbox"]:indeterminate {
+    border-color: var(--mesa-blue);
+    background: var(--mesa-blue);
+}
+
+#reservationAvailability input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 44%;
+    width: 8px;
+    height: 4px;
+    border-left: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+#reservationAvailability input[type="checkbox"]:indeterminate::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 7px;
+    height: 1.5px;
+    border: 0;
+    border-radius: 1px;
+    background: currentColor;
+    transform: translate(-50%, -50%);
+}
+
+#reservationAvailability .year-month {
+    border-color: #94a3b8;
+    padding: 12px;
+    gap: 8px;
+    cursor: default;
+}
+
+#reservationAvailability .year-month:hover {
+    border-color: #94a3b8;
+    box-shadow: none;
+}
+
+#reservationAvailability .year-month-days {
+    grid-auto-rows: 36px;
+    gap: 3px;
+}
+
+#reservationAvailability .year-day {
+    aspect-ratio: auto;
+}
+
+#reservationAvailability .availability-month-name {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 32px;
+    color: var(--mesa-blue);
+    font-family: var(--font-primary);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#reservationAvailability .availability-month-name:has(input:disabled) {
+    color: #475569;
+    cursor: default;
+}
+
+#reservationAvailability .availability-control:hover input:enabled,
+#reservationAvailability .availability-month-name:hover input:enabled {
+    border-color: var(--mesa-blue);
+}
+
+#reservationAvailability .year-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 0;
+    border: 1px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+#reservationAvailability .is-available {
+    border: 1px solid var(--mesa-blue);
+    background: var(--mesa-blue);
+    color: #fff;
+}
+
+#reservationAvailability .is-blocked {
+    border: 1px solid #64748b;
+    background: #e2e8f0;
+    color: #1f2937;
+}
+
+#reservationAvailability .year-day:disabled {
+    border-color: #94a3b8;
+    border-style: dashed;
+    background: #f8fafc;
+    color: #475569;
+    opacity: 1;
+    cursor: default;
+}
+
+#reservationAvailability .year-day.is-outside-window {
+    border-color: #cbd5e1;
+    border-style: solid;
+    background: #cbd5e1;
+    color: #334155;
+}
+
+#reservationAvailability .is-modified {
+    box-shadow: inset 0 0 0 3px #f59e0b;
+}
+
+#availabilitySavedCutoff {
+    color: #92400e;
+    font-weight: 600;
+}
+
+#reservationAvailability .year-day:enabled:hover {
+    filter: brightness(0.9);
+}
+
+#reservationAvailability :is(.year-day, input, select, .nav-btn):focus-visible {
+    outline: 3px solid var(--district-cyan);
+    outline-offset: 2px;
+}
+
+#reservationAvailability .availability-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-top: 14px;
+    color: #1f2937;
+    font-size: 12px;
+}
+
+#reservationAvailability .year-legend {
+    margin: 0 0 0 auto;
+}
+
+#reservationAvailability .availability-swatch {
+    width: 14px;
+    height: 14px;
+    margin-left: 6px;
+    border-radius: 2px;
+}
+
+#availabilityReload {
+    margin-top: 10px;
+}
+
+#availabilityReload[hidden] {
+    display: none;
+}
+
+@media (max-width: 1050px) {
+    #reservationAvailability .year-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    #reservationAvailability .year-grid {
+        grid-template-columns: minmax(0, 1fr);
+        max-width: 420px;
+        margin: 0 auto;
+    }
+
+    #reservationAvailability .year-month:not([data-active-month="true"]) {
+        display: none;
+    }
+
+    #reservationAvailability .year-month-days {
+        grid-auto-rows: 44px;
+    }
+
+    #reservationAvailability .availability-month-select {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 14px;
+        color: #1f2937;
+        font-size: 13px;
+    }
+
+    #availabilityMonth {
+        flex: 1;
+        min-width: 0;
+        padding: 8px;
+        border: 1px solid #64748b;
+        border-radius: var(--radius-control);
+        background: #fff;
+        color: #1f2937;
+    }
+}
+
+@media (max-width: 760px) {
+    #reservationAvailability .availability-calendar-controls {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    #reservationAvailability .year-header,
+    #reservationAvailability .availability-selection-toolbar {
+        grid-column: 1;
+        justify-self: center;
+    }
+}
+
+@media (max-width: 560px) {
+    #reservationAvailability .availability-actions {
+        gap: 16px;
+    }
+
+    #reservationAvailability .availability-actions button {
+        padding: 10px;
+        font-size: 13px;
+    }
+}
+
+@media (pointer: coarse) {
+    #reservationAvailability .year-month-days {
+        grid-auto-rows: 44px;
+    }
+
+    #reservationAvailability .availability-month-name,
+    #reservationAvailability .availability-control {
+        min-height: 44px;
+    }
+
+    #reservationAvailability input[type="date"],
+    #availabilityMonth {
+        font-size: 16px;
+    }
+}

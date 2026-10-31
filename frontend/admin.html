@@ -12,6 +12,7 @@
     <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
     <link rel="stylesheet" href="styles/main.css" />
     <link rel="stylesheet" href="styles/admin.css" />
+    <link rel="stylesheet" href="styles/reservation-availability.css" />
 </head>
 
 <body>
@@ -30,7 +31,11 @@
     </header>
 
     <main class="admin-layout">
-        <section class="admin-panel admin-left-panel">
+        <nav class="admin-task-nav" aria-label="Admin sections">
+            <a href="#users" data-admin-section="users" aria-current="page">Users</a>
+            <a href="#availability" data-admin-section="availability">Bookable Dates</a>
+        </nav>
+        <section class="admin-panel admin-left-panel" id="adminUsersSection">
             <div class="admin-dashboard-intro">
                 <div>
                     <h1>Admin Dashboard</h1>
@@ -72,10 +77,67 @@
             <div class="faculty-user-list" id="facultyUserList"></div>
         </section>
 
-        <section class="admin-panel admin-right-panel">
+        <section class="admin-panel admin-right-panel" id="adminUserReservationsSection">
             <div class="admin-user-details" id="adminUserDetails"></div>
         </section>
+        <section class="admin-panel admin-availability-panel" id="adminAvailabilitySection" aria-labelledby="availabilityTitle" hidden>
+            <div class="admin-section-header">
+                <h2 id="availabilityTitle">Bookable Dates</h2>
+            </div>
+            <div id="reservationAvailability" aria-busy="true">
+                <div class="availability-calendar-controls">
+                    <div class="availability-toolbar">
+                        <label class="availability-cutoff">Last bookable date
+                            <input type="date" id="availabilityCutoff" required disabled>
+                            <span id="availabilitySavedCutoff" hidden></span>
+                        </label>
+                    </div>
+                    <div class="year-header">
+                        <button type="button" class="nav-btn" id="availabilityPreviousYear" aria-label="Previous year" disabled>←</button>
+                        <h3 class="year-title" id="availabilityYear"></h3>
+                        <button type="button" class="nav-btn" id="availabilityNextYear" aria-label="Next year" disabled>→</button>
+                    </div>
+                    <div class="availability-selection-toolbar" role="group" aria-label="Bulk date selection">
+                        <label class="availability-control"><input type="checkbox" id="availabilitySelectAll" disabled> Select all</label>
+                        <label class="availability-control"><input type="checkbox" id="availabilityWeekends" disabled> Weekends</label>
+                    </div>
+                </div>
+                <label class="availability-month-select" for="availabilityMonth">Month
+                    <select id="availabilityMonth"></select>
+                </label>
+                <div class="year-grid" id="availabilityGrid" aria-label="Reservation dates"></div>
+                <div class="availability-footer">
+                    <div class="year-legend" aria-label="Availability legend">
+                        <span class="availability-swatch is-available" aria-hidden="true"></span> Available
+                        <span class="availability-swatch is-blocked" aria-hidden="true"></span> Blocked
+                        <span class="availability-swatch is-modified" aria-hidden="true"></span> Unsaved edit
+                    </div>
+                </div>
+                <button type="button" class="reservation-secondary-btn" id="availabilityReload" hidden>Reload availability</button>
+                <div class="availability-actions">
+                    <button type="button" class="reservation-secondary-btn" id="availabilityDiscard" disabled>Discard changes</button>
+                    <button type="button" class="reservation-primary-btn" id="availabilitySave" disabled>Save changes</button>
+                </div>
+            </div>
+        </section>
     </main>
+
+    <dialog class="modal availability-confirm-modal" id="availabilityConfirmDialog" aria-labelledby="availabilityConfirmTitle" aria-describedby="availabilityConfirmWarning availabilityConfirmMessage availabilityConfirmHint">
+        <div class="modal-topbar">
+            <h2 class="modal-event-title" id="availabilityConfirmTitle"></h2>
+            <button type="button" class="modal-close-btn" id="availabilityConfirmClose" aria-label="Close confirmation">&times;</button>
+        </div>
+        <div class="modal-content">
+            <p class="availability-confirm-warning" id="availabilityConfirmWarning" role="alert" hidden></p>
+            <p id="availabilityConfirmMessage"></p>
+            <p class="availability-confirm-hint" id="availabilityConfirmHint"></p>
+            <div class="reservation-actions">
+                <button type="button" class="reservation-secondary-btn" id="availabilityConfirmCancel">Cancel</button>
+                <button type="button" class="reservation-secondary-btn" id="availabilityConfirmAlternative" hidden></button>
+                <button type="button" class="reservation-primary-btn" id="availabilityConfirmAccept"></button>
+            </div>
+        </div>
+    </dialog>
 
     <div class="modal-overlay" id="userModalOverlay" aria-hidden="true">
         <div class="modal user-modal" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">

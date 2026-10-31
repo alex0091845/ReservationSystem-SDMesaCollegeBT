@@ -1,5 +1,6 @@
 import { createAttendee, createEvents, getEventTypes, getEvents, isUserDisabled } from "../api.js";
 import { formatReadableDate } from "../utils/dateUtils.js";
+import { formatEventTime } from "./eventCards.js";
 import { validateReservationData } from "../utils/reservationValidation.js";
 import { renderEventTypeOptions } from "./eventTypeOptions.js";
 import {
@@ -97,28 +98,18 @@ export function createModalController(elements) {
         selectedCheckInEvent = eventData;
 
         const startDate = new Date(eventData.start_time);
-        const endDate = new Date(eventData.end_time);
         const hostUser = await getEventHostUser(eventData);
 
         modalEventTitle.textContent = eventData.title;
-        modalEventDepartment.textContent = eventData.department;
-        modalHost.textContent = getUserFullName(hostUser);
+        modalEventDepartment.textContent = eventData.department || (eventData.is_closure ? "Unavailable" : "");
+        modalHost.textContent = eventData.is_closure ? "Unavailable" : getUserFullName(hostUser);
 
         modalDate.textContent = formatReadableDate(startDate);
 
-        modalTime.textContent = `
-            ${startDate.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit"
-        })}
-            -
-            ${endDate.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit"
-        })}
-        `;
+        modalTime.textContent = formatEventTime(eventData);
 
-        modalDescription.textContent = eventData.description;
+        modalDescription.textContent = eventData.is_closure && (!eventData.description || eventData.description === "Room unavailable")
+            ? "Unavailable" : eventData.description;
         modalEventType.textContent = eventData.event_type;
 
         modalIsPublic.textContent =
@@ -168,9 +159,9 @@ export function createModalController(elements) {
         const isFacultyLoggedIn =
             sessionStorage.getItem("facultyLoggedIn") === "true";
 
-        eventCheckInSection.hidden = isFacultyLoggedIn;
+        eventCheckInSection.hidden = isFacultyLoggedIn || Boolean(selectedCheckInEvent?.is_closure);
 
-        if (isFacultyLoggedIn) {
+        if (isFacultyLoggedIn || selectedCheckInEvent?.is_closure) {
             resetEventCheckInForm();
             return;
         }
@@ -182,7 +173,7 @@ export function createModalController(elements) {
     async function handleEventCheckInSubmit(event) {
         event.preventDefault();
 
-        if (!selectedCheckInEvent?.id) {
+        if (!selectedCheckInEvent?.id || selectedCheckInEvent.is_closure) {
             setCheckInStatus(
                 "Could not find this event. Please close and reopen the event details.",
                 "error"
