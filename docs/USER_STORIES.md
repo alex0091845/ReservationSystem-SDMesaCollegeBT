@@ -34,7 +34,7 @@ These apply to every reservation story below.
   **"All day"** [#79].
 - Reservations are only allowed **on dates an admin has marked as bookable**, and no later than the
   **last bookable date** (see AD3). The room is closed on holidays.
-- New reservations must **start after the current time** (Pacific time). Editing a past reservation is
+- New reservations must **start after the current time** (Pacific time). Editing a past reservation (content only, not the time) is
   still allowed so mistakes can be fixed [#34].
 - Bookings may not overlap. **First come, first served**; the server rejects overlapping bookings, even
   when two people submit at the same moment [#79]. An admin can edit or cancel any booking to settle a
@@ -49,12 +49,12 @@ These apply to every reservation story below.
 ### V1. View the calendar — Must
 As a visitor, I want to see when the room is booked, so that I know what's happening and when it's free.
 
-- [ ] The calendar is viewable without logging in.
-- [ ] I can zoom between **Year, Month, Week, and Day** views, and go back with a Back button, the
+- [X] The calendar is viewable without logging in.
+- [X] I can zoom between **Year, Month, Week, and Day** views, and go back with a Back button, the
   breadcrumb, or the Esc key. A Today button jumps to the current date.
-- [ ] On a phone, the calendar opens on the Day view.
-- [ ] Booked times, closed days, and hours outside 8 AM – 5 PM are clearly shown as unavailable.
-- [ ] The red "current time" line stays visible on top of events.
+- [ ] Regardless of the device, the calendar shows Day view.
+- [X] Booked times, closed days, and hours outside 8 AM – 5 PM are clearly shown as unavailable.
+- [X] The red "current time" line stays visible on top of events.
 
 > **Built:** the zoomable calendar (Year → Month → Week → Day) [#63]. The Year view shades each day by
 > how busy it is. Dates an admin blocks show on the calendar [#79, in review].
@@ -62,14 +62,13 @@ As a visitor, I want to see when the room is booked, so that I know what's happe
 ### V2. See event details — Must
 As a visitor, I want to open an event and see its details, so that I know whether it's relevant to me.
 
-- [ ] Public events show title, type, time, and organizer.
-- [ ] Private events still appear on the calendar (so nobody thinks the room is free), but are labeled
-  **"Private event"** with no private details.
-- [ ] The organizer can choose to show the event's **name only** for a private event. Everything else
+- [X] Public events show title, description, type, date, time, and organizer.
+- [X] Private events still appear on the calendar (so nobody thinks the room is free), but are labeled
+  **"Private event"** by default with no private details.
+- [ ] **Later**: The organizer can choose to show the event's **name only** for a private event. Everything else
   stays hidden.
 
-> **Decided** [#68]: private events show as "Private event" by default; the organizer may reveal just the
-> name. The system will **not** handle invitations or give invited people access to the details. That
+> **Decided** [#68]: private events show as "Private event" by default. The system will **not** handle invitations or give invited people access to the details. That
 > is too much work for a feature that will rarely be used, and the organizer can email attendees
 > directly. Can be revisited if users ask for it (see L6).
 >
@@ -79,10 +78,10 @@ As a visitor, I want to open an event and see its details, so that I know whethe
 As a visitor, I want event types (office hours, workshop, study group, class, department, etc.) to look
 different, so that I can scan the calendar quickly.
 
-- [ ] Each event type has its own color.
-- [ ] Color is never the only signal — the type name or a label/icon is also shown (see A1).
-- [ ] A legend explains the colors.
-- [ ] Colors in the Week and Day views are soft enough to be easy on the eyes.
+- [X] Each event type has its own color.
+- [ ] **Open**: Color is never the only signal — the type name or a label/icon is also shown (see A1).
+  - Allan/Alex: Leaving this open to any suggestions.
+- [ ] Colors in the Week and Day views are soft enough to be easy on the eyes. Points to accessibility and contrast requirements (A1).
 
 > **Discussion** [#69]: color-coding is standard (Apple, Teams, and Google calendars all use it), so we
 > keep it. Still open: whether the extra label/icon makes it too cluttered — needs user feedback.
@@ -94,44 +93,39 @@ As a visitor, I want to see what's going on in the room right now, so that I kno
 
 - [ ] The landing page shows the current event (if any) and the next upcoming one(s).
 - [ ] Private events show as "Private event", like in V2.
-- [ ] Dates an admin has blocked are **not** listed as upcoming events and can't be checked in to [#79].
+- [X] Dates an admin has blocked are **not** listed as upcoming events and can't be checked in to [#79].
 
 ### V5. Landing page — Must
 As a visitor, I want a clear landing page, so that I immediately see the most useful information.
 
-- [ ] Shows today's schedule / "Happening right now".
-- [ ] Shows the next upcoming event(s).
-- [ ] Shows a check-in area for attendees, **above** "Upcoming Events".
+- [ ] Shows "Happening Now" first if there is an event in progress.
+- [ ] The "Happening Now" section should show a card of the event in progress.
+- [ ] The card in "Happening Now" section should have a button on it that says "Check In."
+- [ ] Shows "Upcoming Events" first if there is no event happening right now.
+- [ ] If there is no event happening right now, the "Happening Now" section should say "No event happening right now" or similar.
+- [ ] Shows today's schedule in calendar view.
 - [ ] Shows the zoomable calendar (V1). No separate small month calendar.
 - [ ] No "Create Reservation" button for visitors. Logged-in users create reservations from the
   dashboard [#77].
+- [ ] Shows a link to Google Maps for the BT building and room (see V8).
 - [ ] Final design, content, and arrangement to be confirmed with Monica/Allan (see [Open questions](#open-questions)).
 
 > **Built** [#74]: removed the small month calendar (the zoom calendar's Month view replaces it), and moved
 > Check-In above Upcoming Events at every screen width.
->
-> **Still proposed** [#70]:
-> - Rename "Check-in" to **"Happening Now"**, with a "Check in" button on the event card that opens the
->   check-in form in a pop-up.
-> - Put "Happening Now" at the top of the page (the first thing people see), then Upcoming Events, then
->   the calendar. Feedback so far: good idea for phones, but keep the calendar where it is on desktop.
-> - Spell out "BT-216" (e.g. "Business and Technology – Room 216"), since people new to Mesa may not
->   know what it means. A map of where the BT building is was also suggested [#73] (see V8).
 
 ### V6. QR code to the calendar — Should
-As a visitor walking past the room, I want to scan a QR code posted at the door, so that I can open the
-calendar on my phone.
+As a visitor walking past the room, I want to scan a QR code, so that I can open the
+calendar.
 
-- [ ] A printable QR code links to the calendar page.
-- [ ] A "QR Code" button in the top bar shows it.
+- [ ] A QR code button shows it, which links to the landing page.
 
 > **In progress** [#57], [#78]: the button and an empty pop-up are done; the QR code itself is next.
 
 ### V7. Calendar on other pages — Could
-As a department, I want to show the room calendar on our own web page, so that people don't have to go to
+As a department, I want to embed the landing page on our own web page, so that people don't have to go to
 a separate site.
 
-- [ ] The calendar can be embedded or linked from other pages (exact need to be clarified).
+- [ ] The calendar can be embedded or linked from other pages (with an iframe).
 
 ### V8. Find the room — Could
 As a visitor new to campus, I want to see where the BT building and the room are, so that I can find it.
