@@ -218,6 +218,31 @@
         </div>
     </div>
 
+    <!-- Unavailable date details -->
+    <div class="modal-overlay" id="unavailableModalOverlay" aria-hidden="true">
+        <div class="modal unavailable-modal" role="dialog" aria-modal="true" aria-labelledby="unavailableModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="unavailableModalTitle">Unavailable</h2>
+                </div>
+
+                <button class="modal-close-btn" id="unavailableModalCloseBtn" aria-label="Close unavailable date details">&times;</button>
+            </div>
+
+            <div class="modal-content">
+                <div class="modal-field">
+                    <div class="modal-label">Date</div>
+                    <div class="modal-value" id="unavailableModalDate">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Reason</div>
+                    <div class="modal-value" id="unavailableModalReason">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Backend API origin. Leave empty to call /api on the same origin as this page;
          set to the backend's origin when the frontend is hosted separately (e.g. S3 -> EC2). -->
     <script>window.RESERVATION_API_ORIGIN = "";</script>

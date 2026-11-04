@@ -484,6 +484,10 @@ export async function saveReservationAvailability(settings) {
     return request("/reservation-availability", "PATCH", settings);
 }
 
+export async function updateUnavailableDateReason(eventId, reason) {
+    return request(`/events/${eventId}`, "PATCH", { description: reason });
+}
+
 export async function getEventTypes() {
     return normalizeCollection(
         await request("/event-types", "GET"),

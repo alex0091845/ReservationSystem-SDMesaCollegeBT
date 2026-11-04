@@ -177,6 +177,14 @@
     max-width: 860px;
 }
 
+.unavailable-modal {
+    max-width: 440px;
+}
+
+#unavailableModalReason {
+    white-space: pre-wrap;
+}
+
 .reservation-form {
     padding: 20px 22px 24px;
 }

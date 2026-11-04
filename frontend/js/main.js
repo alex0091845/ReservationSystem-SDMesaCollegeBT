@@ -78,6 +78,11 @@ const elements = {
     eventCheckInForm: document.getElementById("eventCheckInForm"),
     eventCheckInSubmitBtn: document.getElementById("eventCheckInSubmitBtn"),
     eventCheckInStatus: document.getElementById("eventCheckInStatus"),
+    unavailableModalOverlay: document.getElementById("unavailableModalOverlay"),
+    unavailableModalCloseBtn: document.getElementById("unavailableModalCloseBtn"),
+    unavailableModalTitle: document.getElementById("unavailableModalTitle"),
+    unavailableModalDate: document.getElementById("unavailableModalDate"),
+    unavailableModalReason: document.getElementById("unavailableModalReason"),
     openReservationModalBtn: document.getElementById("openReservationModalBtn"),
     adminDashboardBtn: document.getElementById("adminDashboardBtn"),
     loginBtn: document.getElementById("loginBtn"),
@@ -256,7 +261,9 @@ const state = {
 // Pulls open and close functions from modal file
 const {
     openEventModal,
-    closeEventModal
+    closeEventModal,
+    openUnavailableModal,
+    closeUnavailableModal
 } = createModalController(elements);
 
 // Syncs calendar widget date with week-view widget date
@@ -678,6 +685,11 @@ function formatSideWidgetDate(date) {
 }
 
 function openCalendarEvent(reservation) {
+    if (reservation.is_closure) {
+        openUnavailableModal(reservation);
+        return;
+    }
+
     if (canCurrentUserEditReservation(reservation)) {
         openFacultyReservationEditModal(reservation);
         return;
@@ -1327,6 +1339,11 @@ function bindEvents() {
         bindBackdropClose(elements.calendarQRCodeModalOverlay, closeCalendarQRCodeModal);
     }
 
+    elements.unavailableModalCloseBtn.addEventListener(
+        "click",
+        closeUnavailableModal
+    );
+
     elements.facultyReservationModalCloseBtn.addEventListener(
         "click",
         requestCloseFacultyReservationEditModal
@@ -1382,6 +1399,7 @@ function bindEvents() {
 
     // Allows event modal to be closed by clicking background
     bindBackdropClose(elements.eventModalOverlay, closeEventModal);
+    bindBackdropClose(elements.unavailableModalOverlay, closeUnavailableModal);
     bindBackdropClose(
         elements.facultyReservationModalOverlay,
         requestCloseFacultyReservationEditModal
@@ -1419,6 +1437,13 @@ function bindEvents() {
                 elements.eventModalOverlay.classList.contains("active")
             ) {
                 closeEventModal();
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.unavailableModalOverlay.classList.contains("active")
+            ) {
+                closeUnavailableModal();
             }
 
             if (
