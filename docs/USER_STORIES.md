@@ -79,8 +79,6 @@ As a visitor, I want event types (office hours, workshop, study group, class, de
 different, so that I can scan the calendar quickly.
 
 - [X] Each event type has its own color.
-- [ ] **Open**: Color is never the only signal — the type name or a label/icon is also shown (see A1).
-  - Allan/Alex: Leaving this open to any suggestions.
 - [ ] Colors in the Week and Day views are soft enough to be easy on the eyes. Points to accessibility and contrast requirements (A1).
 
 > **Discussion** [#69]: color-coding is standard (Apple, Teams, and Google calendars all use it), so we
@@ -88,11 +86,13 @@ different, so that I can scan the calendar quickly.
 > Ideas for later: lighter event colors, letting organizers add an emoji or icon, or event banners
 > (Could).
 
+> **Decision**: Adding more than just the color — for example, the type name or a label/icon is also shown (see A1), would be too much.
+
 ### V4. "Happening right now" — Must
 As a visitor, I want to see what's going on in the room right now, so that I know if I can walk in.
 
 - [ ] The landing page shows the current event (if any) and the next upcoming one(s).
-- [ ] Private events show as "Private event", like in V2.
+- [X] Private events show as "Private event", like in V2.
 - [X] Dates an admin has blocked are **not** listed as upcoming events and can't be checked in to [#79].
 
 ### V5. Landing page — Must
@@ -103,9 +103,9 @@ As a visitor, I want a clear landing page, so that I immediately see the most us
 - [ ] The card in "Happening Now" section should have a button on it that says "Check In."
 - [ ] Shows "Upcoming Events" first if there is no event happening right now.
 - [ ] If there is no event happening right now, the "Happening Now" section should say "No event happening right now" or similar.
-- [ ] Shows today's schedule in calendar view.
-- [ ] Shows the zoomable calendar (V1). No separate small month calendar.
-- [ ] No "Create Reservation" button for visitors. Logged-in users create reservations from the
+- [X] Shows today's schedule in calendar view.
+- [X] Shows the zoomable calendar (V1). No separate small month calendar.
+- [X] No "Create Reservation" button for visitors. Logged-in users create reservations from the
   dashboard [#77].
 - [ ] Shows a link to Google Maps for the BT building and room (see V8).
 - [ ] Final design, content, and arrangement to be confirmed with Monica/Allan (see [Open questions](#open-questions)).
@@ -117,7 +117,7 @@ As a visitor, I want a clear landing page, so that I immediately see the most us
 As a visitor walking past the room, I want to scan a QR code, so that I can open the
 calendar.
 
-- [ ] A QR code button shows it, which links to the landing page.
+- [X] A QR code button shows it, which links to the landing page.
 
 > **In progress** [#57], [#78]: the button and an empty pop-up are done; the QR code itself is next.
 
