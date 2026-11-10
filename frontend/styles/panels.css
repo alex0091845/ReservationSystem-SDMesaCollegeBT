@@ -99,6 +99,10 @@
     text-align: left;
 }
 
+.check-in-widget-button {
+    flex-shrink: 0;
+}
+
 .check-in-widget-empty {
     border: 1px solid #e5e7eb;
     border-radius: var(--radius-card);
