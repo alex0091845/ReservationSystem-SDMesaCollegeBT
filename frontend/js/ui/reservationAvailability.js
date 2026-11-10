@@ -1,5 +1,5 @@
-import { getReservationAvailability, saveReservationAvailability } from "../api.js";
-import { monthNames } from "../utils/dateUtils.js";
+import { getReservationAvailability, saveReservationAvailability, updateUnavailableDateReason } from "../api.js";
+import { DEFAULT_UNAVAILABLE_REASON, getCustomUnavailableReason, getUnavailableReason, monthNames } from "../utils/dateUtils.js";
 
 const TIME_ZONE = "America/Los_Angeles";
 const pacificDate = new Intl.DateTimeFormat("en-CA", {
@@ -30,6 +30,16 @@ function datesBetween(from, to) {
     return dates;
 }
 
+function closeOnBackdropClick(dialog, close) {
+    dialog.addEventListener("click", event => {
+        if (event.target !== dialog) return;
+        const bounds = dialog.getBoundingClientRect();
+        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) {
+            close();
+        }
+    });
+}
+
 export function createReservationAvailability({ container, getReservations, onSaved = () => {} }) {
     const cutoff = container.querySelector("#availabilityCutoff");
     const savedCutoff = container.querySelector("#availabilitySavedCutoff");
@@ -51,6 +61,13 @@ export function createReservationAvailability({ container, getReservations, onSa
     const confirmCancel = confirmation.querySelector("#availabilityConfirmCancel");
     const confirmAccept = confirmation.querySelector("#availabilityConfirmAccept");
     const confirmAlternative = confirmation.querySelector("#availabilityConfirmAlternative");
+    const reasonDialog = document.getElementById("availabilityReasonDialog");
+    const reasonTitle = reasonDialog.querySelector("#availabilityReasonTitle");
+    const reasonForm = reasonDialog.querySelector("#availabilityReasonForm");
+    const reasonInput = reasonDialog.querySelector("#availabilityReason");
+    const reasonSave = reasonDialog.querySelector("#availabilityReasonSave");
+    const reasonStatus = reasonDialog.querySelector("#availabilityReasonStatus");
+    let reasonClosure = null;
     let pendingAction = null;
     let pendingAlternativeAction = null;
     let confirmationTrigger = null;
@@ -124,6 +141,7 @@ export function createReservationAvailability({ container, getReservations, onSa
         savedCutoff.textContent = cutoffChanged ? `Saved: ${savedLastDate ? dateLabel.format(parseDate(savedLastDate)) : "not set"}` : "";
         if (cutoffChanged) cutoff.setAttribute("aria-describedby", savedCutoff.id);
         else cutoff.removeAttribute("aria-describedby");
+        const closures = closuresByDate();
         for (const button of grid.querySelectorAll("[data-date]")) {
             const value = button.dataset.date;
             const allowed = editable(value) && !invalidDates.has(value);
@@ -137,7 +155,9 @@ export function createReservationAvailability({ container, getReservations, onSa
             button.setAttribute("aria-pressed", String(allowed));
             const state = value < today() ? "past date" : !lastDate || value > lastDate
                 ? "outside booking window" : allowed ? "available" : "blocked";
-            const label = `${button.dataset.label}, ${state}${modified ? `, unsaved edit; saved as ${savedAllowed ? "available" : "blocked"}` : ""}`;
+            const reason = invalidDates.has(value) && closures.has(value)
+                ? `. Reason: ${getUnavailableReason(closures.get(value))}. Right-click to change` : "";
+            const label = `${button.dataset.label}, ${state}${modified ? `, unsaved edit; saved as ${savedAllowed ? "available" : "blocked"}` : ""}${reason}`;
             button.setAttribute("aria-label", label);
             button.title = label;
         }
@@ -154,6 +174,61 @@ export function createReservationAvailability({ container, getReservations, onSa
         save.disabled = !usable() || (!dirty && affectedReservations().length === 0);
         discard.disabled = !loaded || busy || !dirty;
         container.setAttribute("aria-busy", String(busy));
+    }
+
+    function closuresByDate() {
+        return new Map(getReservations()
+            .filter(event => event.is_closure)
+            .map(event => [localDateKey(new Date(event.start_time)), event]));
+    }
+
+    function openReasonDialog(closure, label) {
+        reasonClosure = closure;
+        reasonTitle.textContent = `Reason for ${label} closure`;
+        reasonInput.value = getCustomUnavailableReason(closure);
+        reasonStatus.textContent = "";
+        reasonSave.disabled = false;
+        reasonDialog.showModal();
+        reasonInput.focus();
+    }
+
+    function closeReasonDialog() {
+        if (!busy) reasonDialog.close();
+    }
+
+    async function saveReason() {
+        const reason = reasonInput.value.trim();
+        if (reason === getCustomUnavailableReason(reasonClosure)) {
+            reasonDialog.close();
+            return;
+        }
+        busy = true;
+        reasonSave.disabled = true;
+        reasonStatus.textContent = "";
+        update();
+        try {
+            await updateUnavailableDateReason(reasonClosure.id, reason);
+        } catch (error) {
+            console.error("Could not save the unavailable date reason:", error);
+            reasonStatus.textContent = "Could not save this reason. Please try again.";
+            reasonSave.disabled = false;
+            busy = false;
+            update();
+            return;
+        }
+        reasonDialog.close();
+        try {
+            // The database advances the availability version on every closure update. Anything
+            // beyond this one save came from another admin, so it stays a conflict to review.
+            const settings = await getReservationAvailability();
+            if (settings.version === version + 1) version = settings.version;
+            await onSaved();
+        } catch (error) {
+            console.error("The reason was saved, but the dates could not refresh:", error);
+        } finally {
+            busy = false;
+            update();
+        }
     }
 
     function render() {
@@ -338,6 +413,29 @@ export function createReservationAvailability({ container, getReservations, onSa
         anchor = value;
         finishDateSelection(before, new Set(invalidDates));
     });
+    // Available dates keep the browser's own menu
+    grid.addEventListener("contextmenu", event => {
+        const day = event.target.closest("[data-date]");
+        if (!day) return;
+        cancelDrag();
+        touchTap = null;
+        const value = day.dataset.date;
+        if (!loaded || busy || !invalidDates.has(value)) return;
+        event.preventDefault();
+        const closure = closuresByDate().get(value);
+        if (!closure) {
+            confirmAction({
+                title: "Save this date first",
+                message: `${day.dataset.label} is not saved as unavailable yet.`,
+                hint: "Save changes, then right-click the date to add a reason.",
+                label: "OK",
+                action: () => {}
+            });
+            return;
+        }
+        day.focus({ preventScroll: true });
+        openReasonDialog(closure, day.dataset.label);
+    });
     grid.addEventListener("change", event => {
         if (!event.target.matches("[data-select-month]")) return;
         const month = event.target.closest("[data-month]");
@@ -398,13 +496,7 @@ export function createReservationAvailability({ container, getReservations, onSa
             first.focus();
         }
     });
-    confirmation.addEventListener("click", event => {
-        if (event.target !== confirmation) return;
-        const bounds = confirmation.getBoundingClientRect();
-        if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) {
-            confirmation.close();
-        }
-    });
+    closeOnBackdropClick(confirmation, () => confirmation.close());
 
     function confirmBulkSelection(dates, { weekendsOnly = false, month = null } = {}) {
         if (!usable()) {
@@ -556,6 +648,16 @@ export function createReservationAvailability({ container, getReservations, onSa
         }
     }
     save.addEventListener("click", () => saveChanges());
+    reasonForm.addEventListener("submit", event => {
+        event.preventDefault();
+        saveReason();
+    });
+    reasonDialog.querySelector("#availabilityReasonCancel").addEventListener("click", closeReasonDialog);
+    reasonDialog.querySelector("#availabilityReasonClose").addEventListener("click", closeReasonDialog);
+    reasonDialog.addEventListener("cancel", event => {
+        if (busy) event.preventDefault();
+    });
+    closeOnBackdropClick(reasonDialog, closeReasonDialog);
     reload.addEventListener("click", () => {
         if (!dirty) {
             load();
@@ -575,6 +677,8 @@ export function createReservationAvailability({ container, getReservations, onSa
         event.preventDefault();
         event.returnValue = "";
     });
+    // A blank reason means the default one
+    reasonInput.placeholder = DEFAULT_UNAVAILABLE_REASON;
     render();
     return { load, refresh: update };
 }

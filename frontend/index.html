@@ -5,6 +5,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BT-216 Events</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <link rel="icon" href="assets/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -169,7 +172,7 @@
                         </button>
 
                         <p class="check-in-status" id="generateQRCode" role="QRCode"></p>
-                        <button type="button" class="reservation-primary-btn" id="QRcodeBtn">
+                        <button type="button" class="reservation-primary-btn" id="qrCodeBtn">
                             QR Code
                         </button>
 
@@ -185,35 +188,70 @@
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <div class="modal-overlay" id="calendarQRModalOverlay" aria-hidden="true">
-        <div class="QRmodal" id="calendarQRModal" role="dialog" aria-modal="true" aria-labelledby="calendarQRModalTitle">
+        <div class="qr-modal" id="calendarQRModal" role="dialog" aria-modal="true" aria-labelledby="calendarQRModalTitle">
             <div class="modal-topbar">
                 <h2 class="modal-event-title" id="calendarQRModalTitle">Calendar QR Code</h2>
                 <button type="button" class="modal-close-btn" id="calendarQRModalCloseBtn"
                     aria-label="Close QR code">&times;</button>
             </div>
-            <div class="QRcode" id="CalendarQRcode" aria-label="Calendar QR code"></div>
+            <div class="qr-code" id="calendarQRCode" aria-label="Calendar QR code"></div>
         </div>
     </div>
 
     <!-- QR Code Modal -->
-    <div class="QRmodal-overlay" id="QRmodalOverlay" aria-hidden="true">
-        <div class="QRmodal" id="QRmodal" role="dialog" aria-modal="true" aria-labelledby="QRmodalTitle">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <div class="qr-modal-overlay" id="qrModalOverlay" aria-hidden="true">
+        <div class="qr-modal" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
             <div class="modal-topbar">
-                <h2 class="modal-event-title" id="QRmodalTitle">QR Code</h2>
-                <button type="button" class="modal-close-btn" id="QRmodalCloseBtn"
+                <h2 class="modal-event-title" id="qrModalTitle">QR Code</h2>
+                <button type="button" class="modal-close-btn" id="qrModalCloseBtn"
                     aria-label="Close QR code">&times;</button>
             </div>
+            <div class="qr-code" id="qrCode" aria-label="QR code"></div>
         </div>
     </div>
 
     <!-- Share Link Modal -->
-    <div class="ShareLinkModal-overlay" id="ShareLinkModalOverlay" aria-hidden="true">
-        <div class="ShareLinkModal" id="ShareLinkModal" role="dialog" aria-modal="true"
-            aria-labelledby="ShareLinkModalTitle">
+    <div class="share-link-modal-overlay" id="shareLinkModalOverlay" aria-hidden="true">
+        <div class="share-link-modal" id="shareLinkModal" role="dialog" aria-modal="true"
+            aria-labelledby="shareLinkModalTitle">
             <div class="modal-topbar">
-                <h2 class="modal-event-title" id="ShareLinkModalTitle">Share Link</h2>
-                <button type="button" class="modal-close-btn" id="ShareLinkModalCloseBtn"
+                <h2 class="modal-event-title" id="shareLinkModalTitle">Share Link</h2>
+                <button type="button" class="modal-close-btn" id="shareLinkModalCloseBtn"
                     aria-label="Close share link">&times;</button>
+            </div>
+            <div class="share-link-body">
+                <div class="share-link" id="shareLinkValue"></div>
+                <div class="copy-link-button">
+                    <button type="button" class="reservation-primary-btn" id="copyShareLinkBtn" aria-label="Copy share link">
+                        Copy Link
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unavailable date details -->
+    <div class="modal-overlay" id="unavailableModalOverlay" aria-hidden="true">
+        <div class="modal unavailable-modal" role="dialog" aria-modal="true" aria-labelledby="unavailableModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="unavailableModalTitle">Unavailable</h2>
+                </div>
+
+                <button class="modal-close-btn" id="unavailableModalCloseBtn" aria-label="Close unavailable date details">&times;</button>
+            </div>
+
+            <div class="modal-content">
+                <div class="modal-field">
+                    <div class="modal-label">Date</div>
+                    <div class="modal-value" id="unavailableModalDate">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Reason</div>
+                    <div class="modal-value" id="unavailableModalReason">—</div>
+                </div>
             </div>
         </div>
     </div>

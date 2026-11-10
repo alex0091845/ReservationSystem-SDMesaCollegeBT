@@ -1,5 +1,13 @@
 /* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, and the Year, Month and Day levels */
 
+/* Accessible colors (WCAG 2.1 AA). The reasoning and measured contrast ratios are in docs/ACCESSIBILITY_COLORS.md */
+:root {
+    --a11y-focus-ring: var(--mesa-blue); /* 6.66:1 on the zoom bar, needs 3:1 */
+    --a11y-today-ring: #c3540b; /* 4.57:1 on white, needs 3:1 */
+    --a11y-text-muted: #435660; /* Mesa Grey, Mesa style guide 2023, p. 6; 6.97:1 on the grey cell, needs 4.5:1 */
+    --a11y-text-on-fill: #111827; /* 6.32:1 on Mesa orange, 5.01:1 on Mesa green, needs 4.5:1 */
+}
+
 /* One row above the calendar: Back + breadcrumb on the left, zoom buttons on the right. */
 .zoom-bar {
     display: flex;
@@ -106,7 +114,7 @@
 .zoom-crumb:focus-visible,
 .month-day-number:focus-visible,
 .year-month:focus-visible {
-    outline: 3px solid var(--district-cyan);
+    outline: 3px solid var(--a11y-focus-ring);
     outline-offset: 2px;
 }
 
@@ -231,12 +239,12 @@
 }
 
 .month-day.is-outside .month-day-number {
-    color: #6b7280;
+    color: var(--a11y-text-muted);
     font-weight: 400;
 }
 
 .month-day.is-today .month-day-number {
-    box-shadow: inset 0 0 0 2px var(--mesa-orange);
+    box-shadow: inset 0 0 0 2px var(--a11y-today-ring);
 }
 
 .month-day.is-selected .month-day-number {
@@ -256,7 +264,7 @@
     position: static;
     display: block;
     width: 100%;
-    min-height: 0;
+    min-height: 24px; /* WCAG 2.2 target size */
     padding: 3px 6px;
     box-shadow: none;
     font-size: 11px;
@@ -267,7 +275,7 @@
 }
 
 .month-day.is-outside .month-event {
-    opacity: 0.6;
+    opacity: 0.94; /* 0.6 and 0.8 failed contrast with the dark grey text; at 0.94 every chip stays above 4.5:1 */
 }
 
 .month-more {
@@ -336,7 +344,7 @@
 }
 
 .year-day.is-today {
-    outline: 2px solid var(--mesa-orange);
+    outline: 2px solid var(--a11y-today-ring);
     outline-offset: 1px;
 }
 
@@ -645,7 +653,7 @@
 }
 
 .zoom-today-btn:focus-visible {
-    outline: 3px solid var(--district-cyan);
+    outline: 3px solid var(--a11y-focus-ring);
     outline-offset: 2px;
 }
 
