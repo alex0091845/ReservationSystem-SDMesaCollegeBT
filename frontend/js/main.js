@@ -259,7 +259,7 @@ const state = {
     currentMonth: today.getMonth(),
     // On a phone the week grid only fits about half the week, so the page starts on a single day.
     // The page now starts on a single day view for phones and computer view
-    zoomLevel: window.matchMedia("(max-width: 720px)").matches ? "day" : "day"
+    zoomLevel: "day"
 };
 
 // Pulls open and close functions from modal file
