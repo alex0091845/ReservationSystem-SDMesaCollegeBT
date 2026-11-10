@@ -139,21 +139,21 @@ As a visitor new to campus, I want to see where the BT building and the room are
 ### F1. First login and accepting the account — Must
 As a faculty member, I want to activate the account an admin made for me, so that I can start booking.
 
-- [ ] I receive a notice that my account was set up, with a temporary password.
-- [ ] On first login I must accept the room rules / terms ("I agree to abide by these rules").
-- [ ] On first login I must change the temporary password.
+- [ ] I receive a notice that my account was set up, with a temporary password--not necessarily through email; just some way to distribute it.
+- [ ] **Later** - On first login I must accept the room rules / terms ("I agree to abide by these rules").
+- [ ] **Later** - On first login I must change the temporary password.
 
 ### F2. Log in and out — Must
 As a faculty member, I want to log in with my email and password, so that I can manage my reservations.
 
-- [ ] Login uses email + password.
-- [ ] The login button and login page are labeled **"Faculty/Admin Login"**, so students and visitors
+- [X] Login uses email + password.
+- [X] The login button and login page are labeled **"Faculty/Admin Login"**, so students and visitors
   know it isn't for them [#53].
-- [ ] A successful login shows a **green** message; a failed one shows a **red** message. Both meet
+- [ ] **Later if not complete** - A successful login shows a **green** message; a failed one shows a **red** message. Both meet
   contrast requirements [#49].
-- [ ] The login page has a Back button to return to the calendar [#51].
-- [ ] I can log out from any page, using a button labeled **"Log Out"**.
-- [ ] Only logged-in faculty and admins see booking controls.
+- [X] The login page has a Back button to return to the calendar [#51].
+- [ ] I can log out from any page except for a modal and the Login page, using a button labeled **"Log Out"**.
+- [X] Only logged-in faculty and admins see booking controls.
 
 > **Built:** Back button [#55]. Labels, message colors, and "Log Out" are in review [#76].
 
@@ -164,13 +164,12 @@ As a faculty member, I want to log in with my email and password, so that I can 
 ### R1. Book a reservation — Must
 As a faculty member, I want to reserve the room for a time slot, so that I can hold my event.
 
-- [ ] I enter: event title, event type, date, start/end time, public or private, and an optional
+- [X] I enter: event title, event type, department, date, start/end time, public or private, and an optional
   description. Expected participant count is **not** required.
-- [ ] I can mark it as "Reserved for class" or "Reserved for department".
-- [ ] I can pick start and end times precisely, not only in whole-hour blocks [#54].
-- [ ] I can't pick times outside the [booking rules](#booking-rules). Times that have already passed
+- [X] I can pick start and end times precisely, not only in whole-hour blocks [#54].
+- [X] I can't pick times outside the [booking rules](#booking-rules). Times that have already passed
   are greyed out in the time picker [#34].
-- [ ] If the slot is already taken, I'm told so before submitting, not after.
+- [X] If the slot is already taken, I'm told so before submitting, not after.
 - [ ] I see a confirmation when the booking succeeds.
 - [ ] The booking form works well on a phone.
 
@@ -181,15 +180,15 @@ As a faculty member, I want to reserve the room for a time slot, so that I can h
 As a faculty member, I want to choose whether my event is public or private, so that I control who sees
 the details.
 
-- [ ] Public: details visible to all visitors.
-- [ ] Private: shown to visitors only as "Private event" (see V2).
-- [ ] Private: I can choose to show the event name only (see V2).
+- [X] Public: details visible to all visitors.
+- [X] Private: shown to visitors only as "Private event" (see V2).
+- [ ] **Later** - Private: I can choose to show the event name only (see V2).
 
 ### R3. Recurring reservations — Must
 As a faculty member, I want to book a repeating event (e.g. weekly office hours), so that I don't have to
 book each week by hand.
 
-- [ ] I can choose which days it repeats and when it ends.
+- [X] I can choose which days it repeats and when it ends.
 - [ ] Repeats can't go past the last bookable date or land on blocked / closed days.
 - [ ] If some dates conflict, I'm shown which ones before booking, and can book the rest.
 - [ ] I can edit or cancel one occurrence or the whole series.
@@ -210,14 +209,13 @@ As a faculty member, I want a list of my upcoming reservations, so that I can ke
 As a faculty member, I want to change my reservation's details or time, so that I can fix mistakes or
 adjust plans.
 
-- [ ] I can edit only my own reservations.
-- [ ] Changes follow the same rules and conflict checks as a new booking.
-- [ ] I can still fix details (title, host, etc.) on a reservation that has already happened [#34].
+- [X] I can edit only my own reservations.
+- [X] I can still fix details (title, host, etc.) on a reservation that has already happened [#34].
 
 ### R6. Cancel my reservation — Must
 As a faculty member, I want to cancel my reservation, so that the room is freed for others.
 
-- [ ] I can cancel only my own reservations.
+- [X] I can cancel only my own reservations.
 - [ ] I'm asked to confirm before it's cancelled.
 - [ ] The time slot becomes available right away.
 - [ ] If the cancel fails, I'm told so clearly [#33].
@@ -226,15 +224,18 @@ As a faculty member, I want to cancel my reservation, so that the room is freed 
 ### R7. Email confirmation — Should
 As a faculty member, I want an email when I book, change, or cancel, so that I have a record.
 
-- [ ] Sent only to the event organizer.
+- [ ] **Later** - Sent only to the event organizer.
 
 ### R8. Email reminder — Should
 As a faculty member, I want a reminder before my event, so that I don't forget it.
 
-- [ ] Sent to the organizer only; timing to be decided.
+- [ ] **Later** - Sent to the organizer only; timing to be decided.
 
 ### R9. Save a draft — Could
 As a faculty member, I want my half-filled booking form to be saved, so that I don't lose it if I leave the page.
+
+- [X] I can save a booking as a draft.
+- [X] Even if I leave the booking modal half-filled, the system still automatically saves the draft for me.
 
 ---
 
@@ -243,25 +244,28 @@ As a faculty member, I want my half-filled booking form to be saved, so that I d
 ### AD1. Create user accounts — Must
 As an admin, I want to create accounts for faculty, so that only approved people can book.
 
-- [ ] Admin enters name, email, and role; the system creates a temporary password and notifies the user (see F1).
+- [ ] Admin enters name, email, and role. Phone number is not required.
+- [ ] The system automatically suggests a random, temporary password when the admin opens the "Create New User" modal.
+- [ ] I should be able to override the system-suggested password via manual input.
+- [ ] **Later** - The system notifies the user when the account is created (see F1).
 
 ### AD2. Manage users and access levels — Must
 As an admin, I want to change a user's role or permissions, or deactivate them, so that access stays correct.
 
-- [ ] Roles include at least: view only, faculty (book/edit own), admin.
-- [ ] Deactivated users can't log in; their future reservations are handled (cancel or keep — to decide).
+- [X] Roles include at least: faculty (book/edit own), admin.
+- [ ] **Later** - Deactivated users can't log in; their future reservations are handled (cancel or keep — to decide).
 
 ### AD3. Set bookable dates and closures — Must
 As an admin, I want to choose which dates the room can be booked, so that the room can only be booked
 when it's open.
 
-- [ ] A **Bookable Dates** section on the admin dashboard lets me mark dates as bookable or blocked.
-- [ ] I can select single dates, click and drag across dates, or select whole months or all weekends.
-- [ ] I can set a **last bookable date**; nobody can book past it.
-- [ ] Unsaved changes are highlighted, and I can discard them.
-- [ ] Booking is blocked on blocked dates and after the last bookable date.
-- [ ] Blocked dates show on the calendar (8 AM – 5 PM, "All day"), but not in Upcoming Events or check-in.
-- [ ] If I block a date that already has reservations, I'm warned before saving. Confirming deletes
+- [X] A **Bookable Dates** section on the admin dashboard lets me mark dates as bookable or blocked.
+- [X] I can select single dates, click and drag across dates, or select whole months or all weekends.
+- [X] I can set a **last bookable date**; nobody can book past it.
+- [X] Unsaved changes are highlighted, and I can discard them.
+- [X] Booking is blocked on blocked dates and after the last bookable date.
+- [X] Blocked dates show on the calendar (8 AM – 5 PM, "All day"), but not in Upcoming Events or Happening Now.
+- [X] If I block a date that already has reservations, I'm warned before saving. Confirming deletes
   those reservations **and their check-ins**.
 
 > **In review** [#79]. This replaces the earlier idea of entering semester start/end dates and holidays
@@ -270,18 +274,18 @@ when it's open.
 ### AD4. Manage any reservation — Must
 As an admin, I want to edit or cancel anyone's reservation, so that I can settle conflicts and fix problems.
 
-- [ ] The organizer is notified when an admin changes or cancels their reservation (once emails exist, R7).
+- [ ] **Later** - The organizer is notified when an admin changes or cancels their reservation (once emails exist, R7).
 
 ### AD5. Manage event types — Should
 As an admin, I want to add, rename, recolor, or remove event types, so that the list stays current.
 
-- [ ] Colors must still meet contrast requirements (A1).
+- [ ] **Later** - Colors must still meet contrast requirements (A1).
 
 ### AD6. Import dates from a document — Could
 As an admin, I want to upload the college calendar (PDF/image) and have the dates filled in for me
 (OCR), so that I don't have to type them.
 
-- [ ] Admin reviews and confirms the dates before they're saved.
+- [ ] **Later** - Admin reviews and confirms the dates before they're saved.
 
 ---
 
@@ -291,11 +295,11 @@ As an admin, I want to upload the college calendar (PDF/image) and have the date
 As a faculty member, I want a QR code and a link for my event, so that attendees can check in when they
 arrive without staff help [#60].
 
-- [ ] Each event (and each occurrence of a recurring event) has its own link and QR code.
-- [ ] The event pop-up has **QR Code** and **Share Link** buttons next to the Check In button.
-- [ ] Share Link shows the event's link with a **Copy Link** button.
-- [ ] Opening the link (or scanning the QR code) opens the calendar with that event's pop-up already open.
-- [ ] The organizer can display or print the QR code.
+- [X] Each event (and each occurrence of a recurring event) has its own link and QR code.
+- [X] The event pop-up has **QR Code** and **Share Link** buttons next to the Check In button.
+- [X] Share Link shows the event's link with a **Copy Link** button.
+- [X] Opening the link (or scanning the QR code) opens the calendar with that event's pop-up already open.
+- [X] The organizer can display or print the QR code.
 - [ ] Check-ins are only accepted during a window around the event (exact window to decide, see below).
 
 > **In progress** on `feature/Event-QR-Code` [#58], [#59], [#61], [#72]: event links, opening the event
