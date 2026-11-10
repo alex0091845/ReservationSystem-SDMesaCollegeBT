@@ -689,6 +689,18 @@ function openCalendarEvent(reservation) {
     openEventModal(reservation);
 }
 
+// Opens the event modal for the event id in a share link or event QR code (?eventID=)
+function openLinkedEvent() {
+    const linkedEventId = new URLSearchParams(window.location.search).get("eventID");
+    const linkedEvent = linkedEventId &&
+        reservedEvents.find(event => String(event.id) === linkedEventId);
+
+    // A link to a deleted event just shows the calendar
+    if (linkedEvent) {
+        openEventModal(linkedEvent);
+    }
+}
+
 function openCalendarQRCodeModal() {
     elements.calendarQRCodeModalOverlay.classList.add("active");
     elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
