@@ -670,9 +670,19 @@
     }
 }
 
-/* On a phone the calendar panel comes first, ahead of the small month calendar and the
-   event lists, so it is on screen without scrolling. */
+/* On a phone the page reads top to bottom as Check-In (when it is showing), then the
+   calendar panel, then the event lists. The left column steps out of the way so its
+   widgets can be ordered against the calendar panel. */
 @media (max-width: 720px) {
+    .wrapper > .left-column {
+        display: contents;
+    }
+
+    .wrapper > .left-column > .check-in-widget {
+        order: -2;
+        width: 100%;
+    }
+
     .wrapper > .side-panel {
         order: -1;
     }
