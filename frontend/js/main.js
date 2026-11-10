@@ -7,7 +7,7 @@ import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
 import { renderEventAttendees } from "./ui/attendees.js";
-import { createModalController } from "./ui/modal.js";
+import { createModalController, currentEventLink } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import { createActionMenu } from "./ui/actionMenu.js";
@@ -44,12 +44,14 @@ const elements = {
     checkInWidgetList: document.getElementById("checkInWidgetList"),
     facultyReservationModalOverlay: document.getElementById("facultyReservationModalOverlay"),
     facultyReservationModalCloseBtn: document.getElementById("facultyReservationModalCloseBtn"),
-    QRcodeBtn: document.getElementById("QRcodeBtn"),    
-    QRmodalOverlay: document.getElementById("QRmodalOverlay"),
-    QRmodalCloseBtn: document.getElementById("QRmodalCloseBtn"),
+    qrCodeBtn: document.getElementById("qrCodeBtn"),    
+    qrModalOverlay: document.getElementById("qrModalOverlay"),
+    qrModalCloseBtn: document.getElementById("qrModalCloseBtn"),
     shareLinkBtn: document.getElementById("shareLinkBtn"),
-    ShareLinkModalOverlay: document.getElementById("ShareLinkModalOverlay"),
-    ShareLinkModalCloseBtn: document.getElementById("ShareLinkModalCloseBtn"),
+    shareLinkModalOverlay: document.getElementById("shareLinkModalOverlay"),
+    shareLinkModalCloseBtn: document.getElementById("shareLinkModalCloseBtn"),
+    shareLinkValue: document.getElementById("shareLinkValue"),
+    copyShareLinkBtn: document.getElementById("copyShareLinkBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
@@ -195,6 +197,7 @@ async function loadReservedEvents() {
         sortReservedEvents(reservedEvents);
     }
 
+    openLinkedEvent();
     renderAll();
 }
 
@@ -697,7 +700,7 @@ function openCalendarQRCodeModal() {
 function generateCalendarQR()
 {
     let qrInput = window.location.origin;
-    let container = document.getElementById("CalendarQRcode");
+    let container = document.getElementById("calendarQRCode");
 
     container.innerHTML="";
     let qr = new QRCode(container,{
@@ -810,27 +813,53 @@ function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
     setFacultyReservationDeleting(false);
 }
 
+function generateQR()
+{
+    let qrInput = currentEventLink;
+    let container = document.getElementById("qrCode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
 function openQRCodeModal() {
-    elements.QRmodalOverlay.classList.add("open");
-    elements.QRmodalOverlay.setAttribute("aria-hidden", "false");
-    elements.QRmodalCloseBtn.focus();
+    elements.qrModalOverlay.classList.add("open");
+    elements.qrModalOverlay.setAttribute("aria-hidden", "false");
+    elements.qrModalCloseBtn.focus();
+    generateQR();
 }
 
 function closeQRCodeModal() {
-    elements.QRmodalOverlay.classList.remove("open");
-    elements.QRmodalOverlay.setAttribute("aria-hidden", "true");
-    elements.QRcodeBtn.focus();
+    elements.qrModalOverlay.classList.remove("open");
+    elements.qrModalOverlay.setAttribute("aria-hidden", "true");
+    elements.qrCodeBtn.focus();
 }
 
 function openShareLinkModal() {
-    elements.ShareLinkModalOverlay.classList.add("open");
-    elements.ShareLinkModalOverlay.setAttribute("aria-hidden", "false");
-    elements.ShareLinkModalCloseBtn.focus();
+    elements.shareLinkModalOverlay.classList.add("open");
+    elements.shareLinkModalOverlay.setAttribute("aria-hidden", "false");
+    elements.shareLinkModalCloseBtn.focus();
+    elements.shareLinkValue.innerHTML = currentEventLink;
+}
+
+async function copyShareLink() {
+    console.log("Copied Link");
+    let copyText = elements.shareLinkValue.innerHTML;
+
+    await navigator.clipboard.writeText(copyText);
+    elements.copyShareLinkBtn.textContent = 'Copied!';
+    setTimeout(() => elements.copyShareLinkBtn.textContent = 'Copy Link', 2000);
 }
 
 function closeShareLinkModal() {
-    elements.ShareLinkModalOverlay.classList.remove("open");
-    elements.ShareLinkModalOverlay.setAttribute("aria-hidden", "true");
+    elements.shareLinkModalOverlay.classList.remove("open");
+    elements.shareLinkModalOverlay.setAttribute("aria-hidden", "true");
     elements.shareLinkBtn.focus();
 }
 
@@ -1332,16 +1361,17 @@ function bindEvents() {
         requestCloseFacultyReservationEditModal
     );
 
-    if (elements.QRcodeBtn && elements.QRmodalOverlay && elements.QRmodalCloseBtn) {
-        elements.QRcodeBtn.addEventListener("click", openQRCodeModal);
-        elements.QRmodalCloseBtn.addEventListener("click", closeQRCodeModal);
-        bindBackdropClose(elements.QRmodalOverlay, closeQRCodeModal);
+    if (elements.qrCodeBtn && elements.qrModalOverlay && elements.qrModalCloseBtn) {
+        elements.qrCodeBtn.addEventListener("click", openQRCodeModal);
+        elements.qrModalCloseBtn.addEventListener("click", closeQRCodeModal);
+        bindBackdropClose(elements.qrModalOverlay, closeQRCodeModal);
     }
 
-    if (elements.shareLinkBtn && elements.ShareLinkModalOverlay && elements.ShareLinkModalCloseBtn) {
+    if (elements.shareLinkBtn && elements.shareLinkModalOverlay && elements.shareLinkModalCloseBtn) {
         elements.shareLinkBtn.addEventListener("click", openShareLinkModal);
-        elements.ShareLinkModalCloseBtn.addEventListener("click", closeShareLinkModal);
-        bindBackdropClose(elements.ShareLinkModalOverlay, closeShareLinkModal);
+        elements.shareLinkModalCloseBtn.addEventListener("click", closeShareLinkModal);
+        elements.copyShareLinkBtn.addEventListener("click", copyShareLink);
+        bindBackdropClose(elements.shareLinkModalOverlay, closeShareLinkModal);
     }
 
     elements.facultyReservationCancelBtn.addEventListener(
@@ -1400,7 +1430,7 @@ function bindEvents() {
 
             if (
                 event.key === "Escape" &&
-                elements.QRmodalOverlay.classList.contains("open")
+                elements.qrModalOverlay.classList.contains("open")
             ) {
                 closeQRCodeModal();
                 return;
@@ -1408,7 +1438,7 @@ function bindEvents() {
 
             if (
                 event.key === "Escape" &&
-                elements.ShareLinkModalOverlay.classList.contains("open")
+                elements.shareLinkModalOverlay.classList.contains("open")
             ) {
                 closeShareLinkModal();
                 return;
