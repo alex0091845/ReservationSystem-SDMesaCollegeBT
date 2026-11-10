@@ -169,7 +169,7 @@
                         </button>
 
                         <p class="check-in-status" id="generateQRCode" role="QRCode"></p>
-                        <button type="button" class="reservation-primary-btn" id="QRcodeBtn">
+                        <button type="button" class="reservation-primary-btn" id="qrCodeBtn">
                             QR Code
                         </button>
 
@@ -185,42 +185,42 @@
     </div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <div class="modal-overlay" id="calendarQRModalOverlay" aria-hidden="true">
-        <div class="QRmodal" id="calendarQRModal" role="dialog" aria-modal="true" aria-labelledby="calendarQRModalTitle">
+        <div class="qr-modal" id="calendarQRModal" role="dialog" aria-modal="true" aria-labelledby="calendarQRModalTitle">
             <div class="modal-topbar">
                 <h2 class="modal-event-title" id="calendarQRModalTitle">Calendar QR Code</h2>
                 <button type="button" class="modal-close-btn" id="calendarQRModalCloseBtn"
                     aria-label="Close QR code">&times;</button>
             </div>
-            <div class="QRcode" id="CalendarQRcode" aria-label="Calendar QR code"></div>
+            <div class="qr-code" id="calendarQRCode" aria-label="Calendar QR code"></div>
         </div>
     </div>
 
     <!-- QR Code Modal -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <div class="QRmodal-overlay" id="QRmodalOverlay" aria-hidden="true">
-        <div class="QRmodal" id="QRmodal" role="dialog" aria-modal="true" aria-labelledby="QRmodalTitle">
+    <div class="qr-modal-overlay" id="qrModalOverlay" aria-hidden="true">
+        <div class="qr-modal" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
             <div class="modal-topbar">
-                <h2 class="modal-event-title" id="QRmodalTitle">QR Code</h2>
-                <button type="button" class="modal-close-btn" id="QRmodalCloseBtn"
+                <h2 class="modal-event-title" id="qrModalTitle">QR Code</h2>
+                <button type="button" class="modal-close-btn" id="qrModalCloseBtn"
                     aria-label="Close QR code">&times;</button>
             </div>
-            <div class="QRcode" id="QRcode" aria-label="QR code"></div>
+            <div class="qr-code" id="qrCode" aria-label="QR code"></div>
         </div>
     </div>
 
     <!-- Share Link Modal -->
-    <div class="ShareLinkModal-overlay" id="ShareLinkModalOverlay" aria-hidden="true">
-        <div class="ShareLinkModal" id="ShareLinkModal" role="dialog" aria-modal="true"
-            aria-labelledby="ShareLinkModalTitle">
+    <div class="share-link-modal-overlay" id="shareLinkModalOverlay" aria-hidden="true">
+        <div class="share-link-modal" id="shareLinkModal" role="dialog" aria-modal="true"
+            aria-labelledby="shareLinkModalTitle">
             <div class="modal-topbar">
-                <h2 class="modal-event-title" id="ShareLinkModalTitle">Share Link</h2>
-                <button type="button" class="modal-close-btn" id="ShareLinkModalCloseBtn"
+                <h2 class="modal-event-title" id="shareLinkModalTitle">Share Link</h2>
+                <button type="button" class="modal-close-btn" id="shareLinkModalCloseBtn"
                     aria-label="Close share link">&times;</button>
             </div>
             <div class="share-link-body">
-                <div class="share-link" id="ShareLink"></div>
+                <div class="share-link" id="shareLinkValue"></div>
                 <div class="copy-link-button">
-                    <button type="button" class="reservation-primary-btn" id="CopyShareLinkBtn" aria-label="Copy share link">
+                    <button type="button" class="reservation-primary-btn" id="copyShareLinkBtn" aria-label="Copy share link">
                         Copy Link
                     </button>
                 </div>
