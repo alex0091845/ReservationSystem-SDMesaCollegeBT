@@ -278,6 +278,21 @@
     opacity: 0.94; /* 0.6 and 0.8 failed contrast with the dark grey text; at 0.94 every chip stays above 4.5:1 */
 }
 
+/* A closed date stripes its whole cell, and its chip becomes a plain label that still opens the details.
+   Every rule is scoped to :has(), so a browser without it keeps the striped chip instead. */
+.month-day:has(.unavailable-event-card) {
+    background: var(--unavailable-stripes);
+}
+
+.month-day:has(.unavailable-event-card) .unavailable-event-card,
+.month-day:has(.unavailable-event-card) .unavailable-event-card:hover {
+    background: transparent;
+}
+
+.month-day:has(.unavailable-event-card) .unavailable-event-card:hover {
+    text-decoration: underline;
+}
+
 .month-more {
     color: #4b5563;
     font-size: 11px;
@@ -544,6 +559,13 @@
         padding: 0;
         font-size: 0;
         pointer-events: none;
+    }
+
+    /* The label does not fit at this size and the stripes alone are under 3:1,
+       so a closed date keeps a thin solid bar in the label color. */
+    .month-day:has(.unavailable-event-card) .unavailable-event-card {
+        min-height: 0;
+        background: currentColor;
     }
 
     .month-more {

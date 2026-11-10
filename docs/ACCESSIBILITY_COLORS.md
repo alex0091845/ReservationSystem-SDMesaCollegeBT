@@ -22,7 +22,7 @@ The values live in one place, the `:root` block at the top of `zoom-calendar.css
 |---|---|---|---|---|---|---|
 | `--a11y-focus-ring` | `#0054a4` (Mesa Blue, `var(--mesa-blue)`) | Keyboard focus outline on buttons, breadcrumb, day numbers, year cards | the zoom bar, `#eef2f7` | 6.66 : 1 | 3 : 1 | District Cyan `#31a9e0` is 2.37 : 1 (fail) |
 | `--a11y-today-ring` | `#c3540b` | Ring around today in the Month and Year views | white `#ffffff` | 4.57 : 1 | 3 : 1 | Mesa orange `#f37725` was 2.81 : 1 (fail) |
-| `--a11y-text-muted` | `#435660` (Mesa Grey) | Day numbers of days outside the shown month; weekday names in the Week header | the grey cell, `#f3f4f6` | 6.97 : 1 | 4.5 : 1 | `#6b7280` was 4.39 : 1 (fail) |
+| `--a11y-text-muted` | `#435660` (Mesa Grey) | Day numbers of days outside the shown month; weekday names in the Week header; the "Unavailable" label on closed dates | the grey cell, `#f3f4f6` | 6.97 : 1 | 4.5 : 1 | `#6b7280` was 4.39 : 1 (fail) |
 | `--a11y-text-on-fill` | `#111827` | Text on Mesa orange and Mesa green event cards | Mesa orange `#f37725` and Mesa green `#699446` | 6.32 : 1 and 5.01 : 1 | 4.5 : 1 | White was 2.81 : 1 and 3.54 : 1 (fail) |
 
 Other measurements: the focus ring is 7.49 : 1 on white; the today ring is 4.15 : 1 on the grey outside-month cell; the muted text is 7.67 : 1 on white and 5.64 : 1 on the highlighted "today" column of the Week header (`#d7dded`, where `#6b7280` was 3.55 : 1).
@@ -50,6 +50,22 @@ Event cards (Week, Month and Day views, Upcoming Events, Check-In) use the Mesa 
 - **Why this dark grey:** `#111827` is the main text color of the pop-ups and the admin page and is already used on private cards, so event cards now match them. It clears 4.5 : 1 on both fills. Green is the tight one: any lighter grey fails there (`#1f2937` is 4.14 : 1, the login label grey `#333333` is 3.56 : 1), and the Day view draws its detail lines slightly see-through (opacity 0.92), which leaves 4.56 : 1.
 - **On orange and green cards, the date, time and attendee badge** follow the card's text color instead of a fixed grey or white, and the badge tint is translucent white, which keeps the dark text above 4.5 : 1 (a translucent black tint dropped it to 3.99 : 1 on green).
 - **If the fills change** (the code notes a possible move to department colors), check every fill and text pair again with the steps below.
+
+## Unavailable dates
+
+Closed dates are drawn as a soft pinstripe with an "Unavailable" label in the muted text color (`--a11y-text-muted`). The stripes are `--unavailable-stripes` and `--unavailable-stripes-hover` in `base.css`; the rules are in `upcoming-events.css` and `zoom-calendar.css`.
+
+| What | Measured against | Ratio | Needs |
+|---|---|---|---|
+| Label text | stripe fill `#f8fafc` / stripe line `#dde3ea` | 7.33 : 1 / 5.93 : 1 | 4.5 : 1 |
+| Label text on hover | hover fill `#f1f5f9` / hover line `#cbd5e1` | 7.00 : 1 / 5.16 : 1 | 4.5 : 1 |
+| "All day" line in the Day view (opacity 0.92) | stripe fill / stripe line | 5.97 : 1 / 4.97 : 1 | 4.5 : 1 |
+| Label on a day outside the month (opacity 0.94) | stripe fill / stripe line | 6.28 : 1 / 5.20 : 1 | 4.5 : 1 |
+| Bar in the phone Month view | stripe fill / stripe line | 7.33 : 1 / 5.93 : 1 | 3 : 1 |
+
+- **The stripes are decoration, not the state marker.** Line against fill is 1.24 : 1 on purpose, so a closed day stays quieter than real events. The "Unavailable" text carries the meaning wherever it is shown.
+- **The phone Month view has no room for that text,** so a closed date keeps a thin solid bar in the label color there.
+- **Windows High Contrast (forced colors) removes the stripes.** The block has a transparent border, which that mode turns into a visible edge.
 
 ## Where the brand colors come from
 
