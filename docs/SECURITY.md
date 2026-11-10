@@ -4,6 +4,22 @@ This document records the security controls in the repository, the evidence used
 and the production steps that still require access to Supabase or AWS. It is also a record of the
 system's current trust boundaries for future security reviews.
 
+## Open blocker: admin-only routes can be reached by non-admin accounts
+
+**Do not merge or deploy the admin override and closure email feature until this is fixed.** A
+signed-in account without the admin role can get past the admin-only checks in `AuthInterceptor`
+for some routes, including `/api/users`. In local testing against a throwaway database, a faculty
+account could list users and create an admin account. Anonymous requests are still refused.
+
+The problem is already on `main` and is not caused by this feature. It is being fixed in a
+separate change so it can be reviewed on its own; reproduction details are shared with the team
+privately rather than in this public repository. The new admin endpoints (`/api/events/special`
+and `/api/admin/...`) also check for an admin inside the controller, and the database repeats the
+admin check for availability saves, special reservations, and reviews, so they refused the same
+requests. That does not protect the existing routes.
+
+After the fix is deployed, review the `users` table for admin accounts nobody recognizes.
+
 ## System boundary
 
 The browser loads the static frontend from CloudFront. The distribution's `/api/*` behavior sends

@@ -484,6 +484,43 @@ export async function saveReservationAvailability(settings) {
     return request("/reservation-availability", "PATCH", settings);
 }
 
+// The override flag is the admin's explicit choice from the form, never assumed here.
+export async function createSpecialReservation({ event, overrideUnavailableDate, reason }) {
+    return request("/events/special", "POST", {
+        override_unavailable_date: overrideUnavailableDate === true,
+        override_reason: reason,
+        event
+    });
+}
+
+export async function getSpecialReservations() {
+    return request("/admin/special-reservations");
+}
+
+export async function getClosureReviews(status = "pending") {
+    return request(`/admin/closure-reviews?status=${encodeURIComponent(status)}`);
+}
+
+export async function getClosureReview(reviewId) {
+    return request(`/admin/closure-reviews/${encodeURIComponent(reviewId)}`);
+}
+
+export async function markClosureReviewed(reviewId, note) {
+    return request(`/admin/closure-reviews/${encodeURIComponent(reviewId)}/review`, "POST", { note: note || null });
+}
+
+export async function sendClosureFollowUp(reviewId, message) {
+    return request(`/admin/closure-reviews/${encodeURIComponent(reviewId)}/follow-up`, "POST", { message });
+}
+
+export async function getClosureNotifications() {
+    return request("/admin/closure-notifications");
+}
+
+export async function retryClosureNotification(notificationId) {
+    return request(`/admin/closure-notifications/${encodeURIComponent(notificationId)}/retry`, "POST");
+}
+
 export async function getEventTypes() {
     return normalizeCollection(
         await request("/event-types", "GET"),

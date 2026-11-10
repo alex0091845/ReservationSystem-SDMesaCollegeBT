@@ -58,6 +58,18 @@
     white-space: pre-line;
 }
 
+.availability-confirm-modal .availability-confirm-reason:not([hidden]) {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.availability-confirm-modal .availability-confirm-reason textarea {
+    width: 100%;
+    resize: vertical;
+    font: inherit;
+}
+
 .availability-confirm-modal .reservation-actions button {
     white-space: normal;
 }

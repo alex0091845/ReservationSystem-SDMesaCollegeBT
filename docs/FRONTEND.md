@@ -100,6 +100,9 @@ frontend/
 │   │   ├── eventCards.js            shared card builders + date/time formatting
 │   │   ├── attendees.js             attendee list + count badge
 │   │   ├── eventTypeOptions.js      fills a <select> with event types
+│   │   ├── reservationAvailability.js admin Bookable Dates calendar
+│   │   ├── specialReservations.js   admin booking on an unavailable date, plus override history
+│   │   ├── closureReviews.js        admin closure reviews, follow-ups, and email delivery status
 │   │   └── actionMenu.js            the small pop-up "Delete ▾" menu
 │   └── utils/
 │       ├── dateUtils.js             calendar constants, date maths, formatting, colour classes
@@ -330,6 +333,21 @@ Disable–Enable User buttons, and all of their reservations.
   codebase** — the two `validateEditedReservations`, `getReservationSeries`, `deleteReservations`,
   `bindBackdropClose` and `removeReservations…State` functions are near-copies. If you refactor
   anything here, that's the highest-value target.
+- The top navigation switches between sections by URL hash: `#users` (default), `#availability`,
+  `#special`, and `#reviews`. `showAdminSection()` maps each hash to its panel.
+- **Special Reservations** (`ui/specialReservations.js`) books a date that is already unavailable.
+  It reads Bookable Dates to warn whether the chosen date is unavailable, open, or after the last
+  bookable date, and only enables the override checkbox for an unavailable date. Submitting needs
+  the checkbox and a reason, and calls `POST /api/events/special`. The server repeats every check,
+  including overlap, so its error message is shown as is.
+- **Closure Reviews** (`ui/closureReviews.js`) lists reservations canceled by a confirmed closure.
+  Opening one shows the original booking, organizer, and its emails. A pending review can be marked
+  reviewed with an optional note, which sends nothing. Once reviewed, the same panel sends a follow-up
+  in the admin's words. **Email delivery** below lists every closure email as pending, sent, failed,
+  or not sent, in plain language, with a Retry button for failed ones. It shows no addresses or
+  provider details.
+- The page itself is not the security boundary: `bootstrapAdminDashboard()` redirects non-admins,
+  but every one of these calls is refused by the backend for a non-admin session anyway.
 
 ---
 

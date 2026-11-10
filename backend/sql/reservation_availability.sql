@@ -1,3 +1,5 @@
+-- Run backend/sql/admin_override_notifications.sql straight after this script: the availability
+-- trigger and save function below use its tables and helpers.
 BEGIN;
 
 LOCK TABLE public.events IN SHARE ROW EXCLUSIVE MODE;
@@ -140,6 +142,11 @@ BEGIN
              AND (e.start_time AT TIME ZONE 'America/Los_Angeles')::date
                BETWEEN (NEW.start_time AT TIME ZONE 'America/Los_Angeles')::date
                  AND ((NEW.end_time - interval '1 microsecond') AT TIME ZONE 'America/Los_Angeles')::date) THEN
+    -- A special reservation: create_special_reservation wrote its audit row first
+    IF TG_OP = 'INSERT' AND EXISTS (SELECT 1 FROM public.reservation_overrides o
+       WHERE o.event_id = NEW.id AND o.event_start_time = NEW.start_time AND o.event_end_time = NEW.end_time) THEN
+      RETURN NEW;
+    END IF;
     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Reservation falls on an unavailable date.';
   END IF;
   RETURN NEW;
@@ -149,15 +156,18 @@ CREATE TRIGGER events_reservation_availability BEFORE INSERT OR UPDATE OR DELETE
 FOR EACH ROW EXECUTE FUNCTION public.enforce_reservation_availability();
 
 DROP FUNCTION IF EXISTS public.save_reservation_availability(date, date[], bigint);
+DROP FUNCTION IF EXISTS public.save_reservation_availability(date, date[], bigint, integer[]);
 CREATE OR REPLACE FUNCTION public.save_reservation_availability(
   p_last_bookable_date date, p_invalid_dates date[], p_version bigint,
-  p_confirmed_cancellations integer[] DEFAULT '{}'::integer[])
-RETURNS jsonb LANGUAGE plpgsql SET search_path = '' AS $$
+  p_confirmed_cancellations integer[], p_actor_user_id integer, p_closure_reason text DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   settings public.reservation_availability%ROWTYPE;
   today date := (now() AT TIME ZONE 'America/Los_Angeles')::date;
   cancellations jsonb;
+  closure_reason text := nullif(btrim(p_closure_reason), '');
 BEGIN
+  PERFORM public.require_enabled_admin(p_actor_user_id);
   IF (cardinality(p_invalid_dates) > 0 AND array_ndims(p_invalid_dates) <> 1)
      OR (cardinality(p_confirmed_cancellations) > 0 AND array_ndims(p_confirmed_cancellations) <> 1) THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid availability settings.';
@@ -165,12 +175,14 @@ BEGIN
   IF p_last_bookable_date IS NULL OR p_last_bookable_date < today OR p_version IS NULL OR p_version < 0
      OR p_invalid_dates IS NULL OR array_position(p_invalid_dates, NULL) IS NOT NULL
      OR array_position(p_confirmed_cancellations, NULL) IS NOT NULL
+     OR char_length(closure_reason) > 500
      OR EXISTS (SELECT 1 FROM unnest(p_invalid_dates) AS blocked(day) WHERE day > p_last_bookable_date) THEN
     RAISE EXCEPTION USING ERRCODE = '22023', MESSAGE = 'Invalid availability settings.';
   END IF;
   SELECT * INTO settings FROM public.reservation_availability WHERE id = 1 FOR UPDATE;
   IF NOT FOUND OR settings.version <> p_version THEN
-    RAISE EXCEPTION USING ERRCODE = '40001', MESSAGE = 'Another admin changed availability.';
+    -- Not 40001: PostgREST retries that code forever, so the caller would never get an answer
+    RAISE EXCEPTION USING ERRCODE = 'BTV01', MESSAGE = 'Another admin changed availability.';
   END IF;
 
   SELECT COALESCE(jsonb_agg(jsonb_build_object('id', e.id, 'title', e.title,
@@ -178,10 +190,21 @@ BEGIN
   INTO cancellations FROM public.events e
   WHERE NOT e.is_closure AND e.end_time > now()
     AND ((e.start_time AT TIME ZONE 'America/Los_Angeles')::date > p_last_bookable_date
-      OR (e.start_time AT TIME ZONE 'America/Los_Angeles')::date = ANY(p_invalid_dates));
+      OR ((e.start_time AT TIME ZONE 'America/Los_Angeles')::date = ANY(p_invalid_dates)
+        -- A special reservation stays while its date stays closed
+        AND NOT EXISTS (SELECT 1 FROM public.reservation_overrides o
+          JOIN public.events closed ON closed.is_closure
+            AND (closed.start_time AT TIME ZONE 'America/Los_Angeles')::date = o.override_date
+          WHERE o.event_id = e.id AND o.event_start_time = e.start_time AND o.event_end_time = e.end_time)));
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(cancellations) AS planned(event)
     WHERE NOT ((event->>'id')::integer = ANY(COALESCE(p_confirmed_cancellations, '{}'::integer[])))) THEN
     RETURN jsonb_build_object('requires_confirmation', true, 'reservations', cancellations);
+  END IF;
+
+  IF jsonb_array_length(cancellations) > 0 THEN
+    PERFORM public.queue_closure_cancellations(
+      ARRAY(SELECT (event->>'id')::integer FROM jsonb_array_elements(cancellations) AS planned(event)),
+      p_invalid_dates, p_actor_user_id, closure_reason);
   END IF;
 
   INSERT INTO public.event_types (event_type, description) VALUES ('Unavailable', 'Room closure')
@@ -223,10 +246,12 @@ CREATE TRIGGER attendees_no_closure_check_in BEFORE INSERT OR UPDATE OF event_id
 FOR EACH ROW EXECUTE FUNCTION public.prevent_closure_check_in();
 
 REVOKE ALL ON FUNCTION public.get_reservation_availability(),
-  public.save_reservation_availability(date, date[], bigint, integer[]), public.enforce_reservation_availability(),
+  public.save_reservation_availability(date, date[], bigint, integer[], integer, text),
+  public.enforce_reservation_availability(),
   public.prevent_closure_check_in() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.get_reservation_availability(),
-  public.save_reservation_availability(date, date[], bigint, integer[]), public.enforce_reservation_availability(),
+  public.save_reservation_availability(date, date[], bigint, integer[], integer, text),
+  public.enforce_reservation_availability(),
   public.prevent_closure_check_in() TO service_role;
 
 NOTIFY pgrst, 'reload schema';

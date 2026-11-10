@@ -48,6 +48,8 @@ export function createReservationAvailability({ container, getReservations, onSa
     const confirmMessage = confirmation.querySelector("#availabilityConfirmMessage");
     const confirmHint = confirmation.querySelector("#availabilityConfirmHint");
     const confirmWarning = confirmation.querySelector("#availabilityConfirmWarning");
+    const confirmReasonField = confirmation.querySelector("#availabilityConfirmReasonField");
+    const confirmReason = confirmation.querySelector("#availabilityConfirmReason");
     const confirmCancel = confirmation.querySelector("#availabilityConfirmCancel");
     const confirmAccept = confirmation.querySelector("#availabilityConfirmAccept");
     const confirmAlternative = confirmation.querySelector("#availabilityConfirmAlternative");
@@ -344,8 +346,10 @@ export function createReservationAvailability({ container, getReservations, onSa
         const dates = [...month.querySelectorAll("[data-date]")].map(button => button.dataset.date);
         confirmBulkSelection(dates, { month: Number(month.dataset.month) });
     });
-    function confirmAction({ title, message, hint, label, destructive = false, action, alternative = null, warning = [] }) {
+    function confirmAction({ title, message, hint, label, destructive = false, action, alternative = null, warning = [], askReason = false }) {
         if (confirmation.open) return;
+        confirmReason.value = "";
+        confirmReasonField.hidden = !askReason;
         confirmTitle.textContent = title;
         confirmMessage.textContent = message;
         confirmHint.textContent = hint;
@@ -517,7 +521,7 @@ export function createReservationAvailability({ container, getReservations, onSa
         option.textContent = name;
         monthSelect.appendChild(option);
     });
-    async function saveChanges(confirmedCancellations = []) {
+    async function saveChanges(confirmedCancellations = [], closureReason = "") {
         if (!usable() || !cutoff.reportValidity()) return;
         busy = true;
         clearError();
@@ -527,7 +531,8 @@ export function createReservationAvailability({ container, getReservations, onSa
                 last_bookable_date: lastDate,
                 invalid_dates: [...invalidDates].filter(value => value <= lastDate).sort(),
                 version,
-                confirmed_cancellations: confirmedCancellations
+                confirmed_cancellations: confirmedCancellations,
+                ...(closureReason ? { closure_reason: closureReason } : {})
             });
             applySettings(saved);
             try {
@@ -545,7 +550,8 @@ export function createReservationAvailability({ container, getReservations, onSa
                     label: "Save and cancel reservations",
                     destructive: true,
                     warning: affected,
-                    action: () => saveChanges(affected.map(event => event.id))
+                    askReason: true,
+                    action: () => saveChanges(affected.map(event => event.id), confirmReason.value.trim())
                 });
             } else {
                 showError(error, true);

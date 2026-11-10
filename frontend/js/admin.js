@@ -19,6 +19,8 @@ import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import { createActionMenu } from "./ui/actionMenu.js";
 import { createReservationAvailability } from "./ui/reservationAvailability.js";
+import { createSpecialReservations } from "./ui/specialReservations.js";
+import { createClosureReviews } from "./ui/closureReviews.js";
 import {
     applyReservationFormDraft,
     clearReservationFormDraftFields,
@@ -45,6 +47,8 @@ const createUserBtn = document.getElementById("createUserBtn");
 const adminSectionLinks = document.querySelectorAll("[data-admin-section]");
 const usersSections = document.querySelectorAll("#adminUsersSection, #adminUserReservationsSection");
 const availabilitySection = document.getElementById("adminAvailabilitySection");
+const specialSection = document.getElementById("adminSpecialSection");
+const reviewsSection = document.getElementById("adminReviewsSection");
 
 const logoutBtn = document.getElementById("logoutBtn");
 
@@ -95,7 +99,20 @@ let eventTypes = [];
 const reservationAvailability = createReservationAvailability({
     container: document.getElementById("reservationAvailability"),
     getReservations: () => reservations,
-    onSaved: loadDashboardData
+    onSaved: async () => {
+        await loadDashboardData();
+        await Promise.allSettled([specialReservations.load(), closureReviews.load()]);
+    }
+});
+const specialReservations = createSpecialReservations({
+    container: specialSection,
+    getUsers: () => users,
+    getEventTypes: () => eventTypes,
+    onCreated: loadDashboardData
+});
+const closureReviews = createClosureReviews({
+    container: reviewsSection,
+    getUsers: () => users
 });
 let selectedUser = null;
 let selectedReservation = null;
@@ -157,6 +174,7 @@ async function bootstrapAdminDashboard() {
 
     await Promise.allSettled([loadDashboardData(), reservationAvailability.load()]);
     reservationAvailability.refresh();
+    await Promise.allSettled([specialReservations.load(), closureReviews.load()]);
 }
 
 async function verifyAdminSession() {
@@ -1229,9 +1247,11 @@ logoutBtn.addEventListener("click", async () => {
 });
 
 function showAdminSection() {
-    const section = window.location.hash === "#availability" ? "availability" : "users";
+    const sections = { availability: availabilitySection, special: specialSection, reviews: reviewsSection };
+    const requested = window.location.hash.slice(1);
+    const section = Object.hasOwn(sections, requested) ? requested : "users";
     usersSections.forEach(panel => { panel.hidden = section !== "users"; });
-    availabilitySection.hidden = section !== "availability";
+    Object.entries(sections).forEach(([name, panel]) => { panel.hidden = section !== name; });
     for (const link of adminSectionLinks) {
         if (link.dataset.adminSection === section) {
             link.setAttribute("aria-current", "page");

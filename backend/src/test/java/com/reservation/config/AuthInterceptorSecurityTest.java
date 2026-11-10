@@ -57,6 +57,66 @@ class AuthInterceptorSecurityTest {
         return request;
     }
 
+    private static final String[][] ADMIN_ONLY = {
+        {"POST", "/api/events/special"},
+        {"GET", "/api/admin/closure-reviews"},
+        {"GET", "/api/admin/closure-reviews/8"},
+        {"POST", "/api/admin/closure-reviews/8/review"},
+        {"POST", "/api/admin/closure-reviews/8/follow-up"},
+        {"GET", "/api/admin/closure-notifications"},
+        {"POST", "/api/admin/closure-notifications/8/retry"},
+        {"GET", "/api/admin/special-reservations"},
+    };
+
+    @Test
+    void facultyCannotReachOverrideOrReviewEndpoints() throws Exception {
+        var faculty = new ObjectMapper().readTree("{\"role_name\":\"faculty\"}");
+        when(auth.isAdmin(faculty)).thenReturn(false);
+        for (String[] route : ADMIN_ONLY) {
+            HttpServletRequest request = request(route[0], route[1]);
+            when(sessions.getCurrentUser(request)).thenReturn(faculty);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            assertFalse(interceptor.preHandle(request, response, new Object()), route[1]);
+            assertEquals(HttpServletResponse.SC_FORBIDDEN, response.getStatus(), route[1]);
+        }
+    }
+
+    @Test
+    void anonymousUsersCannotReachOverrideOrReviewEndpoints() throws Exception {
+        for (String[] route : ADMIN_ONLY) {
+            HttpServletRequest request = request(route[0], route[1]);
+            when(sessions.getCurrentUser(request)).thenReturn(null);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            assertFalse(interceptor.preHandle(request, response, new Object()), route[1]);
+            assertEquals(HttpServletResponse.SC_UNAUTHORIZED, response.getStatus(), route[1]);
+        }
+    }
+
+    @Test
+    void adminsCanReachOverrideAndReviewEndpoints() throws Exception {
+        var admin = new ObjectMapper().readTree("{\"role_name\":\"admin\"}");
+        when(auth.isAdmin(admin)).thenReturn(true);
+        when(auth.isFacultyOrAdmin(admin)).thenReturn(true);
+        for (String[] route : ADMIN_ONLY) {
+            HttpServletRequest request = request(route[0], route[1]);
+            when(sessions.getCurrentUser(request)).thenReturn(admin);
+
+            assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()), route[1]);
+        }
+    }
+
+    @Test
+    void facultyCanStillCreateOrdinaryReservations() throws Exception {
+        var faculty = new ObjectMapper().readTree("{\"role_name\":\"faculty\"}");
+        HttpServletRequest request = request("POST", "/api/events");
+        when(sessions.getCurrentUser(request)).thenReturn(faculty);
+        when(auth.isAdmin(faculty)).thenReturn(false);
+
+        assertTrue(interceptor.preHandle(request, new MockHttpServletResponse(), new Object()));
+    }
+
     @Test
     void onlyAdminsCanChangeReservationAvailability() throws Exception {
         HttpServletRequest request = request("PATCH", "/api/reservation-availability");

@@ -88,3 +88,63 @@ CREATE TABLE public.reservation_availability (
   last_bookable_date date,
   version bigint NOT NULL DEFAULT 0 CHECK (version >= 0)
 );
+
+-- Apply backend/sql/admin_override_notifications.sql for grants, indexes, and the functions that
+-- write these tables
+CREATE TABLE public.reservation_overrides (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  event_id integer NOT NULL UNIQUE,
+  override_date date NOT NULL,
+  reason text NOT NULL,
+  actor_user_id integer NOT NULL,
+  actor_email text NOT NULL,
+  host_user_id integer NOT NULL,
+  event_title text,
+  event_start_time timestamp with time zone NOT NULL,
+  event_end_time timestamp with time zone NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE TABLE public.closure_reviews (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  batch_id uuid NOT NULL,
+  event_id integer NOT NULL UNIQUE,
+  cause text NOT NULL,
+  closure_reason text,
+  reservation_date date NOT NULL,
+  event_title text,
+  event_description text,
+  event_type text,
+  department text,
+  is_public boolean,
+  recurrence_group_id text,
+  event_start_time timestamp with time zone NOT NULL,
+  event_end_time timestamp with time zone NOT NULL,
+  host_user_id integer,
+  host_first_name text,
+  host_last_name text,
+  host_email text,
+  check_in_count integer NOT NULL DEFAULT 0,
+  canceled_by integer NOT NULL,
+  canceled_at timestamp with time zone NOT NULL DEFAULT now(),
+  review_status text NOT NULL DEFAULT 'pending',
+  reviewed_by integer,
+  reviewed_at timestamp with time zone,
+  review_note text
+);
+CREATE TABLE public.closure_notifications (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  kind text NOT NULL,
+  status text NOT NULL DEFAULT 'pending',
+  review_id bigint REFERENCES public.closure_reviews(id),
+  batch_id uuid,
+  recipient_user_id integer REFERENCES public.users(id) ON DELETE SET NULL,
+  follow_up_message text,
+  created_by integer,
+  attempts integer NOT NULL DEFAULT 0,
+  next_attempt_at timestamp with time zone NOT NULL DEFAULT now(),
+  locked_until timestamp with time zone,
+  last_error text,
+  sent_via text,
+  sent_at timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);

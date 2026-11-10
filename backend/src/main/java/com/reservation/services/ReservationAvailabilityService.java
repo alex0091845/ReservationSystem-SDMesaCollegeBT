@@ -20,6 +20,7 @@ public class ReservationAvailabilityService {
     public static final ZoneId TIME_ZONE = ZoneId.of("America/Los_Angeles");
     private static final String READ_ENDPOINT = "rpc/get_reservation_availability";
     private static final String SAVE_ENDPOINT = "rpc/save_reservation_availability";
+    private static final int MAX_CLOSURE_REASON_LENGTH = 500;
     private final SupabaseClient supabase;
     private final ObjectMapper mapper;
 
@@ -49,7 +50,7 @@ public class ReservationAvailabilityService {
         }
     }
 
-    public Availability save(JsonNode input) {
+    public Availability save(JsonNode input, long actorUserId) {
         Availability requested = read(input, true);
         ObjectNode update = mapper.createObjectNode();
         update.put("p_last_bookable_date", requested.lastBookableDate().toString());
@@ -67,6 +68,14 @@ public class ReservationAvailabilityService {
                 confirmed.add(id.asInt());
             }
         }
+        update.put("p_actor_user_id", actorUserId);
+        JsonNode reason = input.path("closure_reason");
+        if (!reason.isMissingNode() && !reason.isNull()) {
+            if (!reason.isTextual() || reason.asText().strip().length() > MAX_CLOSURE_REASON_LENGTH) {
+                throw new IllegalArgumentException("The closure reason must be text of up to 500 characters.");
+            }
+            update.put("p_closure_reason", reason.asText());
+        }
         SupabaseClient.SupabaseResponse response;
         try {
             response = supabase.postResponse(SAVE_ENDPOINT, update.toString());
@@ -75,9 +84,12 @@ public class ReservationAvailabilityService {
         }
         try {
             JsonNode result = mapper.readTree(response.body());
-            if (!response.isSuccessful() && "40001".equals(result.path("code").asText())) {
+            if (!response.isSuccessful() && Set.of("BTV01", "40001").contains(result.path("code").asText())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Another admin changed availability. Reload it before saving again.");
+            }
+            if (!response.isSuccessful() && "BTA01".equals(result.path("code").asText())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin access required");
             }
             if (!response.isSuccessful()) throw unavailable();
             if (result.path("requires_confirmation").asBoolean(false)) {

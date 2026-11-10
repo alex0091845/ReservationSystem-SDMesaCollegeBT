@@ -103,7 +103,7 @@ public class AuthInterceptor implements HandlerInterceptor {
     }
 
     private boolean requiresAdmin(String method, String path) {
-        if (isAtOrBelow(path, "/api/users")) {
+        if (isAtOrBelow(path, "/api/users") || isAtOrBelow(path, "/api/admin")) {
             return true;
         }
 
@@ -112,6 +112,7 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         return isAtOrBelow(path, "/api/roles") ||
+            isAtOrBelow(path, "/api/events/special") ||
             isAtOrBelow(path, "/api/reservation-availability") ||
             isAtOrBelow(path, "/api/event-types");
     }

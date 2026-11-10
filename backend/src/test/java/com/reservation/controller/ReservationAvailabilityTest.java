@@ -35,6 +35,58 @@ class ReservationAvailabilityTest {
     }
 
     @Test
+    void savingSendsTheSessionAdminAndTheOptionalClosureReason() {
+        when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString())).thenReturn(
+            new SupabaseClient.SupabaseResponse(200, "{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":4}"));
+        var input = mapper.readTree("{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":3," +
+            "\"closure_reason\":\"Water leak\",\"p_actor_user_id\":99}");
+
+        assertEquals(HttpStatus.OK, settings.save(input, request).getStatusCode());
+
+        verify(supabase).postResponse(eq("rpc/save_reservation_availability"), argThat(json ->
+            mapper.readTree(json).path("p_actor_user_id").asInt() == 1 &&
+            mapper.readTree(json).path("p_closure_reason").asText().equals("Water leak")));
+    }
+
+    @Test
+    void anInvalidClosureReasonIsRejectedBeforeSaving() {
+        for (String reason : new String[] {"5", "\"" + "x".repeat(501) + "\""}) {
+            var input = mapper.readTree("{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":3," +
+                "\"closure_reason\":" + reason + "}");
+
+            assertEquals(HttpStatus.BAD_REQUEST, settings.save(input, request).getStatusCode());
+        }
+        verify(supabase, never()).postResponse(eq("rpc/save_reservation_availability"), anyString());
+    }
+
+    @Test
+    void anAccountTheDatabaseRefusesGets403() {
+        when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString()))
+            .thenReturn(new SupabaseClient.SupabaseResponse(400, "{\"code\":\"BTA01\"}"));
+        var input = mapper.readTree("{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":3}");
+
+        assertEquals(HttpStatus.FORBIDDEN, settings.save(input, request).getStatusCode());
+    }
+
+    @Test
+    void aStaleVersionFromTheDatabaseIsAConflict() {
+        when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString()))
+            .thenReturn(new SupabaseClient.SupabaseResponse(400, "{\"code\":\"BTV01\"}"));
+        var input = mapper.readTree("{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":3}");
+
+        assertEquals(HttpStatus.CONFLICT, settings.save(input, request).getStatusCode());
+    }
+
+    @Test
+    void savingWithoutASessionIsRefused() {
+        when(request.getAttribute("currentUser")).thenReturn(null);
+        var input = mapper.readTree("{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":3}");
+
+        assertEquals(HttpStatus.UNAUTHORIZED, settings.save(input, request).getStatusCode());
+        verifyNoInteractions(supabase);
+    }
+
+    @Test
     void blockedDateIsRejectedBeforeAnyWrite() {
         configure("2099-01-31", "2099-01-04");
         var result = events.create(event("2099-01-04T16:00:00Z", "2099-01-04T17:00:00Z"), request);
@@ -118,12 +170,12 @@ class ReservationAvailabilityTest {
         when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString()))
             .thenReturn(new SupabaseClient.SupabaseResponse(200,
                 "{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[\"2099-01-04\"],\"version\":4}"));
-        assertEquals(HttpStatus.OK, settings.save(body).getStatusCode());
+        assertEquals(HttpStatus.OK, settings.save(body, request).getStatusCode());
         verify(supabase).postResponse(eq("rpc/save_reservation_availability"), argThat(json ->
             mapper.readTree(json).path("p_version").asLong() == 3 && json.contains("2099-01-04")));
         when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString()))
             .thenReturn(new SupabaseClient.SupabaseResponse(409, "{\"code\":\"40001\"}"));
-        assertEquals(HttpStatus.CONFLICT, settings.save(body).getStatusCode());
+        assertEquals(HttpStatus.CONFLICT, settings.save(body, request).getStatusCode());
     }
 
     @Test
@@ -134,7 +186,7 @@ class ReservationAvailabilityTest {
             "{\"last_bookable_date\":null,\"invalid_dates\":[],\"version\":0}",
             "{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":-1}"
         }) {
-            assertEquals(HttpStatus.BAD_REQUEST, settings.save(mapper.readTree(json)).getStatusCode());
+            assertEquals(HttpStatus.BAD_REQUEST, settings.save(mapper.readTree(json), request).getStatusCode());
         }
         verify(supabase, never()).postResponse(eq("rpc/save_reservation_availability"), anyString());
     }
@@ -156,7 +208,7 @@ class ReservationAvailabilityTest {
         when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString())).thenReturn(
             new SupabaseClient.SupabaseResponse(200,
                 "{\"last_bookable_date\":\"2099-02-28\",\"invalid_dates\":[],\"version\":1}"));
-        var saved = http.perform(patch("/api/reservation-availability").contentType(MediaType.APPLICATION_JSON)
+        var saved = http.perform(patch("/api/reservation-availability").requestAttr("currentUser", mapper.readTree("{\"id\":1,\"role_name\":\"admin\"}")).contentType(MediaType.APPLICATION_JSON)
             .content("{\"last_bookable_date\":\"2099-02-28\",\"invalid_dates\":[],\"version\":0}"))
             .andReturn().getResponse();
         assertEquals(200, saved.getStatus());
@@ -204,14 +256,14 @@ class ReservationAvailabilityTest {
         when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString()))
             .thenReturn(new SupabaseClient.SupabaseResponse(200,
                 "{\"requires_confirmation\":true,\"reservations\":[{\"id\":7,\"title\":\"Planned meeting\"}]}"));
-        var review = settings.save(input);
+        var review = settings.save(input, request);
         assertEquals(HttpStatus.CONFLICT, review.getStatusCode());
         assertTrue(mapper.valueToTree(review.getBody()).path("conflicting_reservations").isArray());
         ((tools.jackson.databind.node.ObjectNode) input).putArray("confirmed_cancellations").add(7);
         when(supabase.postResponse(eq("rpc/save_reservation_availability"), anyString()))
             .thenReturn(new SupabaseClient.SupabaseResponse(200,
                 "{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[\"2099-01-04\"],\"version\":1}"));
-        assertEquals(HttpStatus.OK, settings.save(input).getStatusCode());
+        assertEquals(HttpStatus.OK, settings.save(input, request).getStatusCode());
         verify(supabase).postResponse(eq("rpc/save_reservation_availability"), argThat(json ->
             mapper.readTree(json).path("p_confirmed_cancellations").path(0).asInt() == 7));
     }
@@ -220,7 +272,7 @@ class ReservationAvailabilityTest {
     void invalidCancellationIdsNeverReachTheDatabase() {
         for (String ids : new String[] { "[null]", "[-1]", "[1.5]", "[\"7\"]", "{}" }) {
             var input = mapper.readTree("{\"last_bookable_date\":\"2099-01-31\",\"invalid_dates\":[],\"version\":0,\"confirmed_cancellations\":" + ids + "}");
-            assertEquals(HttpStatus.BAD_REQUEST, settings.save(input).getStatusCode());
+            assertEquals(HttpStatus.BAD_REQUEST, settings.save(input, request).getStatusCode());
         }
         verify(supabase, never()).postResponse(anyString(), anyString());
     }

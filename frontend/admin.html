@@ -34,6 +34,8 @@
         <nav class="admin-task-nav" aria-label="Admin sections">
             <a href="#users" data-admin-section="users" aria-current="page">Users</a>
             <a href="#availability" data-admin-section="availability">Bookable Dates</a>
+            <a href="#special" data-admin-section="special">Special Reservations</a>
+            <a href="#reviews" data-admin-section="reviews">Closure Reviews</a>
         </nav>
         <section class="admin-panel admin-left-panel" id="adminUsersSection">
             <div class="admin-dashboard-intro">
@@ -120,6 +122,119 @@
                 </div>
             </div>
         </section>
+        <section class="admin-panel admin-wide-panel" id="adminSpecialSection" aria-labelledby="specialReservationTitle" hidden>
+            <div class="admin-section-header">
+                <h2 id="specialReservationTitle">Special Reservations</h2>
+            </div>
+            <p class="admin-closure-intro">Book BT-216 on a date marked unavailable. The date stays unavailable for
+                faculty and everyone else, and the override is recorded with your name and reason.</p>
+            <form class="reservation-form" id="specialReservationForm" novalidate>
+                <div class="reservation-grid">
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationHost">Host</label>
+                        <select class="reservation-input reservation-select" id="specialReservationHost" name="host" required></select>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationDate">Date</label>
+                        <input class="reservation-input" id="specialReservationDate" name="date" type="date" required>
+                    </div>
+                    <div class="modal-field reservation-full">
+                        <p class="admin-closure-notice" id="specialReservationWarning" role="status" hidden></p>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationStart">Start time</label>
+                        <input class="reservation-input" id="specialReservationStart" name="start" type="time" min="08:00" max="16:59" step="900" required>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationEnd">End time</label>
+                        <input class="reservation-input" id="specialReservationEnd" name="end" type="time" min="08:15" max="17:00" step="900" required>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationTitleInput">Event Title</label>
+                        <input class="reservation-input" id="specialReservationTitleInput" name="title" type="text" required>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationType">Event Type</label>
+                        <select class="reservation-input reservation-select" id="specialReservationType" name="type" required></select>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationDepartment">Department</label>
+                        <input class="reservation-input" id="specialReservationDepartment" name="department" type="text" required>
+                    </div>
+                    <div class="modal-field">
+                        <label class="modal-label" for="specialReservationAccess">Event Access</label>
+                        <select class="reservation-input reservation-select" id="specialReservationAccess" name="access">
+                            <option value="open">Open to everyone</option>
+                            <option value="private">Private</option>
+                        </select>
+                    </div>
+                    <div class="modal-field reservation-full">
+                        <label class="modal-label" for="specialReservationDescription">Description</label>
+                        <textarea class="reservation-input reservation-textarea" id="specialReservationDescription" name="description" rows="3" required></textarea>
+                    </div>
+                    <div class="modal-field reservation-full admin-closure-override">
+                        <label class="admin-closure-check">
+                            <input type="checkbox" id="specialReservationOverride" name="override" disabled>
+                            Override the unavailable date for this reservation
+                        </label>
+                        <label class="modal-label" for="specialReservationReason">Reason for the override (required)</label>
+                        <textarea class="reservation-input reservation-textarea" id="specialReservationReason" name="reason" rows="2" maxlength="500" required></textarea>
+                    </div>
+                </div>
+                <div class="reservation-actions">
+                    <button type="submit" class="reservation-primary-btn" id="specialReservationSubmit" disabled>Create special reservation</button>
+                </div>
+                <p class="reservation-status" id="specialReservationStatus" role="status" aria-live="polite"></p>
+            </form>
+            <div class="admin-closure-subsection">
+                <h3>Override history</h3>
+                <div id="specialReservationHistory"></div>
+            </div>
+        </section>
+        <section class="admin-panel admin-wide-panel" id="adminReviewsSection" aria-labelledby="closureReviewTitle" hidden>
+            <div class="admin-section-header">
+                <h2 id="closureReviewTitle">Closure Reviews</h2>
+                <button type="button" class="reservation-secondary-btn" id="closureReviewReload">Refresh</button>
+            </div>
+            <p class="admin-closure-intro">Reservations canceled by a confirmed closure. Organizers were sent an automatic
+                notice saying their circumstances may still need review.</p>
+            <div class="faculty-user-controls admin-closure-controls">
+                <label>
+                    <span>Show</span>
+                    <select id="closureReviewFilter">
+                        <option value="pending">Needs review</option>
+                        <option value="reviewed">Reviewed</option>
+                        <option value="all">All</option>
+                    </select>
+                </label>
+                <span id="closureReviewCount"></span>
+            </div>
+            <div class="admin-closure-layout">
+                <div class="faculty-user-list" id="closureReviewList"></div>
+                <div class="admin-closure-details" id="closureReviewDetails" aria-live="polite"></div>
+            </div>
+            <p class="reservation-status" id="closureReviewStatus" role="status" aria-live="polite"></p>
+            <div class="admin-closure-subsection">
+                <div class="admin-section-header">
+                    <h3>Email delivery</h3>
+                    <span id="closureDeliverySummary"></span>
+                </div>
+                <div class="faculty-user-controls admin-closure-controls">
+                    <label>
+                        <span>Show</span>
+                        <select id="closureDeliveryFilter">
+                            <option value="all">All emails</option>
+                            <option value="pending">Pending</option>
+                            <option value="sent">Sent</option>
+                            <option value="failed">Failed</option>
+                            <option value="skipped">Not sent</option>
+                        </select>
+                    </label>
+                </div>
+                <div id="closureDeliveryList"></div>
+                <p class="reservation-status" id="closureDeliveryStatus" role="status" aria-live="polite"></p>
+            </div>
+        </section>
     </main>
 
     <dialog class="modal availability-confirm-modal" id="availabilityConfirmDialog" aria-labelledby="availabilityConfirmTitle" aria-describedby="availabilityConfirmWarning availabilityConfirmMessage availabilityConfirmHint">
@@ -131,6 +246,10 @@
             <p class="availability-confirm-warning" id="availabilityConfirmWarning" role="alert" hidden></p>
             <p id="availabilityConfirmMessage"></p>
             <p class="availability-confirm-hint" id="availabilityConfirmHint"></p>
+            <label class="availability-confirm-reason" id="availabilityConfirmReasonField" hidden>
+                Reason included in the email to organizers (optional)
+                <textarea id="availabilityConfirmReason" rows="2" maxlength="500"></textarea>
+            </label>
             <div class="reservation-actions">
                 <button type="button" class="reservation-secondary-btn" id="availabilityConfirmCancel">Cancel</button>
                 <button type="button" class="reservation-secondary-btn" id="availabilityConfirmAlternative" hidden></button>

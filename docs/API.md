@@ -19,6 +19,9 @@ Base URL: `<backend origin>/api` — e.g. `http://localhost:8080/api`.
 - [Event types](#event-types) — `/event-types`
 - [Users](#users) — `/users`
 - [Roles](#roles) — `/roles`
+- [Reservation availability](#reservation-availability) — `/reservation-availability`
+- [Special reservations](#special-reservations) — `/events/special`
+- [Closure reviews and emails](#closure-reviews-and-emails) — `/admin/closure-reviews`, `/admin/closure-notifications`
 - [Cross-cutting gotchas](#cross-cutting-gotchas)
 
 ---
@@ -135,6 +138,7 @@ table names, constraint details, and database configuration are not exposed.
 | `POST` | `/api/events` | login ★ | Create one |
 | `POST` | `/api/events/batch` | login ★ | Create many |
 | `POST` | `/api/events/recurring` | login ★ | Create a weekly series compactly |
+| `POST` | `/api/events/special` | admin | Book a closed date with an audited override |
 | `PATCH` | `/api/events/{id}` | faculty owner/admin ★ | Update one, including its event type |
 | `DELETE` | `/api/events/{id}` | faculty owner/admin ★ | Delete one (+ its check-ins) |
 | `GET` | `/api/reservation-drafts` | login | Your drafts |
@@ -952,14 +956,19 @@ existing reservation's start or end also validate availability. Saving unavailab
 shortening the cutoff cancels affected future or ongoing reservations.
 Confirmed cancellation uses the existing deletion behavior: related check-ins are removed first,
 then the reservation is deleted. Related drafts follow their existing database delete rules.
-There is no cancellation history and no cancellation-status column. Reopening a date does not
-recreate deleted reservations.
+The reservation row is gone afterwards; `closure_reviews` keeps a copy of its details for the admin
+review. Reopening a date does not recreate deleted reservations.
 
 Before any cancellation is applied, save returns `409` with `conflicting_reservations` containing
 the affected reservations' IDs, titles, and start/end timestamps. No changes are made. After the
 admin reviews the list, retry the same save with `confirmed_cancellations: [id, ...]`. The backend
 checks the current reservations again under the settings lock. Newly added reservations require
 another confirmation; a stale availability version still returns a version conflict.
+
+The save body also accepts an optional `closure_reason` of up to 500 characters. It is included in the
+emails for any reservation that save cancels, so write it for faculty to read. Every save records
+the signed-in admin, and the database refuses the save with `403` if that account is not an enabled
+admin.
 
 Each unavailable day is a public `events` row with `is_closure: true`, `event_type: "Unavailable"`,
 a default title of "Unavailable", and timestamps from 8 AM to 5 PM on that date in Pacific time. Closures
@@ -975,9 +984,97 @@ deleted only after the admin confirms the affected reservations on unavailable d
 the cutoff. The reservation cleanup and availability update run in the same transaction.
 
 Invalid dates or dates after the cutoff return `400` with a date-specific error. Missing or unreadable
-settings return `503`, and reservations stay closed. Run `backend/sql/reservation_availability.sql`
-before using this feature. It also installs database validation, so direct inserts and updates cannot
+settings return `503`, and reservations stay closed. Run `backend/sql/reservation_availability.sql`,
+then `backend/sql/admin_override_notifications.sql`, before using this feature. It also installs database validation, so direct inserts and updates cannot
 bypass availability. No automatic academic-calendar import or annual rollover is performed.
+
+## Special reservations
+
+> The admin dashboard's **Special Reservations** and **Closure Reviews** sections use the endpoints
+> below. Before merging or deploying, see the open authorization blocker in
+> [SECURITY.md](SECURITY.md#open-blocker-admin-only-routes-can-be-reached-by-non-admin-accounts).
+
+`POST /api/events/special` requires an admin session. It books one reservation on a closed date
+without reopening that date:
+
+```json
+{
+  "override_unavailable_date": true,
+  "override_reason": "Accreditation visit",
+  "event": {
+    "host_user_id": 12,
+    "start_time": "2027-01-18T17:00:00Z",
+    "end_time": "2027-01-18T18:00:00Z",
+    "event_type": "Meeting",
+    "description": "Site visit",
+    "title": "Accreditation",
+    "department": "Administration",
+    "is_public": false
+  }
+}
+```
+
+`event` follows the same rules as `POST /api/events`. A successful call returns `201` with
+`{"reservation": {...}, "override_id": 1}`. The reservation is active right away; there is no second
+approval step.
+
+| Status | When |
+|---|---|
+| `400` | `override_unavailable_date` is not `true`, the reason is missing or over 500 characters, or the event is invalid |
+| `403` | The caller is not an enabled admin |
+| `409` | The date is not closed, the date is after the last bookable date, or the time overlaps another reservation |
+
+The date stays in `invalid_dates`, so everyone else, including admins using the normal routes, is
+still refused. Overlap rules are unchanged. The override covers closed dates only, not dates after
+the last bookable date, and it books one reservation at a time, not a series.
+
+A special reservation can be edited, but its time cannot change while its date is closed. To use a
+different time, delete it and create a new one with a new override. Moving it to an open date is
+allowed, and it then becomes an ordinary reservation.
+
+Later saves leave it alone while its date stays closed. It is listed for confirmation like any other
+reservation if its date is reopened and then closed again, or if the last bookable date moves before it.
+
+`GET /api/admin/special-reservations` (admin) lists the audit trail, newest first: `event_id`,
+`override_date`, `reason`, `actor_user_id`, `actor_email`, `host_user_id`, the reservation's title and
+times, and `created_at`. These rows outlive the reservation and cannot be edited through the API.
+
+## Closure reviews and emails
+
+When an admin confirms a save that cancels reservations, the same database transaction records a
+review for each reservation and queues the emails. Nothing is queued if the save asks for
+confirmation, is refused, or fails. Plain `DELETE /api/events/{id}` sends no email.
+
+| Email | Sent to | Says |
+|---|---|---|
+| Cancellation notice | The reservation's host | System-generated; the reservation has been canceled, with its date, time, cause, reason, and contact instructions. It says the host's circumstances have not yet been reviewed, unless a review was completed before it went out |
+| Review summary | Each enabled admin, once per save | The canceled reservations with organizers and review state. Private reservation details appear only here |
+| Follow-up | The reservation's host | An admin's own message, only when an admin sends one after completing the review |
+
+Marking a review complete sends nobody anything. A follow-up is the only email that says an admin
+looked at a reservation, and it can only be queued once a review is complete.
+
+Delivery is retried after 1, 5, and 30 minutes and 2 hours, then marked `failed`. A rejected address
+fails right away. A failed email never changes a reservation. Each notice goes out at most once in
+normal operation, but a crash just after the provider accepts a message can repeat that message.
+
+All routes below require an admin session.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/admin/closure-reviews?status=pending` | Reviews, newest first. `status` is `pending` (default), `reviewed`, or `all` |
+| `GET` | `/api/admin/closure-reviews/{id}` | One review |
+| `POST` | `/api/admin/closure-reviews/{id}/review` | Mark it reviewed, with an optional `{"note":"..."}` of up to 2000 characters |
+| `POST` | `/api/admin/closure-reviews/{id}/follow-up` | Queue `{"message":"..."}` to the host, up to 2000 characters |
+| `GET` | `/api/admin/closure-notifications?status=failed` | Delivery state without addresses or message text. `status` is optional |
+| `POST` | `/api/admin/closure-notifications/{id}/retry` | Queue a `failed` email again. Returns `{"requeued":1}`, or `0` if it had not failed |
+
+A review holds the deleted reservation's title, description, type, department, access, times, host
+name and email, check-in count, cause, closure reason, who canceled it, and its review state, plus
+`closure_notifications` with each email's delivery state. Check-in details are not kept, only the count.
+
+Reviewing twice keeps the first reviewer and note. Sending the same follow-up text twice returns the
+first one. A follow-up before the review is complete returns `409`, and an unknown review returns `404`.
 
 ## Cross-cutting gotchas
 

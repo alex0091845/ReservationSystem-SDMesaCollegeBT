@@ -32,6 +32,7 @@ public class ReservationController {
 
     private static final ZoneId RESERVATION_TIME_ZONE = ZoneId.of("America/Los_Angeles");
     private static final LocalTime RESERVATION_DAY_END = LocalTime.of(17, 0);
+    private static final int MAX_OVERRIDE_REASON_LENGTH = 500;
 
     private final SupabaseClient supabase;
     private final ObjectMapper objectMapper;
@@ -239,6 +240,51 @@ public class ReservationController {
             return fromSupabase(supabase.postResponse("events", objectMapper.writeValueAsString(eventBodies)));
         } catch (ResponseStatusException error) {
             return jsonError(error.getStatusCode().value(), error.getReason());
+        } catch (IllegalArgumentException error) {
+            return jsonError(400, error.getMessage());
+        } catch (Exception error) {
+            throw new RuntimeException(error);
+        }
+    }
+
+    // An admin booking on a closed date. The date stays closed for everyone else, and the
+    // database repeats the admin, date, and overlap checks under the availability lock.
+    @PostMapping("/special")
+    public ResponseEntity<String> createSpecial(@RequestBody String body, HttpServletRequest request) {
+        JsonNode currentUser = getCurrentUser(request);
+
+        if (!authService.isAdmin(currentUser)) {
+            return jsonError(403, "Admin access required");
+        }
+
+        try {
+            JsonNode input = objectMapper.readTree(body);
+
+            if (input == null || !input.isObject() || !input.path("override_unavailable_date").asBoolean(false)
+                || !input.path("override_unavailable_date").isBoolean()) {
+                return jsonError(400, "override_unavailable_date must be true to book an unavailable date.");
+            }
+
+            JsonNode reason = input.path("override_reason");
+
+            if (!reason.isTextual() || reason.asText().isBlank()
+                || reason.asText().strip().length() > MAX_OVERRIDE_REASON_LENGTH) {
+                return jsonError(400, "override_reason is required and can be up to 500 characters.");
+            }
+
+            ObjectNode call = objectMapper.createObjectNode();
+            call.put("p_actor_user_id", currentUser.path("id").asLong());
+            call.put("p_reason", reason.asText());
+            call.set("p_event", normalizeNewEventInput(input.path("event")));
+
+            SupabaseClient.SupabaseResponse response =
+                supabase.postResponse("rpc/create_special_reservation", call.toString());
+
+            if (!response.isSuccessful()) {
+                return ReservationRuleErrors.toResponse(response);
+            }
+
+            return ResponseEntity.status(201).contentType(MediaType.APPLICATION_JSON).body(response.body());
         } catch (IllegalArgumentException error) {
             return jsonError(400, error.getMessage());
         } catch (Exception error) {

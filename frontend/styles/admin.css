@@ -537,3 +537,220 @@
 .admin-task-nav a[aria-current="page"]:hover {
     background: var(--mesa-blue-dark);
 }
+
+/* Special reservations and closure reviews */
+.admin-wide-panel {
+    grid-column: 1 / -1;
+    width: 100%;
+}
+
+.admin-closure-intro {
+    margin: 0 0 16px;
+    color: #4b5563;
+    line-height: 1.5;
+}
+
+.admin-closure-notice {
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid #bfdbfe;
+    border-radius: var(--radius-control);
+    background: #eff6ff;
+    color: #1e3a8a;
+    line-height: 1.4;
+}
+
+.admin-closure-notice.is-warning {
+    border-color: #f59e0b;
+    background: #fffbeb;
+    color: #92400e;
+    font-weight: 600;
+}
+
+.admin-closure-override {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-control);
+}
+
+.admin-closure-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+}
+
+.admin-closure-check input {
+    width: 18px;
+    height: 18px;
+}
+
+.admin-closure-subsection {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.admin-closure-subsection h3 {
+    margin: 0 0 12px;
+    color: #111827;
+    font-size: 18px;
+}
+
+.admin-closure-controls {
+    align-items: end;
+}
+
+/* Review list items reuse the faculty user cards */
+.faculty-user-card[aria-pressed="true"] {
+    border-color: var(--mesa-blue);
+    background: #eff6ff;
+}
+
+.admin-closure-item-text {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.admin-closure-hint {
+    color: #4b5563;
+    font-size: 14px;
+}
+
+.admin-closure-history {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.admin-closure-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+    gap: 16px;
+    align-items: start;
+}
+
+
+.admin-closure-details {
+    min-width: 0;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-control);
+}
+
+.admin-closure-details-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.admin-closure-details-header h3 {
+    margin: 0;
+}
+
+.admin-closure-facts {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px 16px;
+    margin: 16px 0;
+}
+
+.admin-closure-facts dt {
+    color: #4b5563;
+    font-weight: 600;
+}
+
+.admin-closure-facts dd {
+    margin: 0;
+}
+
+.admin-closure-emails h4 {
+    margin: 0 0 8px;
+}
+
+.admin-closure-email-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 6px;
+}
+
+.admin-closure-action {
+    display: grid;
+    gap: 8px;
+    margin-top: 16px;
+    justify-items: start;
+}
+
+.admin-closure-action textarea {
+    min-height: 80px;
+}
+
+.admin-closure-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #e5e7eb;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.admin-closure-badge.is-pending,
+.admin-closure-badge.is-sending {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.admin-closure-badge.is-completed,
+.admin-closure-badge.is-sent {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.admin-closure-badge.is-failed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.admin-closure-history-item {
+    display: grid;
+    gap: 2px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.admin-closure-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.admin-closure-table th,
+.admin-closure-table td {
+    padding: 8px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: top;
+}
+
+#closureDeliveryList {
+    overflow-x: auto;
+}
+
+@media (max-width: 900px) {
+    .admin-closure-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-closure-facts {
+        grid-template-columns: 1fr;
+    }
+}
