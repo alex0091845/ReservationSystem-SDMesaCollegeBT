@@ -2,7 +2,7 @@
 
 Requirements for the BT building room reservation system at San Diego Mesa College, written as
 user stories. Based on the initial stakeholder meeting notes, then updated with the team's decisions
-from GitHub issues and pull requests (last updated October 27, 2026).
+from GitHub issues and pull requests (last updated November 10, 2026).
 
 **Format:** each story has a priority and acceptance criteria (what "done" means). Notes under a
 story record what the team has decided or built so far. Numbers like [#68] link to the GitHub issue or
@@ -52,12 +52,13 @@ As a visitor, I want to see when the room is booked, so that I know what's happe
 - [X] The calendar is viewable without logging in.
 - [X] I can zoom between **Year, Month, Week, and Day** views, and go back with a Back button, the
   breadcrumb, or the Esc key. A Today button jumps to the current date.
-- [ ] Regardless of the device, the calendar shows Day view.
+- [X] Regardless of the device, the calendar shows Day view [#87].
 - [X] Booked times, closed days, and hours outside 8 AM – 5 PM are clearly shown as unavailable.
 - [X] The red "current time" line stays visible on top of events.
 
 > **Built:** the zoomable calendar (Year → Month → Week → Day) [#63]. The Year view shades each day by
-> how busy it is. Dates an admin blocks show on the calendar [#79, in review].
+> how busy it is. Dates an admin blocks show on the calendar [#79]. The calendar opens on Day view on every
+> device [#87].
 
 ### V2. See event details — Must
 As a visitor, I want to open an event and see its details, so that I know whether it's relevant to me.
@@ -82,9 +83,13 @@ different, so that I can scan the calendar quickly.
 - [ ] Colors in the Week and Day views are soft enough to be easy on the eyes. Points to accessibility and contrast requirements (A1).
 
 > **Discussion** [#69]: color-coding is standard (Apple, Teams, and Google calendars all use it), so we
-> keep it. Still open: whether the extra label/icon makes it too cluttered — needs user feedback.
-> Ideas for later: lighter event colors, letting organizers add an emoji or icon, or event banners
+> keep it. The question of whether an extra label/icon is too cluttered was settled by the decision
+> below. Ideas for later: lighter event colors, letting organizers add an emoji or icon, or event banners
 > (Could).
+>
+> **Built** [#81], [#90]: event card text is now dark gray on the orange and green cards (the fill colors
+> are unchanged) so the text passes contrast checks. See
+> [ACCESSIBILITY_COLORS.md](ACCESSIBILITY_COLORS.md).
 
 > **Decision**: Adding more than just the color — for example, the type name or a label/icon is also shown (see A1), would be too much.
 
@@ -119,7 +124,8 @@ calendar.
 
 - [X] A QR code button shows it, which links to the landing page.
 
-> **In progress** [#57], [#78]: the button and an empty pop-up are done; the QR code itself is next.
+> **Built** [#57], [#78]: the navbar button opens a pop-up with the QR code. It points to the site's
+> main address (the landing page).
 
 ### V7. Calendar on other pages — Could
 As a department, I want to embed the landing page on our own web page, so that people don't have to go to
@@ -149,13 +155,13 @@ As a faculty member, I want to log in with my email and password, so that I can 
 - [X] Login uses email + password.
 - [X] The login button and login page are labeled **"Faculty/Admin Login"**, so students and visitors
   know it isn't for them [#53].
-- [ ] **Later if not complete** - A successful login shows a **green** message; a failed one shows a **red** message. Both meet
-  contrast requirements [#49].
+- [X] A successful login shows a **green** message; a failed one shows a **red** message. Both meet
+  contrast requirements [#49], [#76].
 - [X] The login page has a Back button to return to the calendar [#51].
-- [ ] I can log out from any page except for a modal and the Login page, using a button labeled **"Log Out"**.
+- [X] I can log out from any page except for a modal and the Login page, using a button labeled **"Log Out"** [#76].
 - [X] Only logged-in faculty and admins see booking controls.
 
-> **Built:** Back button [#55]. Labels, message colors, and "Log Out" are in review [#76].
+> **Built:** Back button [#55]. Labels, message colors, and "Log Out" [#76].
 
 ---
 
@@ -174,7 +180,7 @@ As a faculty member, I want to reserve the room for a time slot, so that I can h
 - [ ] The booking form works well on a phone.
 
 > **Built:** more precise time selection and a better phone layout for the form [#64]; no booking in
-> the past [#34]; the server blocks overlapping bookings [#79, in review].
+> the past [#34]; the server blocks overlapping bookings [#79].
 
 ### R2. Public vs. private events — Must
 As a faculty member, I want to choose whether my event is public or private, so that I control who sees
@@ -203,7 +209,7 @@ book each week by hand.
 As a faculty member, I want a list of my upcoming reservations, so that I can keep track of them.
 
 - [ ] Shows only my reservations, soonest first.
-- [ ] A long list scrolls inside its box instead of pushing the rest of the page down [#74].
+- [X] A long list scrolls inside its box instead of pushing the rest of the page down [#74].
 
 ### R5. Edit my reservation — Must
 As a faculty member, I want to change my reservation's details or time, so that I can fix mistakes or
@@ -216,9 +222,9 @@ adjust plans.
 As a faculty member, I want to cancel my reservation, so that the room is freed for others.
 
 - [X] I can cancel only my own reservations.
-- [ ] I'm asked to confirm before it's cancelled.
-- [ ] The time slot becomes available right away.
-- [ ] If the cancel fails, I'm told so clearly [#33].
+- [X] I'm asked to confirm before it's cancelled.
+- [X] The time slot becomes available right away.
+- [X] If the cancel fails, I'm told so clearly [#33].
 - [ ] Follows the cancel vs. delete rules in C1 (proposed): past or in-progress events can't be removed.
 
 ### R7. Email confirmation — Should
@@ -268,7 +274,10 @@ when it's open.
 - [X] If I block a date that already has reservations, I'm warned before saving. Confirming deletes
   those reservations **and their check-ins**.
 
-> **In review** [#79]. This replaces the earlier idea of entering semester start/end dates and holidays
+- [X] When I block a date, I can add an optional reason. Visitors who click a blocked date on the calendar
+  see a small pop-up with the date and the reason (or a default message if none was given) [#88].
+
+> **Built** [#79], [#88]. This replaces the earlier idea of entering semester start/end dates and holidays
 > separately.
 
 ### AD4. Manage any reservation — Must
@@ -302,8 +311,8 @@ arrive without staff help [#60].
 - [X] The organizer can display or print the QR code.
 - [ ] Check-ins are only accepted during a window around the event (exact window to decide, see below).
 
-> **In progress** on `feature/Event-QR-Code` [#58], [#59], [#61], [#72]: event links, opening the event
-> from a link, the QR code, and Copy Link are built.
+> **Built** [#58], [#59], [#61], [#82]: event links, opening the event from a link, the QR code, and
+> Copy Link. [#89] fixed a bug where links and QR codes opened the calendar but not the event.
 >
 > **Check-in window — not settled:** [#71] proposes 15 minutes before until 15 minutes after the event;
 > [#50] says check-in opens 10 minutes before the start. Pick one.
@@ -322,10 +331,11 @@ arrive without staff help [#60].
 As an attendee, I want to scan the QR code and check in with my student email, so that my attendance is recorded.
 
 - [X] Works on a phone without installing an app or logging in.
-- [X] Asks only for name and student email. **No CSIDs or other student records.**
+- [ ] Asks only for name and student email. **No CSIDs or other student records.**
+  *(Not met yet: the check-in form currently also has an optional "SDCCD ID" field, and the server stores it.)*
 - [ ] The same email can't check in twice to the same event.
 - [ ] Check-in is refused outside the allowed window, and the server enforces this, not just the page [#50].
-- [ ] I see a confirmation that I'm checked in.
+- [X] I see a confirmation that I'm checked in ("You're checked in. Thank you!").
 
 ### C3. See who checked in — Must
 As a faculty member, I want to see the check-in list for my event, so that I know who attended.
@@ -354,12 +364,17 @@ any issues, so that problems with the room get reported.
 As a user with a disability, I want the site to work with screen readers and have readable colors, so
 that I can use it like anyone else.
 
-- [ ] **Later** - Meets WCAG 2.1 AA color contrast.
+- [X] Meets WCAG 2.1 AA color contrast [#80], [#81], [#85], [#90].
 - [ ] **Later** - Usable with keyboard only and with a screen reader (labels, headings, focus visible).
 - [ ] **Later** - The order of things for keyboard and screen-reader users matches what's on screen [#74].
-- [ ] **Later** - Animations (like the calendar zoom) turn off for people whose device is set to reduce motion [#63].
+- [X] Animations (like the calendar zoom) turn off for people whose device is set to reduce motion [#63].
 - [ ] **Later** - Information is never shown by color alone.
 
+> **Built:** contrast fixes for the calendar, event cards, focus ring, and brand blues, checked with an
+> automated scan (no contrast failures) [#80], [#81], [#85], [#90]. Each color and its measured ratio is
+> in [ACCESSIBILITY_COLORS.md](ACCESSIBILITY_COLORS.md). The Atkinson Hyperlegible font was added [#83]; [#84] stays
+> open because it is loaded from Google Fonts, not hosted with the site.
+>
 > **Planned** [#67]: walk through every page to check accessibility and how it works on different devices.
 
 ### A2. Easy to use on any device — Must
@@ -418,6 +433,7 @@ Written down so the design leaves room for them; **not in current scope**.
     events are shown.
 14. **Private events and check-in:** can attendees check in to a private event the same way [#68]?
 15. **Event type look:** is the color + label design too cluttered? Do we want icons or emoji [#69]?
+    - Decided in V3: color only, no extra label or icon.
 16. Should admins be able to override unavailable days to create special reservations?
 
 [#33]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/33
@@ -444,7 +460,6 @@ Written down so the design leaves room for them; **not in current scope**.
 [#69]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/issues/69
 [#70]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/issues/70
 [#71]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/issues/71
-[#72]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/72
 [#73]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/issues/73
 [#74]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/74
 [#75]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/75
@@ -452,3 +467,13 @@ Written down so the design leaves room for them; **not in current scope**.
 [#77]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/77
 [#78]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/78
 [#79]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/79
+[#80]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/80
+[#81]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/81
+[#82]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/82
+[#83]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/83
+[#84]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/issues/84
+[#85]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/85
+[#87]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/87
+[#88]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/88
+[#89]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/89
+[#90]: https://github.com/alex0091845/ReservationSystem-SDMesaCollegeBT/pull/90
