@@ -480,7 +480,11 @@ The script keeps one `reservation_availability` row for `last_bookable_date` and
 Unavailable dates are 8 AM to 5 PM Pacific time rows in the existing `events` table, marked `is_closure = true` and
 `event_type = 'Unavailable'`. They have no host, are publicly visible, and cannot accept check-ins.
 Normal reservations still require a host. The event feed, calendars, and event cards show closures
-as unavailable; existing title and description fields can hold closure details later.
+as unavailable. A closure's existing `description` field is its public reason, and the frontend shows
+"Room closure" when it is empty or the stored default "Room unavailable". Admins set it from
+**Bookable Dates** through `PATCH /api/events/{id}`, which accepts only that field for closures.
+The database trigger advances the save version on each of those updates, so the editor reloads the
+version afterward and no schema change is needed.
 
 If the previous array-based migration was already run, run this updated script once more. It
 converts every saved `invalid_dates` entry into a closure event before removing the old column.

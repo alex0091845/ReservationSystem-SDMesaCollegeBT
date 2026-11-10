@@ -183,12 +183,46 @@ class ReservationAvailabilityTest {
     }
 
     @Test
+    void adminCanChangeOnlyAClosuresDescription() {
+        stubClosureUpdate();
+        var result = events.update(7, "{\"description\":\"  Veterans Day  \"}", request);
+        assertEquals(HttpStatus.OK, result.getStatusCode());
+        verify(supabase).patchResponse("events?id=eq.7", "{\"description\":\"Veterans Day\"}");
+    }
+
+    @Test
+    void blankClosureDescriptionClearsTheReason() {
+        stubClosureUpdate();
+        assertEquals(HttpStatus.OK, events.update(7, "{\"description\":\"   \"}", request).getStatusCode());
+        assertEquals(HttpStatus.OK, events.update(7, "{\"description\":null}", request).getStatusCode());
+        verify(supabase, times(2)).patchResponse("events?id=eq.7", "{\"description\":null}");
+    }
+
+    @Test
+    void closureDescriptionUpdateRejectsOtherFieldsAndNonAdmins() {
+        stubClosureUpdate();
+        assertEquals(HttpStatus.FORBIDDEN,
+            events.update(7, "{\"description\":\"Break\",\"title\":\"Open\"}", request).getStatusCode());
+        assertEquals(HttpStatus.FORBIDDEN, events.update(7, "{\"title\":\"Open\"}", request).getStatusCode());
+        assertEquals(HttpStatus.BAD_REQUEST, events.update(7, "{\"description\":42}", request).getStatusCode());
+        when(auth.isAdmin(any())).thenReturn(false);
+        assertEquals(HttpStatus.FORBIDDEN, events.update(7, "{\"description\":\"Break\"}", request).getStatusCode());
+        verify(supabase, never()).patchResponse(anyString(), anyString());
+    }
+
+    @Test
     void publicClosuresKeepTheirDetailsAndMarkerInTheEventFeed() {
         String closure = "[{\"id\":7,\"is_closure\":true,\"is_public\":true,\"title\":\"Unavailable\"}]";
         when(supabase.get("events?select=*,users(first_name,last_name)")).thenReturn(closure);
         var result = mapper.readTree(events.getAll(request).getBody()).get(0);
         assertTrue(result.path("is_closure").asBoolean());
         assertEquals("Unavailable", result.path("title").asText());
+    }
+
+    private void stubClosureUpdate() {
+        when(supabase.get(startsWith("events?id=eq.7"))).thenReturn("[{\"id\":7,\"is_closure\":true}]");
+        when(supabase.patchResponse(eq("events?id=eq.7"), anyString()))
+            .thenReturn(new SupabaseClient.SupabaseResponse(200, "[]"));
     }
 
     private void configure(String cutoff, String... invalidDates) {
