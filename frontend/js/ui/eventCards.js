@@ -1,4 +1,6 @@
 import {
+    CALENDAR_START_HOUR,
+    CALENDAR_END_HOUR,
     formatReadableDate,
     getEventColorClass
 } from "../utils/dateUtils.js";
@@ -32,7 +34,7 @@ export function createEventCard({
         );
     }
 
-    if (showAttendeeCount && !privateEvent) {
+    if (showAttendeeCount && !privateEvent && !event.is_closure) {
         card.appendChild(createAttendeeCountBadge(event, attendees));
     }
 
@@ -97,6 +99,14 @@ export function formatEventTime(event) {
 
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
         return "Time not set";
+    }
+
+    const dayStart = new Date(startDate);
+    const dayEnd = new Date(startDate);
+    dayStart.setHours(CALENDAR_START_HOUR, 0, 0, 0);
+    dayEnd.setHours(CALENDAR_END_HOUR, 0, 0, 0);
+    if (startDate.getTime() === dayStart.getTime() && endDate.getTime() === dayEnd.getTime()) {
+        return "All day";
     }
 
     const startTime = startDate.toLocaleTimeString([], {

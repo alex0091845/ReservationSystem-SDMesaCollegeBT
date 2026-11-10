@@ -1,7 +1,6 @@
 import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
-import { renderCalendar } from "./ui/monthView.js";
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
 import { renderZoomStage } from "./ui/zoomController.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
@@ -32,11 +31,7 @@ import {
 // Makes all page elements accessible in one place
 const elements = {
     leftColumn: document.querySelector(".left-column"),
-    datesContainer: document.getElementById("dates"),
-    calendarTitle: document.getElementById("calendarTitle"),
     weekViewTitle: document.getElementById("weekViewTitle"),
-    prevMonthBtn: document.getElementById("prevMonthBtn"),
-    nextMonthBtn: document.getElementById("nextMonthBtn"),
     prevWeekBtn: document.getElementById("prevWeekBtn"),
     nextWeekBtn: document.getElementById("nextWeekBtn"),
     sidePanel: document.getElementById("sidePanel"),
@@ -92,6 +87,10 @@ const elements = {
     navUserIdentity: document.getElementById("navUserIdentity"),
     navUserInitials: document.getElementById("navUserInitials"),
     navUserName: document.getElementById("navUserName"),
+    calendarQRCodeBtn: document.getElementById("calendarQRCodeBtn"),
+    calendarQRCodeModalOverlay: document.getElementById("calendarQRModalOverlay"),
+    calendarQRCodeModal: document.getElementById("calendarQRModal"),
+    calendarQRCodeModalCloseBtn: document.getElementById("calendarQRModalCloseBtn")
 };
 
 const facultyReservationDeleteMenu = createActionMenu({
@@ -103,8 +102,6 @@ let isFacultyLoggedIn =
     sessionStorage.getItem("facultyLoggedIn") === "true";
 let currentUserId = sessionStorage.getItem("currentUserId");
 let currentUserRole = sessionStorage.getItem("currentUserRole") || "";
-const largeScreenQuery = window.matchMedia("(min-width: 1680px)");
-
 if (elements.openReservationModalBtn) {
     elements.openReservationModalBtn.disabled = !isFacultyLoggedIn;
     elements.openReservationModalBtn.title = !isFacultyLoggedIn
@@ -376,16 +373,6 @@ function renderAll() {
     renderCurrentUserIdentity();
     renderSideWidget();
 
-    renderCalendar({
-        datesContainer: elements.datesContainer,
-        calendarTitle: elements.calendarTitle,
-        currentYear: state.currentYear,
-        currentMonth: state.currentMonth,
-        selectedDate: state.selectedDate,
-        reservedEvents,
-        onSelectDate: setSelectedDate
-    });
-
     renderWeekView({
         weekViewWrapper: elements.weekViewWrapper,
         weekViewTitle: elements.weekViewTitle,
@@ -594,10 +581,9 @@ function renderSideWidget() {
     );
 }
 
+// Check-In and My Events sit at the top of the left column, above Upcoming Events.
 function syncSideWidgetPlacement() {
-    const widgetTarget = largeScreenQuery.matches
-        ? elements.sidePanel
-        : elements.leftColumn;
+    const widgetTarget = elements.leftColumn;
 
     if (!widgetTarget) {
         return;
@@ -605,14 +591,9 @@ function syncSideWidgetPlacement() {
 
     getSideWidgets().forEach(widget => {
         if (widget.parentElement !== widgetTarget) {
-            widgetTarget.appendChild(widget);
+            widgetTarget.insertBefore(widget, widgetTarget.querySelector(".upcoming-events"));
         }
     });
-}
-
-function syncSideWidgetLayout() {
-    syncSideWidgetPlacement();
-    syncSideWidgetMaxHeight();
 }
 
 function syncSideWidgetMaxHeight() {
@@ -708,14 +689,33 @@ function openCalendarEvent(reservation) {
     openEventModal(reservation);
 }
 
-// opens the event modal for the event id in the query string
-function openLinkedEvent()
-{
-    let urlParams = new URLSearchParams(window.location.search);
-    const linkedEventID = urlParams.get('eventID');
+function openCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.add("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
+    elements.calendarQRCodeModalCloseBtn.focus();
+    generateCalendarQR();
+    console.log(window.location.origin);
+}
 
-    if(linkedEventID)
-        openEventModal(reservedEvents.find(item => item.id === Number(linkedEventID)));
+function generateCalendarQR()
+{
+    let qrInput = window.location.origin;
+    let container = document.getElementById("CalendarQRcode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
+function closeCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.remove("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "true");
+    elements.calendarQRCodeBtn.focus();
 }
 
 async function openFacultyReservationEditModal(reservation) {
@@ -1218,7 +1218,7 @@ function isReservationOwnedByUser(reservation, user) {
 }
 
 function canCurrentUserEditReservation(reservation) {
-    if (!isFacultyLoggedIn || !currentUser) {
+    if (!isFacultyLoggedIn || !currentUser || reservation.is_closure) {
         return false;
     }
 
@@ -1331,16 +1331,6 @@ function getUserRoleName(user) {
 
 // Starts event listeners for button and modal interactivity
 function bindEvents() {
-    elements.prevMonthBtn.addEventListener(
-        "click",
-        () => changeMonth(-1)
-    );
-
-    elements.nextMonthBtn.addEventListener(
-        "click",
-        () => changeMonth(1)
-    );
-
     elements.prevWeekBtn.addEventListener(
         "click",
         () => moveSelectedDateByDays(-7)
@@ -1355,6 +1345,16 @@ function bindEvents() {
         "click",
         closeEventModal
     );
+
+    if (
+        elements.calendarQRCodeBtn &&
+        elements.calendarQRCodeModalOverlay &&
+        elements.calendarQRCodeModalCloseBtn
+    ) {
+        elements.calendarQRCodeBtn.addEventListener("click", openCalendarQRCodeModal);
+        elements.calendarQRCodeModalCloseBtn.addEventListener("click", closeCalendarQRCodeModal);
+        bindBackdropClose(elements.calendarQRCodeModalOverlay, closeCalendarQRCodeModal);
+    }
 
     elements.facultyReservationModalCloseBtn.addEventListener(
         "click",
@@ -1408,15 +1408,6 @@ function bindEvents() {
         handleReservationCreated
     );
 
-    if (largeScreenQuery.addEventListener) {
-        largeScreenQuery.addEventListener(
-            "change",
-            syncSideWidgetLayout
-        );
-    } else {
-        largeScreenQuery.addListener(syncSideWidgetLayout);
-    }
-
     window.addEventListener("resize", syncSideWidgetMaxHeight);
 
     // Allows event modal to be closed by clicking background
@@ -1430,6 +1421,13 @@ function bindEvents() {
     document.addEventListener(
         "keydown",
         event => {
+            if (
+                event.key === "Escape" &&
+                elements.calendarQRCodeModalOverlay.classList.contains("active")
+            ) {
+                closeCalendarQRCodeModal();
+            }
+
             if (
                 event.key === "Escape" &&
                 elements.QRmodalOverlay.classList.contains("open")
@@ -1463,7 +1461,7 @@ function bindEvents() {
     );
 
     if (elements.loginBtn) {
-        elements.loginBtn.textContent = isFacultyLoggedIn ? "Sign Out" : "Faculty Login";
+        elements.loginBtn.textContent = isFacultyLoggedIn ? "Log Out" : "Faculty/Admin Login";
 
         elements.loginBtn.addEventListener(
             "click",

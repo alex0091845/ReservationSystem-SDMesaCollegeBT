@@ -331,15 +331,18 @@ Applied to every create and update, and to every generated occurrence of a recur
 
 Any failure is a `400` naming the field, e.g. `{"error":"Reservations must end by 5:00 PM."}`.
 
-Two things this does **not** do:
+The opening-time rule is still limited:
 
 > ⚠️ **There is no earliest-time rule.** The calendar UI starts at 8 AM, but that is a frontend
 > constant (`CALENDAR_START_HOUR`); the API happily accepts a 6 AM booking. Only the 5 PM end is
 > enforced server-side.
 
-> ⚠️ **There is no overlap check on the server.** Two reservations may occupy the same time. Overlap
-> is only prevented by the browser (`utils/reservationValidation.js`). See
-> [gotcha 3](#3-double-booking-is-only-prevented-in-the-browser).
+Overlapping reservations return `409` with `{"error":"This time overlaps an existing reservation. Choose a different time."}`.
+The database exclusion constraint enforces this for creation, updates, batches, and recurring
+reservations, including simultaneous requests. Adjacent reservations are allowed. A conflicting
+batch or recurring request is rejected in full. Apply `backend/sql/reservation_availability.sql`
+to install this protection.
+Database deadlocks or serialization failures also return `409`, asking the user to try again.
 
 Because the window is evaluated in Pacific time, the same UTC timestamp can be valid in winter and
 invalid in summer. Send zoned timestamps and let the server convert.
@@ -924,6 +927,58 @@ The role that matters is `admin`; the check is `role_name == "admin"`, case-inse
 
 ---
 
+## Reservation availability
+
+`GET /api/reservation-availability` requires a faculty or admin session.
+`PATCH /api/reservation-availability` requires an admin session. The response and save body are:
+
+```json
+{
+  "last_bookable_date": "2027-05-29",
+  "invalid_dates": ["2027-01-18", "2027-02-12"],
+  "version": 0
+}
+```
+
+The date shown above is an example. An unconfigured calendar returns a null cutoff and an empty
+invalid-date list. New reservations are closed until an admin saves a schedule. Dates use the
+`America/Los_Angeles` timezone, and the cutoff is inclusive. `invalid_dates` is derived from closure
+events, not a stored date array. Saves update the cutoff and reconcile closure events in one
+transaction, then increment `version`. Send the version returned by the last read or successful save;
+a stale version returns `409` rather than overwriting another admin's work.
+
+Single, batch, and recurring creates validate every requested date before writing. Changes to an
+existing reservation's start or end also validate availability. Saving unavailable dates or
+shortening the cutoff cancels affected future or ongoing reservations.
+Confirmed cancellation uses the existing deletion behavior: related check-ins are removed first,
+then the reservation is deleted. Related drafts follow their existing database delete rules.
+There is no cancellation history and no cancellation-status column. Reopening a date does not
+recreate deleted reservations.
+
+Before any cancellation is applied, save returns `409` with `conflicting_reservations` containing
+the affected reservations' IDs, titles, and start/end timestamps. No changes are made. After the
+admin reviews the list, retry the same save with `confirmed_cancellations: [id, ...]`. The backend
+checks the current reservations again under the settings lock. Newly added reservations require
+another confirmation; a stale availability version still returns a version conflict.
+
+Each unavailable day is a public `events` row with `is_closure: true`, `event_type: "Unavailable"`,
+a default title of "Unavailable", and timestamps from 8 AM to 5 PM on that date in Pacific time. Closures
+have no host and cannot accept check-ins. They appear in the normal event feed and existing
+calendar/card/detail renderers. Closures are omitted from Upcoming Events. The regular event create,
+update, and delete routes cannot change closures; use the availability endpoint. The reserved type
+is omitted from reservation form options.
+
+Saving reconciles future closure dates through the requested cutoff. Existing closure rows keep
+their IDs, titles, and descriptions when still blocked. Past closures and closures beyond the
+cutoff are retained. Reopening a date removes its closure event. Ordinary reservation rows are
+deleted only after the admin confirms the affected reservations on unavailable dates or after
+the cutoff. The reservation cleanup and availability update run in the same transaction.
+
+Invalid dates or dates after the cutoff return `400` with a date-specific error. Missing or unreadable
+settings return `503`, and reservations stay closed. Run `backend/sql/reservation_availability.sql`
+before using this feature. It also installs database validation, so direct inserts and updates cannot
+bypass availability. No automatic academic-calendar import or annual rollover is performed.
+
 ## Cross-cutting gotchas
 
 Current server behavior and known limitations. Automated tests cover the security cases listed in
@@ -940,14 +995,14 @@ display occupied time. Verify with a production request after deployment.
 Login rejects disabled accounts. Session resolution reloads the enabled account record and
 invalidates sessions whose account is missing or disabled.
 
-### 3. Double-booking is only prevented in the browser
+### 3. Overlap protection requires the database migration
 
-There is no overlap check anywhere on the server. Two events can occupy the same slot. The overlap
-rule lives entirely in `reservationValidation.js`, so anything calling the API directly — or a race
-between two people booking simultaneously — can double-book.
-
-*Fix:* an exclusion constraint on `events` (Postgres `EXCLUDE USING gist` on a `tstzrange`) is the
-robust answer; a server-side check in `ReservationController` would catch the common case.
+`events_no_reservation_overlap` excludes overlapping ordinary reservation time ranges at the
+database level. Half-open ranges allow a booking to start exactly when another ends. The browser
+still checks overlaps for immediate feedback; direct API writes and concurrent requests are also
+protected once `backend/sql/reservation_availability.sql` has been applied. Closure events use
+the separate availability checks and are excluded from the ordinary reservation constraint.
+Existing overlaps stop the migration without deleting records and must be resolved before retrying.
 
 ### 4. Database errors are not returned to clients
 

@@ -476,11 +476,19 @@ export async function getEvents() {
     return events.map(event => attachHostUser(event));
 }
 
+export async function getReservationAvailability() {
+    return request("/reservation-availability");
+}
+
+export async function saveReservationAvailability(settings) {
+    return request("/reservation-availability", "PATCH", settings);
+}
+
 export async function getEventTypes() {
     return normalizeCollection(
         await request("/event-types", "GET"),
         ["event_types", "data", "items", "records"]
-    ).map(normalizeEventType).filter(Boolean);
+    ).map(normalizeEventType).filter(eventType => eventType && eventType.value.toLowerCase() !== "unavailable");
 }
 
 export async function createEvent(eventData) {
@@ -822,7 +830,13 @@ export async function updateEvent(eventData) {
         throw new Error(validation.message);
     }
 
-    const updateResponse = await request(`/events/${eventData.id}`, "PATCH", toBackendEvent(eventData));
+    let updateResponse;
+    try {
+        updateResponse = await request(`/events/${eventData.id}`, "PATCH", toBackendEvent(eventData));
+    } catch (error) {
+        error.message = getRequestFailureMessage(error, "Could not save the reservation to the backend.");
+        throw error;
+    }
     const updatedEvent = normalizeCollection(
         updateResponse,
         ["events", "data", "items", "records"]

@@ -16,7 +16,7 @@ export function renderUpcomingEvents(
 
     // Finds the next 3 upcoming events
     const upcoming = sortedEvents
-        .filter(event => new Date(event.start_time) >= today)
+        .filter(event => !event.is_closure && new Date(event.start_time) >= today)
         .slice(0, 3);
 
     // Empty state

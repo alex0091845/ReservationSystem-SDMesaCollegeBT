@@ -110,19 +110,11 @@ export function renderWeekView({
 
     weekViewWrapper.appendChild(header);
 
-    const hourRowHeight = getWeekHourRowHeight(weekViewWrapper);
-    const minEventHeight = getWeekMinEventHeight(weekViewWrapper);
-
     // Hour Labels
     hourNames.forEach((hourLabel, rowIndex) => {
         const row = document.createElement("div");
 
         row.classList.add("week-row");
-
-        // Keeps earlier rows above later rows
-        row.style.zIndex = String(
-            hourNames.length - rowIndex
-        );
 
         // Static Labels
         const timeLabel = document.createElement("div");
@@ -143,6 +135,7 @@ export function renderWeekView({
             const cell = document.createElement("div");
 
             cell.classList.add("week-cell");
+            cell.style.zIndex = String(hourNames.length - rowIndex);
             cell.dataset.weekDate = formatDateKey(
                 dateObj.getFullYear(),
                 dateObj.getMonth(),
@@ -209,27 +202,11 @@ export function renderWeekView({
                 const rowStartMinutes =
                     cellHour * 60;
 
-                // Cell positioning math
-                const pxPerMinute =
-                    hourRowHeight / 60;
-
-                // Vertical offset within hour row
-                const topOffset =
-                    (startMinutes - rowStartMinutes) *
-                    pxPerMinute;
-
-                // Height based on duration
-                const blockHeight =
-                    Math.max(
-                        (endMinutes - startMinutes) * pxPerMinute,
-                        minEventHeight
-                    );
-
                 eventEl.style.top =
-                    `${topOffset}px`;
+                    `calc(var(--week-hour-row-height) * ${(startMinutes - rowStartMinutes) / 60})`;
 
                 eventEl.style.height =
-                    `${blockHeight}px`;
+                    `max(var(--week-min-event-height), calc(var(--week-hour-row-height) * ${(endMinutes - startMinutes) / 60}))`;
 
                 cell.appendChild(eventEl);
             });
@@ -286,11 +263,9 @@ export function updateCurrentTimeIndicator(weekViewWrapper) {
 
     const indicator = document.createElement("div");
     const minutesIntoDay = (minutesSinceMidnight - calendarStartMinutes) + (now.getSeconds() / 60);
-    const rowHeight = currentDayCell.getBoundingClientRect().height;
-
     indicator.className = "week-current-time-indicator";
     indicator.setAttribute("aria-hidden", "true");
-    indicator.style.top = `${(minutesIntoDay / 60) * rowHeight}px`;
+    indicator.style.top = `calc(var(--week-hour-row-height) * ${minutesIntoDay / 60})`;
     currentDayCell.appendChild(indicator);
 }
 
@@ -344,24 +319,6 @@ function createEndBoundaryRow({
     });
 
     return row;
-}
-
-function getWeekHourRowHeight(weekViewWrapper) {
-    const rowHeight = parseFloat(
-        getComputedStyle(weekViewWrapper)
-            .getPropertyValue("--week-hour-row-height")
-    );
-
-    return Number.isFinite(rowHeight) ? rowHeight : 68;
-}
-
-function getWeekMinEventHeight(weekViewWrapper) {
-    const minEventHeight = parseFloat(
-        getComputedStyle(weekViewWrapper)
-            .getPropertyValue("--week-min-event-height")
-    );
-
-    return Number.isFinite(minEventHeight) ? minEventHeight : 24;
 }
 
 function centerSelectedDateColumn(weekViewWrapper) {

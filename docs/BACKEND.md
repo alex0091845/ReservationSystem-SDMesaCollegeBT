@@ -383,7 +383,7 @@ Schema lives in `erd.sql` at the repo root; apply it in the Supabase SQL editor.
 |---|---|
 | `users` | `id`, `email` (unique), `password_hash`, `role_name` → `user_roles`, `enabled` |
 | `user_roles` | **`name` is the primary key** — there is no `id` column |
-| `events` | `id`, `host_user_id` → `users`, `start_time`, `end_time`, `event_type` → `event_types`, `title`, `description`, `department`, `is_public`, `recurrence_group_id` |
+| `events` | `id`, `host_user_id` → `users`, `start_time`, `end_time`, `event_type` → `event_types`, `title`, `description`, `department`, `is_public`, `recurrence_group_id`, `is_closure` |
 | `event_types` | `event_type` is the primary key |
 | `attendees` | `id`, `event_id` → `events` (**no ON DELETE rule**), `sdccd_id`, name/email, `check_in_time` |
 | `sessions` | `session_id` (unique SHA-256 token hash), `user_id`, `expires_at`, `invalidated_at`, `last_seen_at` |
@@ -462,12 +462,70 @@ required. The browser uses the Java `/api` service and does not connect directly
   the room is occupied. Names, titles, descriptions, departments, event types, host IDs, and
   recurrence IDs are removed for viewers without a faculty or admin session.
 - Expired and invalidated session rows still need a scheduled cleanup policy.
-- The backend still needs overlap validation and enforcement of the 8 AM opening time. These
-  reservation integrity controls remain server-side gaps.
+- Enforcement of the 8 AM opening time remains a server-side gap. Overlap protection requires
+  applying the reservation availability migration described below.
 - The supplied screenshots confirm RLS settings and policies, but not current grants, direct Data
   API behavior, or AWS behavior. Those require fresh production checks.
 
 ---
+
+## Reservation availability setup
+
+For local testing, use the test Supabase project configured in `local-testing/start-local.ps1`.
+In that project's **SQL Editor**, open a new query, paste all of
+[`backend/sql/reservation_availability.sql`](../backend/sql/reservation_availability.sql), and run it.
+Do not run the entire `erd.sql` against an existing database.
+
+The script keeps one `reservation_availability` row for `last_bookable_date` and the save version.
+Unavailable dates are 8 AM to 5 PM Pacific time rows in the existing `events` table, marked `is_closure = true` and
+`event_type = 'Unavailable'`. They have no host, are publicly visible, and cannot accept check-ins.
+Normal reservations still require a host. The event feed, calendars, and event cards show closures
+as unavailable; existing title and description fields can hold closure details later.
+
+If the previous array-based migration was already run, run this updated script once more. It
+converts every saved `invalid_dates` entry into a closure event before removing the old column.
+The conversion and schema changes run in one transaction. Existing reservations are preserved
+during migration; cancellations require the admin's confirmation when saving availability.
+The script is rerunnable and does not reset saved dates or duplicate closure events.
+Rerunning it also converts existing midnight-to-midnight closures to 8 AM to 5 PM on the same
+Pacific date, preserving their IDs and details. The calendar uses the same time-based "All day"
+label as regular reservations. The whole unavailable date remains blocked for new reservations.
+
+The same script installs a PostgreSQL exclusion constraint to prevent overlapping ordinary
+reservations, including simultaneous requests, batches, recurring bookings, and rescheduling.
+Back-to-back reservations remain valid. No extension or extra database fields are needed.
+If existing reservations overlap or have a nonpositive duration, the migration stops with their
+IDs and rolls back all changes. Resolve those records explicitly before rerunning; the migration
+does not choose which existing reservation to delete. This check includes historical reservations.
+Creation and update endpoints return a generic `409` conflict without exposing the other booking.
+
+The read and save RPCs are backend-only. Saving uses one transaction to check the version, reconcile
+closure events, cancel affected reservations, and update the cutoff. The first save attempt returns
+a list of reservations requiring cancellation review without writing any changes. The admin must
+confirm those IDs before cancellation is applied. Any newly added booking requires another review.
+Confirmed cancellation removes related check-ins, then deletes the reservation, matching the
+existing deletion flow. No cancellation-history fields are added. Reopening a date does not
+recreate deleted reservations. The cleanup and availability changes are atomic.
+Existing closure IDs and descriptions are preserved when a date stays unavailable.
+Past closures and closures beyond the cutoff are retained. RLS and function
+grants restrict the settings and RPCs to `service_role`; no new keys or environment variables are needed.
+
+Pause reservation traffic while applying this schema update, then restart the backend and update
+the frontend together so that the confirmation and deletion behavior match.
+For local testing, restart the local server and open **Bookable Dates**. Set **Last bookable
+date**, choose available dates, and click **Save changes**. A new setup starts closed until configured.
+A second admin saving an older version gets a conflict instead of overwriting newer settings.
+
+To inspect the result in the SQL Editor:
+
+```sql
+SELECT id, last_bookable_date, version FROM public.reservation_availability;
+SELECT id, start_time, end_time, title, description
+FROM public.events WHERE is_closure ORDER BY start_time;
+```
+
+Admins maintain the cutoff and blocked dates in the dashboard each school year. The system does
+not advance the cutoff automatically. Full request details are in [API.md](API.md#reservation-availability).
 
 ## 9. Glossary
 

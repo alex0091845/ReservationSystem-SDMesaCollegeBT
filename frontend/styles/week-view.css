@@ -9,7 +9,7 @@
     width: 100%;
     border: 1px solid #ddd;
     border-radius: var(--radius-card);
-    overflow: hidden;
+    overflow-x: auto;
     background: #fff;
 }
 
@@ -26,6 +26,10 @@
 }
 
 .week-corner {
+    position: sticky;
+    left: 0;
+    z-index: 20;
+    background: #fafafa;
     min-height: var(--week-header-height);
     border-right: 1px solid #e5e5e5;
 }
@@ -64,7 +68,9 @@
 }
 
 .week-time-label {
-    position: relative;
+    position: sticky;
+    left: 0;
+    z-index: 10;
     display: flex;
     align-items: flex-start;
     justify-content: center;
