@@ -1,5 +1,5 @@
 import { createAttendee, createEvents, getEventTypes, getEvents, isUserDisabled } from "../api.js";
-import { formatReadableDate } from "../utils/dateUtils.js";
+import { formatReadableDate, getUnavailableReason } from "../utils/dateUtils.js";
 import { formatEventTime } from "./eventCards.js";
 import { validateReservationData } from "../utils/reservationValidation.js";
 import { renderEventTypeOptions } from "./eventTypeOptions.js";
@@ -67,8 +67,10 @@ let reservationEventTypes = [];
 let reservationPointerStartedOnBackdrop = false;
 let reservationClosePromptOpen = false;
 let eventModalReturnFocusElement = null;
+let unavailableModalReturnFocusElement = null;
 let reservationModalReturnFocusElement = null;
 let selectedCheckInEvent = null;
+export let currentEventLink = "";
 
 export function createModalController(elements) {
     const {
@@ -84,7 +86,11 @@ export function createModalController(elements) {
         eventCheckInSection,
         eventCheckInForm,
         eventCheckInSubmitBtn,
-        eventCheckInStatus
+        eventCheckInStatus,
+        unavailableModalOverlay,
+        unavailableModalTitle,
+        unavailableModalDate,
+        unavailableModalReason
     } = elements;
 
     
@@ -101,15 +107,14 @@ export function createModalController(elements) {
         const hostUser = await getEventHostUser(eventData);
 
         modalEventTitle.textContent = eventData.title;
-        modalEventDepartment.textContent = eventData.department || (eventData.is_closure ? "Unavailable" : "");
-        modalHost.textContent = eventData.is_closure ? "Unavailable" : getUserFullName(hostUser);
+        modalEventDepartment.textContent = eventData.department || "";
+        modalHost.textContent = getUserFullName(hostUser);
 
         modalDate.textContent = formatReadableDate(startDate);
 
         modalTime.textContent = formatEventTime(eventData);
 
-        modalDescription.textContent = eventData.is_closure && (!eventData.description || eventData.description === "Room unavailable")
-            ? "Unavailable" : eventData.description;
+        modalDescription.textContent = eventData.description;
         modalEventType.textContent = eventData.event_type;
 
         modalIsPublic.textContent =
@@ -118,6 +123,8 @@ export function createModalController(elements) {
 
         eventModalOverlay.classList.add("active");
         eventModalOverlay.setAttribute("aria-hidden", "false");
+
+        currentEventLink = `${window.location.origin}${window.location.pathname}?eventID=${eventData.id}`;
     }
 
     // Closes event details modal
@@ -135,9 +142,38 @@ export function createModalController(elements) {
         resetEventCheckInForm();
     }
 
+    // Opens the reduced details modal for an unavailable date
+    function openUnavailableModal(eventData) {
+        unavailableModalReturnFocusElement = getModalReturnFocusElement(
+            unavailableModalOverlay
+        );
+
+        unavailableModalTitle.textContent = eventData.title || "Unavailable";
+        unavailableModalDate.textContent = formatReadableDate(new Date(eventData.start_time));
+        unavailableModalReason.textContent = getUnavailableReason(eventData);
+
+        unavailableModalOverlay.classList.add("active");
+        unavailableModalOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    // Closes the unavailable date modal
+    function closeUnavailableModal() {
+        restoreFocusBeforeHide(
+            unavailableModalOverlay,
+            unavailableModalReturnFocusElement
+        );
+
+        unavailableModalOverlay.classList.remove("active");
+        unavailableModalOverlay.setAttribute("aria-hidden", "true");
+
+        unavailableModalReturnFocusElement = null;
+    }
+
     return {
         openEventModal,
-        closeEventModal
+        closeEventModal,
+        openUnavailableModal,
+        closeUnavailableModal
     };
 
     function bindEventCheckInForm() {
@@ -159,9 +195,9 @@ export function createModalController(elements) {
         const isFacultyLoggedIn =
             sessionStorage.getItem("facultyLoggedIn") === "true";
 
-        eventCheckInSection.hidden = isFacultyLoggedIn || Boolean(selectedCheckInEvent?.is_closure);
+        eventCheckInSection.hidden = isFacultyLoggedIn;
 
-        if (isFacultyLoggedIn || selectedCheckInEvent?.is_closure) {
+        if (isFacultyLoggedIn) {
             resetEventCheckInForm();
             return;
         }
@@ -173,7 +209,7 @@ export function createModalController(elements) {
     async function handleEventCheckInSubmit(event) {
         event.preventDefault();
 
-        if (!selectedCheckInEvent?.id || selectedCheckInEvent.is_closure) {
+        if (!selectedCheckInEvent?.id) {
             setCheckInStatus(
                 "Could not find this event. Please close and reopen the event details.",
                 "error"

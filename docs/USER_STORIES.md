@@ -321,8 +321,8 @@ arrive without staff help [#60].
 ### C2. Check in by scanning — Must
 As an attendee, I want to scan the QR code and check in with my student email, so that my attendance is recorded.
 
-- [ ] Works on a phone without installing an app or logging in.
-- [ ] Asks only for name and student email. **No CSIDs or other student records.**
+- [X] Works on a phone without installing an app or logging in.
+- [X] Asks only for name and student email. **No CSIDs or other student records.**
 - [ ] The same email can't check in twice to the same event.
 - [ ] Check-in is refused outside the allowed window, and the server enforces this, not just the page [#50].
 - [ ] I see a confirmation that I'm checked in.
@@ -336,15 +336,15 @@ As a faculty member, I want to see the check-in list for my event, so that I kno
 ### C4. Automatic check-out — Should
 As a faculty member, I want everyone checked out automatically when the event ends, so that nobody has to do it by hand.
 
-- [ ] Open check-ins are closed at the event's end time.
+- [ ] **Later** - Open check-ins are closed at the event's end time.
 
 ### C5. After-event follow-up email — Should
 As a faculty member, I want an email after my event asking whether it was held and whether there were
 any issues, so that problems with the room get reported.
 
-- [ ] Sent to the organizer only, shortly after the event ends.
-- [ ] Links to a short form: "Was the event held?" (yes/no) and "Any issues or concerns?" (optional text).
-- [ ] Admins can see the responses, especially reported issues.
+- [ ] **Later** - Sent to the organizer only, shortly after the event ends.
+- [ ] **Later** - Links to a short form: "Was the event held?" (yes/no) and "Any issues or concerns?" (optional text).
+- [ ] **Later** - Admins can see the responses, especially reported issues.
 
 ---
 
@@ -354,11 +354,11 @@ any issues, so that problems with the room get reported.
 As a user with a disability, I want the site to work with screen readers and have readable colors, so
 that I can use it like anyone else.
 
-- [ ] Meets WCAG 2.1 AA color contrast.
-- [ ] Usable with keyboard only and with a screen reader (labels, headings, focus visible).
-- [ ] The order of things for keyboard and screen-reader users matches what's on screen [#74].
-- [ ] Animations (like the calendar zoom) turn off for people whose device is set to reduce motion [#63].
-- [ ] Information is never shown by color alone.
+- [ ] **Later** - Meets WCAG 2.1 AA color contrast.
+- [ ] **Later** - Usable with keyboard only and with a screen reader (labels, headings, focus visible).
+- [ ] **Later** - The order of things for keyboard and screen-reader users matches what's on screen [#74].
+- [ ] **Later** - Animations (like the calendar zoom) turn off for people whose device is set to reduce motion [#63].
+- [ ] **Later** - Information is never shown by color alone.
 
 > **Planned** [#67]: walk through every page to check accessibility and how it works on different devices.
 

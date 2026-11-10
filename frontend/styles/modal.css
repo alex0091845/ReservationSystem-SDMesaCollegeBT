@@ -28,7 +28,7 @@
     animation: modalPop 0.18s ease-out;
 }
 
-.QRmodal {
+.qr-modal {
     width: 390px;
     height: 490px;
     max-width: none;
@@ -40,14 +40,14 @@
     animation: modalPop 0.18s ease-out;
 }
 
-.QRcode {
+.qr-code {
     display: flex;
     justify-content: center;
     align-items: center;
     height: 400px;
 }
 
-.ShareLinkModal {
+.share-link-modal {
     width: 510px;
     height: 220px;
     max-width: none;
@@ -59,7 +59,24 @@
     animation: modalPop 0.18s ease-out;
 }
 
-.QRmodal-overlay {
+.share-link {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 30px;
+    color: #111827;
+    font-size: 18px;
+    line-height: 1.2;
+}
+
+.copy-link-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 30px;
+}
+
+.qr-modal-overlay {
     position: fixed;
     inset: 0;
     z-index: 1100;
@@ -70,7 +87,7 @@
     background: rgba(17, 24, 39, 0.45);
 }
 
-.ShareLinkModal-overlay {
+.share-link-modal-overlay {
     position: fixed;
     inset: 0;
     z-index: 1200;
@@ -81,11 +98,11 @@
     background: rgba(17, 24, 39, 0.45);
 }
 
-.QRmodal-overlay.open {
+.qr-modal-overlay.open {
     display: flex;
 }
 
-.ShareLinkModal-overlay.open {
+.share-link-modal-overlay.open {
     display: flex;
 }
 
@@ -175,6 +192,14 @@
 
 .reservation-modal {
     max-width: 860px;
+}
+
+.unavailable-modal {
+    max-width: 440px;
+}
+
+#unavailableModalReason {
+    white-space: pre-wrap;
 }
 
 .reservation-form {
