@@ -16,6 +16,8 @@ async function handleLogin() {
   const userPassword = password.value.trim();
 
   if (username === "" || userPassword === "") {
+    message.classList.remove("success", "error");
+    message.classList.add("error");
     message.textContent =
       "Please fill in both fields.";
 
@@ -27,15 +29,19 @@ async function handleLogin() {
     const matchedUser = await getVerifiedSessionUser(loginResponse);
 
     if (!matchedUser) {
-      message.textContent =
-        "Invalid email or password.";
-
+    
+      message.classList.remove("success", "error");
+      message.classList.add("error");
+      message.textContent = "Invalid email or password.";
       return;
     }
 
     completeLogin(matchedUser);
   } catch (error) {
     console.error("Login failed:", error);
+
+     message.classList.remove("success", "error");
+      message.classList.add("error");
 
     message.textContent = isServerUnavailableError(error)
       ? "Could not reach the server. Please try again later."
@@ -102,8 +108,9 @@ function completeLogin(matchedUser, successMessage) {
 
   sessionStorage.removeItem("adminLoggedIn");
 
-  message.textContent =
-    successMessage || "Login successful!";
+  message.classList.remove("success", "error");
+  message.classList.add("success");
+  message.textContent = "Login successful!";
 
   setTimeout(() => {
     window.location.href =

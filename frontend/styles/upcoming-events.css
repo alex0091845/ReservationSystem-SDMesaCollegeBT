@@ -92,3 +92,16 @@
     font-size: 14px;
     line-height: 1.5;
 }
+
+.upcoming-event-card.unavailable-event-card,
+.week-event.unavailable-event-card {
+    border: 1px solid #94a3b8;
+    background: #cbd5e1;
+    color: #334155;
+}
+
+.unavailable-event-card .upcoming-event-title,
+.unavailable-event-card .upcoming-event-date,
+.unavailable-event-card .upcoming-event-time {
+    color: #334155;
+}

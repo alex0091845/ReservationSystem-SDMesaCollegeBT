@@ -18,6 +18,7 @@ import { createEventCard } from "./ui/eventCards.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import { createActionMenu } from "./ui/actionMenu.js";
+import { createReservationAvailability } from "./ui/reservationAvailability.js";
 import {
     applyReservationFormDraft,
     clearReservationFormDraftFields,
@@ -41,6 +42,9 @@ const userRoleFilter = document.getElementById("userRoleFilter");
 const userSortSelect = document.getElementById("userSortSelect");
 const adminUserDetails = document.getElementById("adminUserDetails");
 const createUserBtn = document.getElementById("createUserBtn");
+const adminSectionLinks = document.querySelectorAll("[data-admin-section]");
+const usersSections = document.querySelectorAll("#adminUsersSection, #adminUserReservationsSection");
+const availabilitySection = document.getElementById("adminAvailabilitySection");
 
 const logoutBtn = document.getElementById("logoutBtn");
 
@@ -88,6 +92,11 @@ let users = [];
 let reservations = [];
 let attendees = [];
 let eventTypes = [];
+const reservationAvailability = createReservationAvailability({
+    container: document.getElementById("reservationAvailability"),
+    getReservations: () => reservations,
+    onSaved: loadDashboardData
+});
 let selectedUser = null;
 let selectedReservation = null;
 let adminReservationClosePromptOpen = false;
@@ -146,7 +155,8 @@ async function bootstrapAdminDashboard() {
         return;
     }
 
-    loadDashboardData();
+    await Promise.allSettled([loadDashboardData(), reservationAvailability.load()]);
+    reservationAvailability.refresh();
 }
 
 async function verifyAdminSession() {
@@ -1217,5 +1227,29 @@ logoutBtn.addEventListener("click", async () => {
 
     window.location.href = "index.html";
 });
+
+function showAdminSection() {
+    const section = window.location.hash === "#availability" ? "availability" : "users";
+    usersSections.forEach(panel => { panel.hidden = section !== "users"; });
+    availabilitySection.hidden = section !== "availability";
+    for (const link of adminSectionLinks) {
+        if (link.dataset.adminSection === section) {
+            link.setAttribute("aria-current", "page");
+        } else {
+            link.removeAttribute("aria-current");
+        }
+    }
+}
+
+adminSectionLinks.forEach(link => link.addEventListener("click", event => {
+    event.preventDefault();
+    if (window.location.hash !== link.hash) {
+        window.history.pushState(null, "", link.hash);
+    }
+    showAdminSection();
+    window.scrollTo({ top: 0, behavior: "instant" });
+}));
+window.addEventListener("hashchange", showAdminSection);
+showAdminSection();
 
 bootstrapAdminDashboard();

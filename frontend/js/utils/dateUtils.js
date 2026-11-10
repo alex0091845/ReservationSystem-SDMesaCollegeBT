@@ -87,12 +87,14 @@ export function getVisibleEventSectionForDay(event, dateObj) {
 
 // Returns level 0-4 based on how many events scheduled for given date
 export function getDensityClass(reservedEvents, year, month, day) {
-    const count = getEventsForDay(
+    const events = getEventsForDay(
         reservedEvents,
         year,
         month,
         day
-    ).length;
+    );
+    if (events.some(event => event.is_closure)) return "level-unavailable";
+    const count = events.length;
 
     if (count === 0) return "level-0";
     if (count === 1) return "level-1";
@@ -175,9 +177,24 @@ export function sortReservedEvents(reservedEvents) {
     });
 }
 
+export const DEFAULT_UNAVAILABLE_REASON = "Room closure";
+
+// A custom reason is the closure's event description, except the text new closures are stored with
+export function getCustomUnavailableReason(event) {
+    const reason = event.description?.trim();
+
+    return reason && reason !== "Room unavailable" ? reason : "";
+}
+
+export function getUnavailableReason(event) {
+    return getCustomUnavailableReason(event) || DEFAULT_UNAVAILABLE_REASON;
+}
+
 // Displays color based on event type (event type is also displayed in text in the modal window), previously color was defined as a data field
 export function getEventColorClass(eventType) {
     switch (eventType?.toLowerCase()) {
+        case "unavailable":
+            return "unavailable-event-card";
         case "study_group":
             return "green";
 

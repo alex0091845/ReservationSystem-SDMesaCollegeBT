@@ -7,7 +7,7 @@ import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
 import { renderEventAttendees } from "./ui/attendees.js";
-import { createModalController } from "./ui/modal.js";
+import { createModalController, currentEventLink } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import { createActionMenu } from "./ui/actionMenu.js";
@@ -44,6 +44,14 @@ const elements = {
     checkInWidgetList: document.getElementById("checkInWidgetList"),
     facultyReservationModalOverlay: document.getElementById("facultyReservationModalOverlay"),
     facultyReservationModalCloseBtn: document.getElementById("facultyReservationModalCloseBtn"),
+    qrCodeBtn: document.getElementById("qrCodeBtn"),    
+    qrModalOverlay: document.getElementById("qrModalOverlay"),
+    qrModalCloseBtn: document.getElementById("qrModalCloseBtn"),
+    shareLinkBtn: document.getElementById("shareLinkBtn"),
+    shareLinkModalOverlay: document.getElementById("shareLinkModalOverlay"),
+    shareLinkModalCloseBtn: document.getElementById("shareLinkModalCloseBtn"),
+    shareLinkValue: document.getElementById("shareLinkValue"),
+    copyShareLinkBtn: document.getElementById("copyShareLinkBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
@@ -72,13 +80,22 @@ const elements = {
     eventCheckInForm: document.getElementById("eventCheckInForm"),
     eventCheckInSubmitBtn: document.getElementById("eventCheckInSubmitBtn"),
     eventCheckInStatus: document.getElementById("eventCheckInStatus"),
+    unavailableModalOverlay: document.getElementById("unavailableModalOverlay"),
+    unavailableModalCloseBtn: document.getElementById("unavailableModalCloseBtn"),
+    unavailableModalTitle: document.getElementById("unavailableModalTitle"),
+    unavailableModalDate: document.getElementById("unavailableModalDate"),
+    unavailableModalReason: document.getElementById("unavailableModalReason"),
     openReservationModalBtn: document.getElementById("openReservationModalBtn"),
     adminDashboardBtn: document.getElementById("adminDashboardBtn"),
     loginBtn: document.getElementById("loginBtn"),
     navTitle: document.querySelector(".nav-title"),
     navUserIdentity: document.getElementById("navUserIdentity"),
     navUserInitials: document.getElementById("navUserInitials"),
-    navUserName: document.getElementById("navUserName")
+    navUserName: document.getElementById("navUserName"),
+    calendarQRCodeBtn: document.getElementById("calendarQRCodeBtn"),
+    calendarQRCodeModalOverlay: document.getElementById("calendarQRModalOverlay"),
+    calendarQRCodeModal: document.getElementById("calendarQRModal"),
+    calendarQRCodeModalCloseBtn: document.getElementById("calendarQRModalCloseBtn")
 };
 
 const facultyReservationDeleteMenu = createActionMenu({
@@ -185,6 +202,7 @@ async function loadReservedEvents() {
         sortReservedEvents(reservedEvents);
     }
 
+    openLinkedEvent();
     renderAll();
 }
 
@@ -246,7 +264,9 @@ const state = {
 // Pulls open and close functions from modal file
 const {
     openEventModal,
-    closeEventModal
+    closeEventModal,
+    openUnavailableModal,
+    closeUnavailableModal
 } = createModalController(elements);
 
 // Syncs calendar widget date with week-view widget date
@@ -668,12 +688,58 @@ function formatSideWidgetDate(date) {
 }
 
 function openCalendarEvent(reservation) {
+    if (reservation.is_closure) {
+        openUnavailableModal(reservation);
+        return;
+    }
+
     if (canCurrentUserEditReservation(reservation)) {
         openFacultyReservationEditModal(reservation);
         return;
     }
 
     openEventModal(reservation);
+}
+
+// Opens the event modal for the event id in a share link or event QR code (?eventID=)
+function openLinkedEvent() {
+    const linkedEventId = new URLSearchParams(window.location.search).get("eventID");
+    const linkedEvent = linkedEventId &&
+        reservedEvents.find(event => String(event.id) === linkedEventId);
+
+    // A link to a deleted event just shows the calendar
+    if (linkedEvent) {
+        openEventModal(linkedEvent);
+    }
+}
+
+function openCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.add("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
+    elements.calendarQRCodeModalCloseBtn.focus();
+    generateCalendarQR();
+    console.log(window.location.origin);
+}
+
+function generateCalendarQR()
+{
+    let qrInput = window.location.origin;
+    let container = document.getElementById("calendarQRCode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
+function closeCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.remove("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "true");
+    elements.calendarQRCodeBtn.focus();
 }
 
 async function openFacultyReservationEditModal(reservation) {
@@ -769,6 +835,56 @@ function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
     setFacultyReservationStatus("");
     setFacultyReservationSubmitting(false);
     setFacultyReservationDeleting(false);
+}
+
+function generateQR()
+{
+    let qrInput = currentEventLink;
+    let container = document.getElementById("qrCode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
+function openQRCodeModal() {
+    elements.qrModalOverlay.classList.add("open");
+    elements.qrModalOverlay.setAttribute("aria-hidden", "false");
+    elements.qrModalCloseBtn.focus();
+    generateQR();
+}
+
+function closeQRCodeModal() {
+    elements.qrModalOverlay.classList.remove("open");
+    elements.qrModalOverlay.setAttribute("aria-hidden", "true");
+    elements.qrCodeBtn.focus();
+}
+
+function openShareLinkModal() {
+    elements.shareLinkModalOverlay.classList.add("open");
+    elements.shareLinkModalOverlay.setAttribute("aria-hidden", "false");
+    elements.shareLinkModalCloseBtn.focus();
+    elements.shareLinkValue.innerHTML = currentEventLink;
+}
+
+async function copyShareLink() {
+    console.log("Copied Link");
+    let copyText = elements.shareLinkValue.innerHTML;
+
+    await navigator.clipboard.writeText(copyText);
+    elements.copyShareLinkBtn.textContent = 'Copied!';
+    setTimeout(() => elements.copyShareLinkBtn.textContent = 'Copy Link', 2000);
+}
+
+function closeShareLinkModal() {
+    elements.shareLinkModalOverlay.classList.remove("open");
+    elements.shareLinkModalOverlay.setAttribute("aria-hidden", "true");
+    elements.shareLinkBtn.focus();
 }
 
 async function requestCloseFacultyReservationEditModal() {
@@ -1126,7 +1242,7 @@ function isReservationOwnedByUser(reservation, user) {
 }
 
 function canCurrentUserEditReservation(reservation) {
-    if (!isFacultyLoggedIn || !currentUser) {
+    if (!isFacultyLoggedIn || !currentUser || reservation.is_closure) {
         return false;
     }
 
@@ -1254,10 +1370,38 @@ function bindEvents() {
         closeEventModal
     );
 
+    if (
+        elements.calendarQRCodeBtn &&
+        elements.calendarQRCodeModalOverlay &&
+        elements.calendarQRCodeModalCloseBtn
+    ) {
+        elements.calendarQRCodeBtn.addEventListener("click", openCalendarQRCodeModal);
+        elements.calendarQRCodeModalCloseBtn.addEventListener("click", closeCalendarQRCodeModal);
+        bindBackdropClose(elements.calendarQRCodeModalOverlay, closeCalendarQRCodeModal);
+    }
+
+    elements.unavailableModalCloseBtn.addEventListener(
+        "click",
+        closeUnavailableModal
+    );
+
     elements.facultyReservationModalCloseBtn.addEventListener(
         "click",
         requestCloseFacultyReservationEditModal
     );
+
+    if (elements.qrCodeBtn && elements.qrModalOverlay && elements.qrModalCloseBtn) {
+        elements.qrCodeBtn.addEventListener("click", openQRCodeModal);
+        elements.qrModalCloseBtn.addEventListener("click", closeQRCodeModal);
+        bindBackdropClose(elements.qrModalOverlay, closeQRCodeModal);
+    }
+
+    if (elements.shareLinkBtn && elements.shareLinkModalOverlay && elements.shareLinkModalCloseBtn) {
+        elements.shareLinkBtn.addEventListener("click", openShareLinkModal);
+        elements.shareLinkModalCloseBtn.addEventListener("click", closeShareLinkModal);
+        elements.copyShareLinkBtn.addEventListener("click", copyShareLink);
+        bindBackdropClose(elements.shareLinkModalOverlay, closeShareLinkModal);
+    }
 
     elements.facultyReservationCancelBtn.addEventListener(
         "click",
@@ -1297,6 +1441,7 @@ function bindEvents() {
 
     // Allows event modal to be closed by clicking background
     bindBackdropClose(elements.eventModalOverlay, closeEventModal);
+    bindBackdropClose(elements.unavailableModalOverlay, closeUnavailableModal);
     bindBackdropClose(
         elements.facultyReservationModalOverlay,
         requestCloseFacultyReservationEditModal
@@ -1308,9 +1453,39 @@ function bindEvents() {
         event => {
             if (
                 event.key === "Escape" &&
+                elements.calendarQRCodeModalOverlay.classList.contains("active")
+            ) {
+                closeCalendarQRCodeModal();
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.qrModalOverlay.classList.contains("open")
+            ) {
+                closeQRCodeModal();
+                return;
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.shareLinkModalOverlay.classList.contains("open")
+            ) {
+                closeShareLinkModal();
+                return;
+            }
+
+            if (
+                event.key === "Escape" &&
                 elements.eventModalOverlay.classList.contains("active")
             ) {
                 closeEventModal();
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.unavailableModalOverlay.classList.contains("active")
+            ) {
+                closeUnavailableModal();
             }
 
             if (
@@ -1323,7 +1498,7 @@ function bindEvents() {
     );
 
     if (elements.loginBtn) {
-        elements.loginBtn.textContent = isFacultyLoggedIn ? "Sign Out" : "Faculty Login";
+        elements.loginBtn.textContent = isFacultyLoggedIn ? "Log Out" : "Faculty/Admin Login";
 
         elements.loginBtn.addEventListener(
             "click",

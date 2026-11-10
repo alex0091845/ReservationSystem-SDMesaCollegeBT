@@ -1,5 +1,6 @@
 import { createAttendee, createEvents, getEventTypes, getEvents, isUserDisabled } from "../api.js";
-import { formatReadableDate } from "../utils/dateUtils.js";
+import { formatReadableDate, getUnavailableReason } from "../utils/dateUtils.js";
+import { formatEventTime } from "./eventCards.js";
 import { validateReservationData } from "../utils/reservationValidation.js";
 import { renderEventTypeOptions } from "./eventTypeOptions.js";
 import {
@@ -66,8 +67,10 @@ let reservationEventTypes = [];
 let reservationPointerStartedOnBackdrop = false;
 let reservationClosePromptOpen = false;
 let eventModalReturnFocusElement = null;
+let unavailableModalReturnFocusElement = null;
 let reservationModalReturnFocusElement = null;
 let selectedCheckInEvent = null;
+export let currentEventLink = "";
 
 export function createModalController(elements) {
     const {
@@ -83,9 +86,14 @@ export function createModalController(elements) {
         eventCheckInSection,
         eventCheckInForm,
         eventCheckInSubmitBtn,
-        eventCheckInStatus
+        eventCheckInStatus,
+        unavailableModalOverlay,
+        unavailableModalTitle,
+        unavailableModalDate,
+        unavailableModalReason
     } = elements;
 
+    
     bindEventCheckInForm();
 
     // Opens event details modal
@@ -96,26 +104,15 @@ export function createModalController(elements) {
         selectedCheckInEvent = eventData;
 
         const startDate = new Date(eventData.start_time);
-        const endDate = new Date(eventData.end_time);
         const hostUser = await getEventHostUser(eventData);
 
         modalEventTitle.textContent = eventData.title;
-        modalEventDepartment.textContent = eventData.department;
+        modalEventDepartment.textContent = eventData.department || "";
         modalHost.textContent = getUserFullName(hostUser);
 
         modalDate.textContent = formatReadableDate(startDate);
 
-        modalTime.textContent = `
-            ${startDate.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit"
-        })}
-            -
-            ${endDate.toLocaleTimeString([], {
-            hour: "numeric",
-            minute: "2-digit"
-        })}
-        `;
+        modalTime.textContent = formatEventTime(eventData);
 
         modalDescription.textContent = eventData.description;
         modalEventType.textContent = eventData.event_type;
@@ -126,6 +123,8 @@ export function createModalController(elements) {
 
         eventModalOverlay.classList.add("active");
         eventModalOverlay.setAttribute("aria-hidden", "false");
+
+        currentEventLink = `${window.location.origin}${window.location.pathname}?eventID=${eventData.id}`;
     }
 
     // Closes event details modal
@@ -143,9 +142,38 @@ export function createModalController(elements) {
         resetEventCheckInForm();
     }
 
+    // Opens the reduced details modal for an unavailable date
+    function openUnavailableModal(eventData) {
+        unavailableModalReturnFocusElement = getModalReturnFocusElement(
+            unavailableModalOverlay
+        );
+
+        unavailableModalTitle.textContent = eventData.title || "Unavailable";
+        unavailableModalDate.textContent = formatReadableDate(new Date(eventData.start_time));
+        unavailableModalReason.textContent = getUnavailableReason(eventData);
+
+        unavailableModalOverlay.classList.add("active");
+        unavailableModalOverlay.setAttribute("aria-hidden", "false");
+    }
+
+    // Closes the unavailable date modal
+    function closeUnavailableModal() {
+        restoreFocusBeforeHide(
+            unavailableModalOverlay,
+            unavailableModalReturnFocusElement
+        );
+
+        unavailableModalOverlay.classList.remove("active");
+        unavailableModalOverlay.setAttribute("aria-hidden", "true");
+
+        unavailableModalReturnFocusElement = null;
+    }
+
     return {
         openEventModal,
-        closeEventModal
+        closeEventModal,
+        openUnavailableModal,
+        closeUnavailableModal
     };
 
     function bindEventCheckInForm() {

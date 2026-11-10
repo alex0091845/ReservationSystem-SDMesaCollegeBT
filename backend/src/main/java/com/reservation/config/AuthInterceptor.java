@@ -112,11 +112,13 @@ public class AuthInterceptor implements HandlerInterceptor {
         }
 
         return isAtOrBelow(path, "/api/roles") ||
+            isAtOrBelow(path, "/api/reservation-availability") ||
             isAtOrBelow(path, "/api/event-types");
     }
 
     private boolean requiresFacultyOrAdmin(String method, String path) {
-        return isAtOrBelow(path, "/api/attendees");
+        return isAtOrBelow(path, "/api/attendees") ||
+            isAtOrBelow(path, "/api/reservation-availability");
     }
 
     private boolean isEventReadEndpoint(String method, String path) {
