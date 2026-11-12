@@ -426,7 +426,7 @@
     border-top: 1px solid #e5e5e5;
 }
 
-/* Builds on .week-event from week-view.css; these rules set the position and the extra text lines. */
+/* Builds on .week-event from week-view.css; these rules set the position. The text lines sit in .day-event-body. */
 .week-event.day-event {
     top: calc(var(--day-hour-height) * var(--day-offset-hours) + 1px);
     left: calc(100% / var(--day-column-count) * var(--day-column) + 4px);
@@ -434,10 +434,21 @@
     width: calc(100% / var(--day-column-count) - 8px);
     height: calc(var(--day-hour-height) * var(--day-duration-hours) - 2px);
     min-height: 24px;
+    padding: 0;
+    font-size: 14px;
+    /* Lets the rules below fit the text to the card's real size. The size comes from the event's
+       times, never from the text, so the card can be measured safely. */
+    container-type: size;
+    container-name: day-event;
+}
+
+.day-event-body {
+    display: flex;
     flex-direction: column;
     gap: 3px;
+    width: 100%;
+    min-width: 0;
     padding: 8px 10px;
-    font-size: 14px;
 }
 
 .day-event-title {
@@ -454,7 +465,58 @@
     opacity: 0.92;
 }
 
+/* Short events. A card too short for every line drops lines, least important first, so the title
+   and time are never cut in half. The heights add up the desktop sizes above: padding, a 17.5px
+   title line, 15px lines for time and details, 3px gaps. Phone sizes are smaller, so they fit too.
+   The .day-event prefix keeps these rules ahead of the phone padding further down. */
+@container day-event (height < 70px) {
+    /* 8 + 17.5 + 3 + 15 + 3 + 15 + 8: no room for the type and department line. */
+    .day-event .day-event-details {
+        display: none;
+    }
+
+    .day-event .day-event-title {
+        flex-wrap: nowrap;
+    }
+
+    .day-event .day-event-name,
+    .day-event .day-event-time {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+@container day-event (height < 52px) {
+    /* 8 + 17.5 + 3 + 15 + 8: title and time cannot stack, so they share one line. */
+    .day-event .day-event-body {
+        flex-direction: row;
+        align-items: center;
+        align-self: center;
+        gap: 8px;
+        padding-block: 3px;
+    }
+
+    .day-event .day-event-title {
+        min-width: 0;
+    }
+
+    .day-event .day-event-time {
+        flex: none;
+    }
+}
+
+@container day-event (height < 52px) and (width < 240px) {
+    /* A narrow one-line card keeps the title, which says what the event is. The time is in the
+       tooltip and the event modal. */
+    .day-event .day-event-time {
+        display: none;
+    }
+}
+
 .day-event-now {
+    flex: none;
     padding: 1px 7px;
     border-radius: 999px;
     background: #fff;
@@ -562,8 +624,11 @@
     }
 
     .week-event.day-event {
-        padding: 6px 8px;
         font-size: 13px;
+    }
+
+    .day-event-body {
+        padding: 6px 8px;
     }
 
     .year-grid {
