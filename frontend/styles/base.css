@@ -12,6 +12,9 @@
     --mesa-purple: #523993;
     --mesa-maroon: #643c48;
     --mesa-maroon-dark: #48182c;
+    /* Soft pinstripe marking unavailable (closed) dates, and its slightly darker hover state */
+    --unavailable-stripes: repeating-linear-gradient(135deg, #f8fafc 0 9px, #dde3ea 9px 11px);
+    --unavailable-stripes-hover: repeating-linear-gradient(135deg, #f1f5f9 0 9px, #cbd5e1 9px 11px);
     --radius-panel: 8px;
     --radius-card: 6px;
     --radius-control: 4px;
