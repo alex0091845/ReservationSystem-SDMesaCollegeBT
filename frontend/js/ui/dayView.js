@@ -11,6 +11,10 @@ import { createWeekEventCard, formatEventTime } from "./eventCards.js";
 
 const FULL_WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const VISIBLE_HOURS = CALENDAR_END_HOUR - CALENDAR_START_HOUR;
+// A card is never drawn shorter than 24px (zoom-calendar.css): about 21 minutes at 68px an hour,
+// 24 minutes at 60px on a phone. Placing events by that drawn length keeps a very short event
+// and the one right after it side by side instead of drawn on top of each other.
+const MIN_DRAWN_MINUTES = 25;
 const EVENT_TYPE_LABELS = {
     study_group: "Study group",
     meeting: "Meeting",
@@ -167,12 +171,15 @@ function placeEventsInColumns(items) {
     };
 
     sorted.forEach(item => {
-        if (group.length > 0 && item.section.start >= groupEnd) {
+        const itemStart = item.section.start.getTime();
+        const itemEnd = drawnEnd(item.section);
+
+        if (group.length > 0 && itemStart >= groupEnd) {
             closeGroup();
         }
 
         const usedColumns = group
-            .filter(other => other.section.end > item.section.start)
+            .filter(other => drawnEnd(other.section) > itemStart)
             .map(other => other.column);
         let column = 0;
 
@@ -181,7 +188,7 @@ function placeEventsInColumns(items) {
         }
 
         group.push({ ...item, column });
-        groupEnd = groupEnd === null || item.section.end > groupEnd ? item.section.end : groupEnd;
+        groupEnd = groupEnd === null || itemEnd > groupEnd ? itemEnd : groupEnd;
     });
 
     if (group.length > 0) {
@@ -191,6 +198,11 @@ function placeEventsInColumns(items) {
     return placed;
 }
 
+// When the event ends, or when its card ends if the 24px minimum draws it longer than it is.
+function drawnEnd(section) {
+    return Math.max(section.end.getTime(), section.start.getTime() + (MIN_DRAWN_MINUTES * 60000));
+}
+
 function createDayEventCard({ event, section, column, columnCount }, now, openEventModal) {
     // Reuses the week view card, so private events stay hidden and unclickable by the same rule.
     const card = createWeekEventCard({
@@ -198,6 +210,11 @@ function createDayEventCard({ event, section, column, columnCount }, now, openEv
         onClick: openEventModal
     });
     const isPrivate = card.classList.contains("private-event-card");
+    // The text goes in a body inside the card. The card is the container the short-event rules in
+    // zoom-calendar.css measure, and a container can only restyle what is inside it.
+    const body = document.createElement("span");
+    const title = document.createElement("span");
+    const name = document.createElement("span");
 
     card.classList.add("day-event");
     card.style.setProperty("--day-offset-hours", String(hoursFromDayStart(section.start)));
@@ -205,24 +222,26 @@ function createDayEventCard({ event, section, column, columnCount }, now, openEv
     card.style.setProperty("--day-column", String(column));
     card.style.setProperty("--day-column-count", String(columnCount));
 
+    body.classList.add("day-event-body");
+    title.classList.add("day-event-title");
+    name.classList.add("day-event-name");
+    title.appendChild(name);
+    body.appendChild(title);
+
     if (isPrivate) {
         // Same words the week view shows.
-        const label = document.createElement("span");
-
-        label.classList.add("day-event-title");
-        label.textContent = card.textContent;
+        name.textContent = card.textContent;
         card.textContent = "";
-        card.appendChild(label);
+        card.appendChild(body);
 
         return card;
     }
 
-    const title = document.createElement("span");
     const time = document.createElement("span");
     const details = document.createElement("span");
+    const isHappeningNow = Boolean(now && section.start <= now && now < section.end);
 
-    title.classList.add("day-event-title");
-    title.textContent = event.title || "Untitled event";
+    name.textContent = event.title || "Untitled event";
     time.classList.add("day-event-time");
     time.textContent = formatEventTime(event);
     details.classList.add("day-event-details");
@@ -231,7 +250,7 @@ function createDayEventCard({ event, section, column, columnCount }, now, openEv
         event.department || ""
     ].filter(Boolean).join(" · ");
 
-    if (now && section.start <= now && now < section.end) {
+    if (isHappeningNow) {
         const nowBadge = document.createElement("span");
 
         nowBadge.classList.add("day-event-now");
@@ -239,12 +258,20 @@ function createDayEventCard({ event, section, column, columnCount }, now, openEv
         title.appendChild(nowBadge);
     }
 
-    card.textContent = "";
-    card.append(title, time);
+    body.appendChild(time);
 
     if (details.textContent) {
-        card.appendChild(details);
+        body.appendChild(details);
     }
+
+    // A short card hides its time or details line, so the full text stays in the hover tooltip
+    // and in the name screen readers announce.
+    const fullText = [name.textContent, time.textContent, details.textContent].filter(Boolean).join(", ");
+
+    card.title = fullText;
+    card.setAttribute("aria-label", isHappeningNow ? `${fullText}, happening now` : fullText);
+    card.textContent = "";
+    card.appendChild(body);
 
     return card;
 }
