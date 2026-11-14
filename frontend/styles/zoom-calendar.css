@@ -651,8 +651,17 @@
     gap: 10px;
 }
 
+.zoom-today {
+    position:relative;
+    display: flex;
+    height: 65px;
+}
+
 .zoom-today-btn {
-    min-height: 36px;
+    min-height: 44px;
+    position: absolute;
+    bottom: 5px;
+    right: 10px;
     padding: 0 14px;
     border: 1px solid var(--mesa-blue);
     border-radius: var(--radius-card);
@@ -662,15 +671,22 @@
     font-size: 14px;
     font-weight: 600;
     cursor: pointer;
+    z-index: 6;
 }
 
 .zoom-today-btn:hover:not(:disabled) {
     background: #eef2f7;
+    transform: scale(1.05);
+}
+
+.zoom-today-btn:active {
+    transform: scale(0.96);
 }
 
 .zoom-today-btn:disabled {
     border-color: #c5ccd6;
     color: #8a94a3;
+    opacity: 0.6;
     cursor: default;
 }
 
