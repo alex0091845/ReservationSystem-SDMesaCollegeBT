@@ -118,7 +118,50 @@ export function createModalController(elements) {
 
         eventModalOverlay.classList.add("active");
         eventModalOverlay.setAttribute("aria-hidden", "false");
+        
+        var focusableElements = eventModalOverlay.querySelectorAll('button:not(:disabled), input:not(:disabled)');
+
+        focusableElements = Array.prototype.slice.call(focusableElements).filter(function (element) 
+        {
+            return element.getClientRects().length > 0;
+        });
+        firstTabStop = focusableElements[0];
+        lastTabStop = focusableElements[focusableElements.length - 1];
+        firstTabStop.focus();
+
     }
+
+    eventModalOverlay.addEventListener("keydown", trapTabKey);
+    
+    var firstTabStop;
+    var lastTabStop;
+        function trapTabKey(event)
+        {
+            if(event.keyCode === 9)
+            {
+                if(event.shiftKey)
+                {
+                    if(document.activeElement === firstTabStop)
+                    {
+                        event.preventDefault();
+                        lastTabStop.focus();
+                    }
+                }
+                else
+                {
+                    if(document.activeElement === lastTabStop)
+                    {
+                        event.preventDefault();
+                        firstTabStop.focus();
+                        
+                    }
+                }
+            }
+            if(event.keyCode === 27)
+            {
+                closeEventModal();
+            }
+        }
 
     // Closes event details modal
     function closeEventModal() {

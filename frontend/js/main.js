@@ -686,12 +686,24 @@ function openCalendarEvent(reservation) {
     openEventModal(reservation);
 }
 
+// needs fixing
+function basicTrapTabKey(event)
+{
+    if(event.key === "Tab")
+    {
+        event.preventDefault()
+    }
+
+} 
+
+
 function openCalendarQRCodeModal() {
     elements.calendarQRCodeModalOverlay.classList.add("active");
     elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
     elements.calendarQRCodeModalCloseBtn.focus();
     generateCalendarQR();
     console.log(window.location.origin);
+    elements.calendarQRCodeModalOverlay.addEventListener("keydown", basicTrapTabKey);
 }
 
 function generateCalendarQR()
@@ -814,6 +826,8 @@ function openQRCodeModal() {
     elements.QRmodalOverlay.classList.add("open");
     elements.QRmodalOverlay.setAttribute("aria-hidden", "false");
     elements.QRmodalCloseBtn.focus();
+    elements.QRmodalOverlay.addEventListener("keydown", basicTrapTabKey);
+
 }
 
 function closeQRCodeModal() {
@@ -826,6 +840,7 @@ function openShareLinkModal() {
     elements.ShareLinkModalOverlay.classList.add("open");
     elements.ShareLinkModalOverlay.setAttribute("aria-hidden", "false");
     elements.ShareLinkModalCloseBtn.focus();
+    elements.ShareLinkModalOverlay.addEventListener("keydown", basicTrapTabKey);
 }
 
 function closeShareLinkModal() {
