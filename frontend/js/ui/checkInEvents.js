@@ -39,6 +39,7 @@ function getTodaysEvents(today, reservedEvents) {
 
     return [...reservedEvents]
         .filter(event => {
+            if (event.is_closure) return false;
             const eventDate = new Date(event.start_time);
 
             if (Number.isNaN(eventDate.getTime())) {

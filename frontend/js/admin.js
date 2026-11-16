@@ -13,12 +13,12 @@ import {
     logoutUser,
     getCurrentSession
 } from "./api.js";
-import { validateReservationData } from "./utils/reservationValidation.js";
 import { renderEventAttendees } from "./ui/attendees.js";
 import { createEventCard } from "./ui/eventCards.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import { createActionMenu } from "./ui/actionMenu.js";
+import { createReservationAvailability } from "./ui/reservationAvailability.js";
 import {
     applyReservationFormDraft,
     clearReservationFormDraftFields,
@@ -27,6 +27,13 @@ import {
     discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
+import {
+    validateEditedReservations,
+    getReservationSeries,
+    deleteReservations,
+    bindBackdropClose,
+    removeReservations
+} from "./utils/reservationEditing.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
 const userCount = document.getElementById("userCount");
@@ -35,6 +42,9 @@ const userRoleFilter = document.getElementById("userRoleFilter");
 const userSortSelect = document.getElementById("userSortSelect");
 const adminUserDetails = document.getElementById("adminUserDetails");
 const createUserBtn = document.getElementById("createUserBtn");
+const adminSectionLinks = document.querySelectorAll("[data-admin-section]");
+const usersSections = document.querySelectorAll("#adminUsersSection, #adminUserReservationsSection");
+const availabilitySection = document.getElementById("adminAvailabilitySection");
 
 const logoutBtn = document.getElementById("logoutBtn");
 
@@ -82,6 +92,11 @@ let users = [];
 let reservations = [];
 let attendees = [];
 let eventTypes = [];
+const reservationAvailability = createReservationAvailability({
+    container: document.getElementById("reservationAvailability"),
+    getReservations: () => reservations,
+    onSaved: loadDashboardData
+});
 let selectedUser = null;
 let selectedReservation = null;
 let adminReservationClosePromptOpen = false;
@@ -140,7 +155,8 @@ async function bootstrapAdminDashboard() {
         return;
     }
 
-    loadDashboardData();
+    await Promise.allSettled([loadDashboardData(), reservationAvailability.load()]);
+    reservationAvailability.refresh();
 }
 
 async function verifyAdminSession() {
@@ -726,22 +742,6 @@ async function clearAdminReservationForm() {
     }
 }
 
-function bindBackdropClose(overlay, closeModal) {
-    let pointerStartedOnBackdrop = false;
-
-    overlay.addEventListener("pointerdown", event => {
-        pointerStartedOnBackdrop = event.target === overlay;
-    });
-
-    overlay.addEventListener("click", event => {
-        if (pointerStartedOnBackdrop && event.target === overlay) {
-            closeModal();
-        }
-
-        pointerStartedOnBackdrop = false;
-    });
-}
-
 function formatDateTimeLocalValue(value) {
     if (!value) {
         return "";
@@ -1030,38 +1030,6 @@ adminReservationForm.addEventListener("submit", async event => {
     }
 });
 
-function validateEditedReservations({
-    reservationsToSave,
-    existingReservations,
-    selectedReservation,
-    users
-}) {
-    const selectedReservationId = String(selectedReservation?.id ?? "");
-    const reservationsToCheck = existingReservations.filter(reservation => {
-        return String(reservation.id) !== selectedReservationId;
-    });
-
-    for (const [index, reservationData] of reservationsToSave.entries()) {
-        const validation = validateReservationData({
-            reservationData,
-            existingReservations: reservationsToCheck,
-            users,
-            requireId: index === 0
-        });
-
-        if (!validation.isValid) {
-            return validation;
-        }
-
-        reservationsToCheck.push(reservationData);
-    }
-
-    return {
-        isValid: true,
-        message: ""
-    };
-}
-
 async function handleAdminReservationDelete() {
     if (!selectedReservation) {
         return;
@@ -1082,7 +1050,7 @@ async function handleAdminReservationDelete() {
     try {
         await deleteEvent(selectedReservation);
         await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
-        removeReservationsFromAdminState([selectedReservation]);
+        removeReservations([selectedReservation], reservations, attendees);
 
         renderUserDetails();
         closeReservationEditModal({ flushDraft: false });
@@ -1123,7 +1091,7 @@ async function handleAdminReservationDeleteSeries() {
     try {
         await deleteReservations(seriesReservations);
         await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
-        removeReservationsFromAdminState(seriesReservations);
+        removeReservations(seriesReservations, reservations, attendees);
 
         renderUserDetails();
         closeReservationEditModal({ flushDraft: false });
@@ -1136,38 +1104,6 @@ async function handleAdminReservationDeleteSeries() {
     } finally {
         setAdminReservationDeleting(false);
     }
-}
-
-function getReservationSeries(reservation, reservationList) {
-    const recurrenceGroupId = reservation?.recurrence_group_id;
-
-    if (!recurrenceGroupId) {
-        return [];
-    }
-
-    return reservationList.filter(candidate => {
-        return candidate.recurrence_group_id === recurrenceGroupId;
-    });
-}
-
-async function deleteReservations(reservationsToDelete) {
-    for (const reservation of reservationsToDelete) {
-        await deleteEvent(reservation);
-    }
-}
-
-function removeReservationsFromAdminState(reservationsToRemove) {
-    const deletedReservationIds = new Set(
-        reservationsToRemove.map(reservation => String(reservation.id))
-    );
-
-    reservations = reservations.filter(reservation => {
-        return !deletedReservationIds.has(String(reservation.id));
-    });
-
-    attendees = attendees.filter(attendee => {
-        return !deletedReservationIds.has(String(attendee.event_id));
-    });
 }
 
 async function handleConfirmUserStatusChange() {
@@ -1291,5 +1227,29 @@ logoutBtn.addEventListener("click", async () => {
 
     window.location.href = "index.html";
 });
+
+function showAdminSection() {
+    const section = window.location.hash === "#availability" ? "availability" : "users";
+    usersSections.forEach(panel => { panel.hidden = section !== "users"; });
+    availabilitySection.hidden = section !== "availability";
+    for (const link of adminSectionLinks) {
+        if (link.dataset.adminSection === section) {
+            link.setAttribute("aria-current", "page");
+        } else {
+            link.removeAttribute("aria-current");
+        }
+    }
+}
+
+adminSectionLinks.forEach(link => link.addEventListener("click", event => {
+    event.preventDefault();
+    if (window.location.hash !== link.hash) {
+        window.history.pushState(null, "", link.hash);
+    }
+    showAdminSection();
+    window.scrollTo({ top: 0, behavior: "instant" });
+}));
+window.addEventListener("hashchange", showAdminSection);
+showAdminSection();
 
 bootstrapAdminDashboard();

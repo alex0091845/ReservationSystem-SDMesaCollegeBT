@@ -1,13 +1,13 @@
 import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
-import { validateReservationData } from "./utils/reservationValidation.js";
-import { renderCalendar } from "./ui/monthView.js";
+import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
+import { renderZoomStage } from "./ui/zoomController.js";
 import { renderUpcomingEvents } from "./ui/upcomingEvents.js";
 import { renderMyEvents } from "./ui/myEvents.js";
 import { renderCheckInEvents } from "./ui/checkInEvents.js";
 import { renderEventAttendees } from "./ui/attendees.js";
-import { createModalController } from "./ui/modal.js";
+import { createModalController, currentEventLink } from "./ui/modal.js";
 import { renderEventTypeOptions } from "./ui/eventTypeOptions.js";
 import { createReservationTimePicker } from "./ui/reservationTimePicker.js";
 import { createActionMenu } from "./ui/actionMenu.js";
@@ -19,16 +19,19 @@ import {
     discardDraftAfterReservationAction,
     showDraftExitPrompt
 } from "./ui/reservationDrafts.js";
+import {
+    validateEditedReservations,
+    getReservationSeries,
+    deleteReservations,
+    bindBackdropClose,
+    removeReservations
+} from "./utils/reservationEditing.js";
 
 
 // Makes all page elements accessible in one place
 const elements = {
     leftColumn: document.querySelector(".left-column"),
-    datesContainer: document.getElementById("dates"),
-    calendarTitle: document.getElementById("calendarTitle"),
     weekViewTitle: document.getElementById("weekViewTitle"),
-    prevMonthBtn: document.getElementById("prevMonthBtn"),
-    nextMonthBtn: document.getElementById("nextMonthBtn"),
     prevWeekBtn: document.getElementById("prevWeekBtn"),
     nextWeekBtn: document.getElementById("nextWeekBtn"),
     sidePanel: document.getElementById("sidePanel"),
@@ -41,6 +44,14 @@ const elements = {
     checkInWidgetList: document.getElementById("checkInWidgetList"),
     facultyReservationModalOverlay: document.getElementById("facultyReservationModalOverlay"),
     facultyReservationModalCloseBtn: document.getElementById("facultyReservationModalCloseBtn"),
+    qrCodeBtn: document.getElementById("qrCodeBtn"),    
+    qrModalOverlay: document.getElementById("qrModalOverlay"),
+    qrModalCloseBtn: document.getElementById("qrModalCloseBtn"),
+    shareLinkBtn: document.getElementById("shareLinkBtn"),
+    shareLinkModalOverlay: document.getElementById("shareLinkModalOverlay"),
+    shareLinkModalCloseBtn: document.getElementById("shareLinkModalCloseBtn"),
+    shareLinkValue: document.getElementById("shareLinkValue"),
+    copyShareLinkBtn: document.getElementById("copyShareLinkBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
@@ -69,13 +80,22 @@ const elements = {
     eventCheckInForm: document.getElementById("eventCheckInForm"),
     eventCheckInSubmitBtn: document.getElementById("eventCheckInSubmitBtn"),
     eventCheckInStatus: document.getElementById("eventCheckInStatus"),
+    unavailableModalOverlay: document.getElementById("unavailableModalOverlay"),
+    unavailableModalCloseBtn: document.getElementById("unavailableModalCloseBtn"),
+    unavailableModalTitle: document.getElementById("unavailableModalTitle"),
+    unavailableModalDate: document.getElementById("unavailableModalDate"),
+    unavailableModalReason: document.getElementById("unavailableModalReason"),
     openReservationModalBtn: document.getElementById("openReservationModalBtn"),
     adminDashboardBtn: document.getElementById("adminDashboardBtn"),
     loginBtn: document.getElementById("loginBtn"),
     navTitle: document.querySelector(".nav-title"),
     navUserIdentity: document.getElementById("navUserIdentity"),
     navUserInitials: document.getElementById("navUserInitials"),
-    navUserName: document.getElementById("navUserName")
+    navUserName: document.getElementById("navUserName"),
+    calendarQRCodeBtn: document.getElementById("calendarQRCodeBtn"),
+    calendarQRCodeModalOverlay: document.getElementById("calendarQRModalOverlay"),
+    calendarQRCodeModal: document.getElementById("calendarQRModal"),
+    calendarQRCodeModalCloseBtn: document.getElementById("calendarQRModalCloseBtn")
 };
 
 const facultyReservationDeleteMenu = createActionMenu({
@@ -87,8 +107,6 @@ let isFacultyLoggedIn =
     sessionStorage.getItem("facultyLoggedIn") === "true";
 let currentUserId = sessionStorage.getItem("currentUserId");
 let currentUserRole = sessionStorage.getItem("currentUserRole") || "";
-const largeScreenQuery = window.matchMedia("(min-width: 1680px)");
-
 if (elements.openReservationModalBtn) {
     elements.openReservationModalBtn.disabled = !isFacultyLoggedIn;
     elements.openReservationModalBtn.title = !isFacultyLoggedIn
@@ -177,9 +195,14 @@ async function loadReservedEvents() {
     } catch (error) {
         console.error("Error loading events:", error);
 
-        reservedEvents = [];
+        // DEV ONLY: with no backend running locally, show fake events instead of an empty calendar.
+        const isLocalDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+
+        reservedEvents = isLocalDev ? getSampleEvents() : [];
+        sortReservedEvents(reservedEvents);
     }
 
+    openLinkedEvent();
     renderAll();
 }
 
@@ -233,36 +256,19 @@ const state = {
     ),
 
     currentYear: today.getFullYear(),
-    currentMonth: today.getMonth()
+    currentMonth: today.getMonth(),
+    // On a phone the week grid only fits about half the week, so the page starts on a single day.
+    // The page now starts on a single day view by default on any device
+    zoomLevel: "day"
 };
 
 // Pulls open and close functions from modal file
 const {
     openEventModal,
-    closeEventModal
+    closeEventModal,
+    openUnavailableModal,
+    closeUnavailableModal
 } = createModalController(elements);
-
-function bindBackdropClose(overlay, closeModal) {
-    let pointerStartedOnBackdrop = false;
-
-    overlay.addEventListener(
-        "pointerdown",
-        event => {
-            pointerStartedOnBackdrop = event.target === overlay;
-        }
-    );
-
-    overlay.addEventListener(
-        "click",
-        event => {
-            if (pointerStartedOnBackdrop && event.target === overlay) {
-                closeModal();
-            }
-
-            pointerStartedOnBackdrop = false;
-        }
-    );
-}
 
 // Syncs calendar widget date with week-view widget date
 function syncCalendarToSelectedDate() {
@@ -330,6 +336,43 @@ function changeMonth(monthOffset) {
     renderAll();
 }
 
+// Zoom calendar (prototype): switches the big panel between zoom levels.
+function setZoomLevel(zoomLevel) {
+    state.zoomLevel = zoomLevel;
+
+    renderAll();
+}
+
+// Shows another year in the Year view (the small month calendar follows along).
+function showYear(year) {
+    state.currentYear = year;
+
+    renderAll();
+}
+
+// Clicking a month in the Year view zooms in to that month.
+function zoomIntoMonth(year, month) {
+    const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
+
+    state.zoomLevel = "month";
+
+    setSelectedDate(new Date(year, month, isThisMonth ? today.getDate() : 1));
+}
+
+// Clicking a week row in the Month view zooms in to that week.
+function zoomIntoWeek(date) {
+    state.zoomLevel = "week";
+
+    setSelectedDate(date);
+}
+
+// Clicking a day header in the Week view zooms in to that day.
+function zoomIntoDay(date) {
+    state.zoomLevel = "day";
+
+    setSelectedDate(date);
+}
+
 // Draws all the page elements
 function renderAll() {
     renderApplicationTitle();
@@ -338,21 +381,27 @@ function renderAll() {
     renderCurrentUserIdentity();
     renderSideWidget();
 
-    renderCalendar({
-        datesContainer: elements.datesContainer,
-        calendarTitle: elements.calendarTitle,
-        currentYear: state.currentYear,
-        currentMonth: state.currentMonth,
-        selectedDate: state.selectedDate,
-        reservedEvents,
-        onSelectDate: setSelectedDate
-    });
-
     renderWeekView({
         weekViewWrapper: elements.weekViewWrapper,
         weekViewTitle: elements.weekViewTitle,
         selectedDate: state.selectedDate,
         reservedEvents,
+        onSelectDate: setSelectedDate,
+        onOpenDay: zoomIntoDay,
+        openEventModal: openCalendarEvent
+    });
+
+    renderZoomStage({
+        weekView: elements.weekViewWrapper?.closest(".week-view"),
+        zoomLevel: state.zoomLevel,
+        year: state.currentYear,
+        selectedDate: state.selectedDate,
+        reservedEvents,
+        onSetZoomLevel: setZoomLevel,
+        onShowYear: showYear,
+        onSelectMonth: zoomIntoMonth,
+        onChangeMonth: changeMonth,
+        onSelectWeek: zoomIntoWeek,
         onSelectDate: setSelectedDate,
         openEventModal: openCalendarEvent
     });
@@ -540,10 +589,9 @@ function renderSideWidget() {
     );
 }
 
+// Check-In and My Events sit at the top of the left column, above Upcoming Events.
 function syncSideWidgetPlacement() {
-    const widgetTarget = largeScreenQuery.matches
-        ? elements.sidePanel
-        : elements.leftColumn;
+    const widgetTarget = elements.leftColumn;
 
     if (!widgetTarget) {
         return;
@@ -551,14 +599,9 @@ function syncSideWidgetPlacement() {
 
     getSideWidgets().forEach(widget => {
         if (widget.parentElement !== widgetTarget) {
-            widgetTarget.appendChild(widget);
+            widgetTarget.insertBefore(widget, widgetTarget.querySelector(".upcoming-events"));
         }
     });
-}
-
-function syncSideWidgetLayout() {
-    syncSideWidgetPlacement();
-    syncSideWidgetMaxHeight();
 }
 
 function syncSideWidgetMaxHeight() {
@@ -646,12 +689,58 @@ function formatSideWidgetDate(date) {
 }
 
 function openCalendarEvent(reservation) {
+    if (reservation.is_closure) {
+        openUnavailableModal(reservation);
+        return;
+    }
+
     if (canCurrentUserEditReservation(reservation)) {
         openFacultyReservationEditModal(reservation);
         return;
     }
 
     openEventModal(reservation);
+}
+
+// Opens the event modal for the event id in a share link or event QR code (?eventID=)
+function openLinkedEvent() {
+    const linkedEventId = new URLSearchParams(window.location.search).get("eventID");
+    const linkedEvent = linkedEventId &&
+        reservedEvents.find(event => String(event.id) === linkedEventId);
+
+    // A link to a deleted event just shows the calendar
+    if (linkedEvent) {
+        openEventModal(linkedEvent);
+    }
+}
+
+function openCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.add("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
+    elements.calendarQRCodeModalCloseBtn.focus();
+    generateCalendarQR();
+    console.log(window.location.origin);
+}
+
+function generateCalendarQR()
+{
+    let qrInput = window.location.origin;
+    let container = document.getElementById("calendarQRCode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
+function closeCalendarQRCodeModal() {
+    elements.calendarQRCodeModalOverlay.classList.remove("active");
+    elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "true");
+    elements.calendarQRCodeBtn.focus();
 }
 
 async function openFacultyReservationEditModal(reservation) {
@@ -747,6 +836,56 @@ function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
     setFacultyReservationStatus("");
     setFacultyReservationSubmitting(false);
     setFacultyReservationDeleting(false);
+}
+
+function generateQR()
+{
+    let qrInput = currentEventLink;
+    let container = document.getElementById("qrCode");
+
+    container.innerHTML="";
+    let qr = new QRCode(container,{
+        text:qrInput,
+        width:"300",
+        height:"300",
+        colorDark:"#000000",
+        colorLight:"#ffffff",
+    })
+}
+
+function openQRCodeModal() {
+    elements.qrModalOverlay.classList.add("open");
+    elements.qrModalOverlay.setAttribute("aria-hidden", "false");
+    elements.qrModalCloseBtn.focus();
+    generateQR();
+}
+
+function closeQRCodeModal() {
+    elements.qrModalOverlay.classList.remove("open");
+    elements.qrModalOverlay.setAttribute("aria-hidden", "true");
+    elements.qrCodeBtn.focus();
+}
+
+function openShareLinkModal() {
+    elements.shareLinkModalOverlay.classList.add("open");
+    elements.shareLinkModalOverlay.setAttribute("aria-hidden", "false");
+    elements.shareLinkModalCloseBtn.focus();
+    elements.shareLinkValue.innerHTML = currentEventLink;
+}
+
+async function copyShareLink() {
+    console.log("Copied Link");
+    let copyText = elements.shareLinkValue.innerHTML;
+
+    await navigator.clipboard.writeText(copyText);
+    elements.copyShareLinkBtn.textContent = 'Copied!';
+    setTimeout(() => elements.copyShareLinkBtn.textContent = 'Copy Link', 2000);
+}
+
+function closeShareLinkModal() {
+    elements.shareLinkModalOverlay.classList.remove("open");
+    elements.shareLinkModalOverlay.setAttribute("aria-hidden", "true");
+    elements.shareLinkBtn.focus();
 }
 
 async function requestCloseFacultyReservationEditModal() {
@@ -1000,38 +1139,6 @@ async function handleFacultyReservationSubmit(event) {
     }
 }
 
-function validateEditedReservations({
-    reservationsToSave,
-    existingReservations,
-    selectedReservation,
-    users
-}) {
-    const selectedReservationId = String(selectedReservation?.id ?? "");
-    const reservationsToCheck = existingReservations.filter(reservation => {
-        return String(reservation.id) !== selectedReservationId;
-    });
-
-    for (const [index, reservationData] of reservationsToSave.entries()) {
-        const validation = validateReservationData({
-            reservationData,
-            existingReservations: reservationsToCheck,
-            users,
-            requireId: index === 0
-        });
-
-        if (!validation.isValid) {
-            return validation;
-        }
-
-        reservationsToCheck.push(reservationData);
-    }
-
-    return {
-        isValid: true,
-        message: ""
-    };
-}
-
 async function handleFacultyReservationDelete() {
     if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
         return;
@@ -1052,7 +1159,7 @@ async function handleFacultyReservationDelete() {
     try {
         await deleteEvent(selectedFacultyReservation);
         await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
-        removeReservationsFromFacultyState([selectedFacultyReservation]);
+        removeReservations([selectedFacultyReservation], reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
@@ -1098,7 +1205,7 @@ async function handleFacultyReservationDeleteSeries() {
     try {
         await deleteReservations(seriesReservations);
         await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
-        removeReservationsFromFacultyState(seriesReservations);
+        removeReservations(seriesReservations, reservedEvents, attendees);
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
@@ -1111,38 +1218,6 @@ async function handleFacultyReservationDeleteSeries() {
     } finally {
         setFacultyReservationDeleting(false);
     }
-}
-
-function getReservationSeries(reservation, reservations) {
-    const recurrenceGroupId = reservation?.recurrence_group_id;
-
-    if (!recurrenceGroupId) {
-        return [];
-    }
-
-    return reservations.filter(candidate => {
-        return candidate.recurrence_group_id === recurrenceGroupId;
-    });
-}
-
-async function deleteReservations(reservationsToDelete) {
-    for (const reservation of reservationsToDelete) {
-        await deleteEvent(reservation);
-    }
-}
-
-function removeReservationsFromFacultyState(reservationsToRemove) {
-    const deletedReservationIds = new Set(
-        reservationsToRemove.map(reservation => String(reservation.id))
-    );
-
-    reservedEvents = reservedEvents.filter(reservation => {
-        return !deletedReservationIds.has(String(reservation.id));
-    });
-
-    attendees = attendees.filter(attendee => {
-        return !deletedReservationIds.has(String(attendee.event_id));
-    });
 }
 
 function isReservationOwnedByUser(reservation, user) {
@@ -1168,7 +1243,7 @@ function isReservationOwnedByUser(reservation, user) {
 }
 
 function canCurrentUserEditReservation(reservation) {
-    if (!isFacultyLoggedIn || !currentUser) {
+    if (!isFacultyLoggedIn || !currentUser || reservation.is_closure) {
         return false;
     }
 
@@ -1281,16 +1356,6 @@ function getUserRoleName(user) {
 
 // Starts event listeners for button and modal interactivity
 function bindEvents() {
-    elements.prevMonthBtn.addEventListener(
-        "click",
-        () => changeMonth(-1)
-    );
-
-    elements.nextMonthBtn.addEventListener(
-        "click",
-        () => changeMonth(1)
-    );
-
     elements.prevWeekBtn.addEventListener(
         "click",
         () => moveSelectedDateByDays(-7)
@@ -1306,10 +1371,38 @@ function bindEvents() {
         closeEventModal
     );
 
+    if (
+        elements.calendarQRCodeBtn &&
+        elements.calendarQRCodeModalOverlay &&
+        elements.calendarQRCodeModalCloseBtn
+    ) {
+        elements.calendarQRCodeBtn.addEventListener("click", openCalendarQRCodeModal);
+        elements.calendarQRCodeModalCloseBtn.addEventListener("click", closeCalendarQRCodeModal);
+        bindBackdropClose(elements.calendarQRCodeModalOverlay, closeCalendarQRCodeModal);
+    }
+
+    elements.unavailableModalCloseBtn.addEventListener(
+        "click",
+        closeUnavailableModal
+    );
+
     elements.facultyReservationModalCloseBtn.addEventListener(
         "click",
         requestCloseFacultyReservationEditModal
     );
+
+    if (elements.qrCodeBtn && elements.qrModalOverlay && elements.qrModalCloseBtn) {
+        elements.qrCodeBtn.addEventListener("click", openQRCodeModal);
+        elements.qrModalCloseBtn.addEventListener("click", closeQRCodeModal);
+        bindBackdropClose(elements.qrModalOverlay, closeQRCodeModal);
+    }
+
+    if (elements.shareLinkBtn && elements.shareLinkModalOverlay && elements.shareLinkModalCloseBtn) {
+        elements.shareLinkBtn.addEventListener("click", openShareLinkModal);
+        elements.shareLinkModalCloseBtn.addEventListener("click", closeShareLinkModal);
+        elements.copyShareLinkBtn.addEventListener("click", copyShareLink);
+        bindBackdropClose(elements.shareLinkModalOverlay, closeShareLinkModal);
+    }
 
     elements.facultyReservationCancelBtn.addEventListener(
         "click",
@@ -1345,19 +1438,11 @@ function bindEvents() {
         handleReservationCreated
     );
 
-    if (largeScreenQuery.addEventListener) {
-        largeScreenQuery.addEventListener(
-            "change",
-            syncSideWidgetLayout
-        );
-    } else {
-        largeScreenQuery.addListener(syncSideWidgetLayout);
-    }
-
     window.addEventListener("resize", syncSideWidgetMaxHeight);
 
     // Allows event modal to be closed by clicking background
     bindBackdropClose(elements.eventModalOverlay, closeEventModal);
+    bindBackdropClose(elements.unavailableModalOverlay, closeUnavailableModal);
     bindBackdropClose(
         elements.facultyReservationModalOverlay,
         requestCloseFacultyReservationEditModal
@@ -1369,9 +1454,39 @@ function bindEvents() {
         event => {
             if (
                 event.key === "Escape" &&
+                elements.calendarQRCodeModalOverlay.classList.contains("active")
+            ) {
+                closeCalendarQRCodeModal();
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.qrModalOverlay.classList.contains("open")
+            ) {
+                closeQRCodeModal();
+                return;
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.shareLinkModalOverlay.classList.contains("open")
+            ) {
+                closeShareLinkModal();
+                return;
+            }
+
+            if (
+                event.key === "Escape" &&
                 elements.eventModalOverlay.classList.contains("active")
             ) {
                 closeEventModal();
+            }
+
+            if (
+                event.key === "Escape" &&
+                elements.unavailableModalOverlay.classList.contains("active")
+            ) {
+                closeUnavailableModal();
             }
 
             if (
@@ -1384,7 +1499,7 @@ function bindEvents() {
     );
 
     if (elements.loginBtn) {
-        elements.loginBtn.textContent = isFacultyLoggedIn ? "Sign Out" : "Faculty Login";
+        elements.loginBtn.textContent = isFacultyLoggedIn ? "Log Out" : "Faculty/Admin Login";
 
         elements.loginBtn.addEventListener(
             "click",

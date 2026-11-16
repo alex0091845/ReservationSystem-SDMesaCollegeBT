@@ -2,16 +2,19 @@
 
 :root {
     --font-tertiary: Arial, Helvetica, sans-serif;
-    --font-secondary: "URW DIN", "DIN 2014", "DIN Alternate", var(--font-tertiary);
-    --font-primary: Optima, "Optima Nova", "URW Classico", var(--font-secondary);
-    --mesa-blue: #023867;
+    --font-secondary: "Atkinson Hyperlegible", "URW DIN", "DIN 2014", "DIN Alternate", var(--font-tertiary);
+    --font-primary: "Atkinson Hyperlegible", Optima, "Optima Nova", "URW Classico", var(--font-secondary);
+    --mesa-blue: #0054a4; /* Mesa Blue, SDCCD brand guide 2024, p. 38 */
     --mesa-blue-dark: #0e223f;
-    --district-cyan: #2fa9e0;
+    --district-cyan: #31a9e0; /* District Cyan, SDCCD brand guide 2024, p. 38 */
     --mesa-green: #699446;
     --mesa-orange: #f37725;
     --mesa-purple: #523993;
     --mesa-maroon: #643c48;
     --mesa-maroon-dark: #48182c;
+    /* Soft pinstripe marking unavailable (closed) dates, and its slightly darker hover state */
+    --unavailable-stripes: repeating-linear-gradient(135deg, #f8fafc 0 9px, #dde3ea 9px 11px);
+    --unavailable-stripes-hover: repeating-linear-gradient(135deg, #f1f5f9 0 9px, #cbd5e1 9px 11px);
     --radius-panel: 8px;
     --radius-card: 6px;
     --radius-control: 4px;

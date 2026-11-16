@@ -7,7 +7,7 @@ body {
   justify-content: center;
   align-items: center;
   padding: 24px;
-  height: 100vh;
+  min-height: 100dvh;
   margin: 0;
 }
 
@@ -55,7 +55,7 @@ input {
   align-items: center;
   gap: 8px;
   margin: 0 0 16px;
-  color: #333;
+  color: #333333;
   font-size: 14px;
   cursor: pointer;
   user-select: none;
@@ -83,10 +83,44 @@ button:hover {
   background-color: var(--mesa-blue-dark);
 }
 
+.back-btn {
+    display: inline-flex;
+    align-items: center;
+    margin-bottom: 32px;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 42px;
+    height: 32px;
+    padding: 8px;
+    border: none;
+    border-radius: var(--radius-control);
+    background: var(--mesa-blue);
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.back-btn:hover {
+    background: var(--mesa-blue-dark);
+    transform: scale(1.05);
+}
+
+.back-btn:active {
+    transform: scale(0.96);
+}
+
 #message {
   margin-top: 15px;
   text-align: center;
-  color: red;
+}
+
+#message.success {
+  color: #1B6525;
+}
+
+#message.error {
+  color: #9E0000;
 }
 
 @media (max-width: 420px) {

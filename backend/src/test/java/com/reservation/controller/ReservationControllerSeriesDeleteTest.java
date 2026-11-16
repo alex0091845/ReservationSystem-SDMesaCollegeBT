@@ -3,6 +3,7 @@ package com.reservation.controller;
 import tools.jackson.databind.ObjectMapper;
 import com.reservation.config.SupabaseClient;
 import com.reservation.services.AuthService;
+import com.reservation.services.ReservationAvailabilityService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
@@ -16,14 +17,14 @@ import static org.mockito.Mockito.*;
 
 class ReservationControllerSeriesDeleteTest {
     private static final String SERIES_LOOKUP =
-        "events?recurrence_group_id=eq.group-1&select=id,host_user_id,recurrence_group_id";
+        "events?recurrence_group_id=eq.group-1&select=id,host_user_id,recurrence_group_id,is_closure";
 
     private static final String CHECK_IN_LOOKUP = "attendees?event_id=in.(7,8)&select=id,event_id";
 
     private final SupabaseClient supabase = mock(SupabaseClient.class);
     private final AuthService authService = mock(AuthService.class);
     private final ReservationController controller = new ReservationController(
-        supabase, new ObjectMapper(), authService
+        supabase, new ObjectMapper(), authService, mock(ReservationAvailabilityService.class)
     );
 
     @Test
@@ -46,6 +47,21 @@ class ReservationControllerSeriesDeleteTest {
         when(authService.isFacultyOrAdmin(faculty)).thenReturn(true);
         when(supabase.get(SERIES_LOOKUP)).thenReturn(
             "[{\"id\":7,\"host_user_id\":42},{\"id\":8,\"host_user_id\":99}]"
+        );
+
+        ResponseEntity<?> response = controller.deleteSeries("group-1", request);
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        verifyNoWrites();
+    }
+
+    @Test
+    void seriesContainingAnUnavailableDateIsRefusedAndWritesNothing() throws Exception {
+        var admin = new ObjectMapper().readTree("{\"id\":5,\"role_name\":\"admin\"}");
+        HttpServletRequest request = requestFor(admin);
+        when(authService.isAdmin(admin)).thenReturn(true);
+        when(supabase.get(SERIES_LOOKUP)).thenReturn(
+            "[{\"id\":7,\"host_user_id\":42},{\"id\":8,\"host_user_id\":42,\"is_closure\":true}]"
         );
 
         ResponseEntity<?> response = controller.deleteSeries("group-1", request);
@@ -128,7 +144,7 @@ class ReservationControllerSeriesDeleteTest {
         controller.deleteSeries("a&b,(c) d", request);
 
         verify(supabase).get(
-            "events?recurrence_group_id=eq.a%26b%2C%28c%29+d&select=id,host_user_id,recurrence_group_id"
+            "events?recurrence_group_id=eq.a%26b%2C%28c%29+d&select=id,host_user_id,recurrence_group_id,is_closure"
         );
     }
 

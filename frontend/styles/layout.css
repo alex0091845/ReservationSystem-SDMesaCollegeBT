@@ -25,10 +25,11 @@
     min-width: 0;
 }
 
-@media (min-width: 1680px) {
-    .side-panel.has-side-widget {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 320px;
-        align-items: start;
+/* Desktop: Check-In and My Events sit above Upcoming Events in the left column.
+   A long My Events list scrolls inside its card so Upcoming Events stays in view. */
+@media (min-width: 1201px) {
+    .left-column > .my-events,
+    .left-column > .check-in-widget {
+        max-height: min(var(--side-widget-max-height, 480px), 480px);
     }
 }

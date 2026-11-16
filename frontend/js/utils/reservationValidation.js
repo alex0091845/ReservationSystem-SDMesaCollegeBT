@@ -68,6 +68,14 @@ function getReservationValidationMessage({
         return "End time must be after start time.";
     }
 
+    if (
+        startDate.getFullYear() !== endDate.getFullYear() ||
+        startDate.getMonth() !== endDate.getMonth() ||
+        startDate.getDate() !== endDate.getDate()
+    ) {
+        return "Reservations must start and end on the same day.";
+    }
+
     // Only new reservations are held to this. Editing an existing reservation stays
     // allowed once it is in the past, so past records can still be corrected.
     if (!requireId && !isInFuture(startDate)) {

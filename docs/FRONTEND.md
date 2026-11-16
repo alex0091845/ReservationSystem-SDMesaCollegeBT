@@ -89,7 +89,7 @@ frontend/
 │   ├── admin.js        admin.html controller — users, and reservations for a chosen user
 │   ├── login.js        login form
 │   ├── ui/             rendering + widgets (no fetch calls except through api.js)
-│   │   ├── modal.js                 event-details modal, public check-in, CREATE-reservation modal
+│   │   ├── modal.js                 event-details and unavailable-date modals, public check-in, CREATE-reservation modal
 │   │   ├── reservationTimePicker.js ★ drag-select week grid used by every reservation form
 │   │   ├── reservationDrafts.js     autosave engine + "save draft?" prompt
 │   │   ├── monthView.js             the month calendar
@@ -229,7 +229,8 @@ page.
 | Admin Dashboard link | — | — | ✅ |
 
 That routing is `openCalendarEvent()` → `canCurrentUserEditReservation()`, which is admin OR
-host-id match OR host-email match.
+host-id match OR host-email match. Unavailable dates (`is_closure`) skip that check and open the
+read-only unavailable-date modal for everyone.
 
 **Editing a reservation.** The edit modal's markup lives in `index.html`
 (`#facultyReservationModalOverlay`); the logic is in `main.js`. Submitting is not a plain PATCH: the
@@ -250,7 +251,11 @@ the list so the new blocks are checked against each other too.
 Slightly confusingly named. It contains:
 
 1. **`createModalController(elements)`** — exported; returns `openEventModal` / `closeEventModal`
-   for the read-only **event details** modal.
+   for the read-only **event details** modal, and `openUnavailableModal` / `closeUnavailableModal`
+   for the **unavailable date** modal. That modal shows the date and a reason: the closure's
+   `description`, or "Room closure" when that is empty or the stored default "Room unavailable".
+   Admins set that description by right-clicking a saved unavailable date on Bookable Dates
+   (`ui/reservationAvailability.js`).
 2. **The public check-in form** inside that modal. Only shown to anonymous visitors
    (`facultyLoggedIn` is not set). Submits to `POST /api/attendees`, which is the one public write
    endpoint in the whole API.

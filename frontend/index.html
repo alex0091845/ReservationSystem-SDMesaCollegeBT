@@ -5,6 +5,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BT-216 Events</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <link rel="icon" href="assets/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16x16.png">
@@ -30,32 +33,13 @@
                 Admin Dashboard
             </a>
             <button class="login-btn" id="openReservationModalBtn">Create Reservation</button>
+            <button class = "login-btn" id="calendarQRCodeBtn">QR Code for Calendar</button>
             <button class="login-btn" id="loginBtn">Faculty Login</button>
         </div>
     </header>
     <!-- Widget Wrapper -->
     <div class="wrapper">
         <div class="left-column">
-            <!-- Month-View Calendar -->
-            <div class="calendar">
-                <div class="calendar-header">
-                    <button class="nav-btn" id="prevMonthBtn">&#8592;</button>
-                    <h2 class="calendar-title" id="calendarTitle">Calendar</h2>
-                    <button class="nav-btn" id="nextMonthBtn">&#8594;</button>
-                </div>
-
-                <div class="days">
-                    <div>Sun</div>
-                    <div>Mon</div>
-                    <div>Tue</div>
-                    <div>Wed</div>
-                    <div>Thu</div>
-                    <div>Fri</div>
-                    <div>Sat</div>
-                </div>
-
-                <div class="dates" id="dates"></div>
-            </div>
             <!-- Upcoming Events Widget -->
             <div class="upcoming-events">
                 <h3>Upcoming Events</h3>
@@ -186,9 +170,89 @@
                         <button type="submit" class="reservation-primary-btn" id="eventCheckInSubmitBtn">
                             Check In
                         </button>
+
+                        <p class="check-in-status" id="generateQRCode" role="QRCode"></p>
+                        <button type="button" class="reservation-primary-btn" id="qrCodeBtn">
+                            QR Code
+                        </button>
+
+                        <p class="check-in-status" id="shareLink" role="shareLink"></p>
+                        <button  type="button" class="reservation-primary-btn" id="shareLinkBtn">
+                            Share Link
+                        </button>
+
                     </div>
                 </form>
             </section>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <div class="modal-overlay" id="calendarQRModalOverlay" aria-hidden="true">
+        <div class="qr-modal" id="calendarQRModal" role="dialog" aria-modal="true" aria-labelledby="calendarQRModalTitle">
+            <div class="modal-topbar">
+                <h2 class="modal-event-title" id="calendarQRModalTitle">Calendar QR Code</h2>
+                <button type="button" class="modal-close-btn" id="calendarQRModalCloseBtn"
+                    aria-label="Close QR code">&times;</button>
+            </div>
+            <div class="qr-code" id="calendarQRCode" aria-label="Calendar QR code"></div>
+        </div>
+    </div>
+
+    <!-- QR Code Modal -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <div class="qr-modal-overlay" id="qrModalOverlay" aria-hidden="true">
+        <div class="qr-modal" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+            <div class="modal-topbar">
+                <h2 class="modal-event-title" id="qrModalTitle">QR Code</h2>
+                <button type="button" class="modal-close-btn" id="qrModalCloseBtn"
+                    aria-label="Close QR code">&times;</button>
+            </div>
+            <div class="qr-code" id="qrCode" aria-label="QR code"></div>
+        </div>
+    </div>
+
+    <!-- Share Link Modal -->
+    <div class="share-link-modal-overlay" id="shareLinkModalOverlay" aria-hidden="true">
+        <div class="share-link-modal" id="shareLinkModal" role="dialog" aria-modal="true"
+            aria-labelledby="shareLinkModalTitle">
+            <div class="modal-topbar">
+                <h2 class="modal-event-title" id="shareLinkModalTitle">Share Link</h2>
+                <button type="button" class="modal-close-btn" id="shareLinkModalCloseBtn"
+                    aria-label="Close share link">&times;</button>
+            </div>
+            <div class="share-link-body">
+                <div class="share-link" id="shareLinkValue"></div>
+                <div class="copy-link-button">
+                    <button type="button" class="reservation-primary-btn" id="copyShareLinkBtn" aria-label="Copy share link">
+                        Copy Link
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unavailable date details -->
+    <div class="modal-overlay" id="unavailableModalOverlay" aria-hidden="true">
+        <div class="modal unavailable-modal" role="dialog" aria-modal="true" aria-labelledby="unavailableModalTitle">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="unavailableModalTitle">Unavailable</h2>
+                </div>
+
+                <button class="modal-close-btn" id="unavailableModalCloseBtn" aria-label="Close unavailable date details">&times;</button>
+            </div>
+
+            <div class="modal-content">
+                <div class="modal-field">
+                    <div class="modal-label">Date</div>
+                    <div class="modal-value" id="unavailableModalDate">—</div>
+                </div>
+
+                <div class="modal-field">
+                    <div class="modal-label">Reason</div>
+                    <div class="modal-value" id="unavailableModalReason">—</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -267,11 +331,21 @@
                     <div class="modal-field reservation-full reservation-time-section">
                         <div class="reservation-time-label-row">
                             <label class="modal-label" for="facultyReservationTimePicker">Reservation Time</label>
-                            <span class="reservation-time-range-summary" id="facultyReservationTimeSummary"></span>
+                            <span class="reservation-time-range-summary" id="facultyReservationTimeSummary" hidden aria-hidden="true"></span>
                         </div>
                         <div id="facultyReservationTimePicker" aria-label="Reservation time selector"></div>
-                        <input id="facultyReservationStart" name="start" type="hidden" required>
-                        <input id="facultyReservationEnd" name="end" type="hidden" required>
+                        <div class="reservation-exact-time-fields">
+                            <label class="reservation-exact-time-field" for="facultyReservationStart">
+                                <span>Start</span>
+                                <input class="reservation-input" id="facultyReservationStart" name="start"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                            <label class="reservation-exact-time-field" for="facultyReservationEnd">
+                                <span>End</span>
+                                <input class="reservation-input" id="facultyReservationEnd" name="end"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="modal-field reservation-full">
@@ -406,11 +480,21 @@
                     <div class="modal-field reservation-full reservation-time-section">
                         <div class="reservation-time-label-row">
                             <label class="modal-label" for="reservationTimePicker">Reservation Time</label>
-                            <span class="reservation-time-range-summary" id="reservationTimeSummary"></span>
+                            <span class="reservation-time-range-summary" id="reservationTimeSummary" hidden aria-hidden="true"></span>
                         </div>
                         <div id="reservationTimePicker" aria-label="Reservation time selector"></div>
-                        <input id="reservationStart" name="start" type="hidden" required>
-                        <input id="reservationEnd" name="end" type="hidden" required>
+                        <div class="reservation-exact-time-fields">
+                            <label class="reservation-exact-time-field" for="reservationStart">
+                                <span>Start</span>
+                                <input class="reservation-input" id="reservationStart" name="start"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                            <label class="reservation-exact-time-field" for="reservationEnd">
+                                <span>End</span>
+                                <input class="reservation-input" id="reservationEnd" name="end"
+                                    type="datetime-local" step="60" required>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="modal-field reservation-full recurrence-section">

@@ -431,7 +431,7 @@ export function showDraftExitPrompt() {
         continueButton.addEventListener("click", () => closePrompt("continue"));
         saveButton.addEventListener("click", () => closePrompt("save"));
 
-        actions.append(discardButton, continueButton, saveButton);
+        actions.append(saveButton, continueButton, discardButton);
         dialog.append(title, message, actions);
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);

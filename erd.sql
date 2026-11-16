@@ -17,7 +17,7 @@ CREATE TABLE public.users (
 );
 CREATE TABLE public.events (
   id integer NOT NULL DEFAULT nextval('reservations_reservation_id_seq'::regclass),
-  host_user_id integer NOT NULL,
+  host_user_id integer,
   start_time timestamp with time zone NOT NULL,
   end_time timestamp with time zone NOT NULL,
   event_type text,
@@ -26,7 +26,12 @@ CREATE TABLE public.events (
   department text,
   is_public boolean,
   recurrence_group_id text,
+  is_closure boolean NOT NULL DEFAULT false,
   CONSTRAINT events_pkey PRIMARY KEY (id),
+  CONSTRAINT events_positive_duration CHECK (end_time > start_time),
+  CONSTRAINT events_no_reservation_overlap EXCLUDE USING gist
+    (tstzrange(start_time, end_time, '[)') WITH &&) WHERE (NOT is_closure),
+  CONSTRAINT events_reservation_host_required CHECK (is_closure OR host_user_id IS NOT NULL),
   CONSTRAINT reservations_user_id_fkey FOREIGN KEY (host_user_id) REFERENCES public.users(id),
   CONSTRAINT events_event_type_fkey FOREIGN KEY (event_type) REFERENCES public.event_types(event_type)
 );
@@ -76,3 +81,10 @@ CREATE TABLE public.reservation_drafts (
 CREATE UNIQUE INDEX reservation_drafts_active_unique_idx
   ON public.reservation_drafts (user_id, draft_type, COALESCE(source_event_id, -1))
   WHERE discarded_at IS NULL;
+
+-- Apply backend/sql/reservation_availability.sql for grants, the initial row, and event validation
+CREATE TABLE public.reservation_availability (
+  id integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  last_bookable_date date,
+  version bigint NOT NULL DEFAULT 0 CHECK (version >= 0)
+);
