@@ -423,6 +423,7 @@ public class ReservationController {
             ArrayNode rows = objectMapper.createArrayNode();
             List<LocalDate> changedDates = new ArrayList<>();
             Set<LocalDate> movedDates = new LinkedHashSet<>();
+            LocalDate sharedDate = null;
             ZonedDateTime now = ZonedDateTime.now(RESERVATION_TIME_ZONE);
 
             for (JsonNode existingEvent : seriesEvents) {
@@ -440,15 +441,11 @@ public class ReservationController {
                         row.put("start_time", ZonedDateTime.of(date, localStart, RESERVATION_TIME_ZONE).toInstant().toString());
                         row.put("end_time", ZonedDateTime.of(date, localEnd, RESERVATION_TIME_ZONE).toInstant().toString());
 
-                        if (reservationTimesChanged(existingEvent, row)) {
-                            // Two occurrences on one day would land on the same time and overlap.
-                            if (!movedDates.add(date)) {
-                                throw new IllegalArgumentException(
-                                    "This series has more than one reservation on " + date +
-                                        ", so its time cannot be changed for the whole series."
-                                );
-                            }
+                        if (!movedDates.add(date) && sharedDate == null) {
+                            sharedDate = date;
+                        }
 
+                        if (reservationTimesChanged(existingEvent, row)) {
                             validateReservationTimeWindow(row);
                             changedDates.add(date);
                         }
@@ -463,6 +460,14 @@ public class ReservationController {
                     "events?recurrence_group_id=eq." + encode(groupId),
                     objectMapper.writeValueAsString(details)
                 ));
+            }
+
+            // Two occurrences on one day would land on the same time and overlap.
+            if (sharedDate != null) {
+                throw new IllegalArgumentException(
+                    "This series has more than one reservation on " + sharedDate +
+                        ", so its time cannot be changed for the whole series."
+                );
             }
 
             availability.validateDates(changedDates);
