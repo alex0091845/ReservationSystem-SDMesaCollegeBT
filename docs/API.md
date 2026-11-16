@@ -137,6 +137,7 @@ table names, constraint details, and database configuration are not exposed.
 | `POST` | `/api/events/recurring` | login ★ | Create a weekly series compactly |
 | `PATCH` | `/api/events/{id}` | faculty owner/admin ★ | Update one, including its event type |
 | `DELETE` | `/api/events/{id}` | faculty owner/admin ★ | Delete one (+ its check-ins) |
+| `DELETE` | `/api/events/series/{groupId}` | faculty owner/admin ★ | Delete a whole series (check-ins are kept, detached) |
 | `GET` | `/api/reservation-drafts` | login | Your drafts |
 | `POST` | `/api/reservation-drafts` | login ★ | Save/update a draft |
 | `DELETE` | `/api/reservation-drafts/{id}` | login | Discard a draft |
@@ -560,7 +561,6 @@ event. If the attendee cleanup fails, the reservation is left untouched.
 | `409` | `{"error":"This reservation is still referenced by other records, so it cannot be deleted."}` |
 | `502` | `{"error":"The delete could not be completed. Please try again."}` |
 
-
 ---
 
 ### `DELETE /api/events/series/{groupId}`
@@ -571,7 +571,7 @@ Deletes all events that share the requested `recurrence_group_id`.
 
 The backend first loads all events in the recurring series and checks permission for every event before deleting anything. Faculty users may delete only recurring series they own, while admins may delete any series.
 
-After authorization succeeds, the backend collects the event IDs and deletes all related attendee records in one bulk request. It then deletes all events in the recurring series in a second bulk request.
+After authorization succeeds, the backend collects the event IDs and **detaches** the related check-in records in one bulk request: their `event_id` is set to `null` and the rows are kept for later analysis. It then deletes all events in the recurring series in a second bulk request. If the detach fails, the series is left untouched.
 
 **Success — `204 No Content`**, empty body.
 
@@ -581,12 +581,13 @@ After authorization succeeds, the backend collects the event IDs and deletes all
 |---|---|---|
 | `404` | `{"error":"Recurring reservation series not found."}` | No events were found for the supplied group ID |
 | `403` | `{"error":"You do not have permission to delete this reservation."}` | The caller does not have permission to delete one or more events in the series |
-| `502` | `{"error":"The check-in records for this recurring reservation series could not be removed."}` | Attendee cleanup failed |
+| `502` | `{"error":"The check-in records for this recurring reservation series could not be detached, so the series was left in place."}` | Detaching the check-ins failed |
 | `409` | `{"error":"This recurring series is still referenced by other records, so it cannot be deleted."}` | Another database record still references one of the events |
 | `502` | `{"error":"The delete could not be completed. Please try again."}` | The event deletion failed for another reason |
 
-> **Note:** attendee cleanup and event deletion are separate backend-to-Supabase requests, so this operation is not a single PostgreSQL transaction.
+> **Note:** detaching the check-ins and deleting the events are separate backend-to-Supabase requests, so this operation is not a single PostgreSQL transaction.
 
+---
 
 ## Reservation drafts
 
@@ -993,7 +994,7 @@ Only `PATCH` and `DELETE` on `/events/{id}` return a real `404`. Every other by-
 
 ### 8. Recurring series deletion is not fully atomic
 
-`DELETE /api/events/series/{groupId}` reduces browser-to-backend deletion to one request. However, the backend still performs attendee cleanup and event deletion as two separate Supabase requests, so the operation is not a single PostgreSQL transaction.
+`DELETE /api/events/series/{groupId}` reduces browser-to-backend deletion to one request. However, the backend still performs the check-in detach and event deletion as two separate Supabase requests, so the operation is not a single PostgreSQL transaction.
 
 ### 9. The 8 AM start of the day is not enforced
 

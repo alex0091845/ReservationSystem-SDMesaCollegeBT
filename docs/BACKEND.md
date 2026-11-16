@@ -235,7 +235,7 @@ Endpoints:
 | POST | `/api/events/recurring` | see below |
 | PATCH | `/api/events/{id}` | |
 | DELETE | `/api/events/{id}` | see below |
-| DELETE | `/api/events/series/{groupId}` | deletes a recurring reservation series |
+| DELETE | `/api/events/series/{groupId}` | see below |
 
 **`POST /api/events/recurring`** is a bandwidth optimisation. Instead of the browser sending 16
 nearly identical reservations, it sends one template plus a compact description of the repeats:
@@ -264,9 +264,9 @@ Only then does it delete the event, via `DeleteOutcome`.
 
 The controller first loads all events with the requested `recurrence_group_id`. If no matching events are found, it returns `404`. Before deleting anything, it checks that the current user has permission to modify every event in the series. Faculty users may delete only their own recurring series, while admins may delete any series.
 
-After authorization succeeds, the controller collects the event IDs and deletes the related attendee records in one bulk request. It then deletes all events in the series in a second bulk request. Successful deletion returns `204 No Content`.
+After authorization succeeds, the controller collects the event IDs and detaches the related check-in records in one bulk request, setting their `event_id` to `null` so the rows are kept for later analysis. It then deletes all events in the series in a second bulk request. If the detach fails it returns 502 and leaves the series alone. Successful deletion returns `204 No Content`.
 
-The attendee cleanup happens first because `attendees.event_id` does not have an `ON DELETE` rule, so PostgreSQL would reject deleting events that still have attendee records.
+The detach happens first because `attendees.event_id` does not have an `ON DELETE` rule, so PostgreSQL would reject deleting events that still have attendee records. `attendees.event_id` is nullable, so clearing it keeps the check-ins.
 
 ### `DeleteOutcome` — why deletes are special
 
@@ -360,7 +360,7 @@ checks marked ★ happen inside the controller.
 | POST | `/api/events/recurring` | login ★ | template + week ranges |
 | PATCH | `/api/events/{id}` | faculty owner/admin ★ | |
 | DELETE | `/api/events/{id}` | faculty owner/admin ★ | deletes the event's attendees first |
-| DELETE | `/api/events/series/{groupId}` | faculty owner/admin ★ | bulk deletes a recurring series and its attendee records |
+| DELETE | `/api/events/series/{groupId}` | faculty owner/admin ★ | bulk deletes a recurring series; detaches its check-ins (`event_id` = null) |
 | GET | `/api/reservation-drafts` | login | always scoped to the caller |
 | POST | `/api/reservation-drafts` | login ★ | upsert |
 | DELETE | `/api/reservation-drafts/{id}` | login | permanently deletes the caller's draft |
