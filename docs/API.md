@@ -1058,7 +1058,7 @@ Only `PATCH` and `DELETE` on `/events/{id}` return a real `404`. Every other by-
 
 ### 8. Recurring series deletion is not fully atomic
 
-`DELETE /api/events/series/{groupId}` deletes a series in one request, but the frontend does not call it yet: it still deletes a series one event at a time through `DELETE /api/events/{id}`, which also deletes the check-ins. The backend performs the check-in detach and event deletion as two separate Supabase requests, so the operation is not a single PostgreSQL transaction.
+`DELETE /api/events/series/{groupId}` deletes a series in one request, and the frontend uses it when the user deletes a whole series. It falls back to deleting events one at a time through `DELETE /api/events/{id}` (which also deletes the check-ins) only when the user can delete just part of a series. The backend performs the check-in detach and event deletion as two separate Supabase requests, so the operation is not a single PostgreSQL transaction.
 
 ### 9. The 8 AM start of the day is not enforced
 

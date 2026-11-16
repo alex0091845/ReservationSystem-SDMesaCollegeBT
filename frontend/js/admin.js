@@ -30,7 +30,7 @@ import {
 import {
     validateEditedReservations,
     getReservationSeries,
-    deleteReservations,
+    deleteReservationSeries,
     bindBackdropClose,
     removeReservations
 } from "./utils/reservationEditing.js";
@@ -1089,7 +1089,7 @@ async function handleAdminReservationDeleteSeries() {
     setAdminReservationDeleting(true, "series");
 
     try {
-        await deleteReservations(seriesReservations);
+        await deleteReservationSeries(seriesReservations, reservations);
         await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
         removeReservations(seriesReservations, reservations, attendees);
 

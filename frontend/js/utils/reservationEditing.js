@@ -1,4 +1,4 @@
-import { deleteEvent } from "../api.js";
+import { deleteEvent, deleteEventSeries } from "../api.js";
 import { validateReservationData } from "./reservationValidation.js";
 
 export function validateEditedReservations({
@@ -49,6 +49,24 @@ export async function deleteReservations(reservationsToDelete) {
     for (const reservation of reservationsToDelete) {
         await deleteEvent(reservation);
     }
+}
+
+export async function deleteReservationSeries(reservationsToDelete, allReservations) {
+    const recurrenceGroupId = reservationsToDelete[0]?.recurrence_group_id;
+    const isWholeSeries =
+        Boolean(recurrenceGroupId) &&
+        reservationsToDelete.every(reservation => {
+            return reservation.recurrence_group_id === recurrenceGroupId;
+        }) &&
+        reservationsToDelete.length ===
+            getReservationSeries(reservationsToDelete[0], allReservations).length;
+
+    if (isWholeSeries) {
+        await deleteEventSeries(recurrenceGroupId);
+        return;
+    }
+
+    await deleteReservations(reservationsToDelete);
 }
 
 export function bindBackdropClose(overlay, closeModal) {
