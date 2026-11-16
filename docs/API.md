@@ -137,6 +137,7 @@ table names, constraint details, and database configuration are not exposed.
 | `POST` | `/api/events/recurring` | login ★ | Create a weekly series compactly |
 | `PATCH` | `/api/events/{id}` | faculty owner/admin ★ | Update one, including its event type |
 | `DELETE` | `/api/events/{id}` | faculty owner/admin ★ | Delete one (+ its check-ins) |
+| `PATCH` | `/api/events/series/{groupId}` | faculty owner/admin ★ | Update the details, and optionally the time of day, of a whole series |
 | `DELETE` | `/api/events/series/{groupId}` | faculty owner/admin ★ | Delete a whole series (check-ins are kept, detached) |
 | `GET` | `/api/reservation-drafts` | login | Your drafts |
 | `POST` | `/api/reservation-drafts` | login ★ | Save/update a draft |
@@ -567,6 +568,42 @@ event. If the attendee cleanup fails, the reservation is left untouched.
 | `502` | `{"error":"The check-in records for this reservation could not be removed, so the reservation was left in place."}` |
 | `409` | `{"error":"This reservation is still referenced by other records, so it cannot be deleted."}` |
 | `502` | `{"error":"The delete could not be completed. Please try again."}` |
+
+---
+
+### `PATCH /api/events/series/{groupId}`
+
+**Auth:** faculty owner or admin.
+
+Updates every event that shares the requested `recurrence_group_id`. Dates, weekdays, the number of occurrences and the host never change.
+
+**Request** — a JSON object:
+
+| Field | Required | Notes |
+|---|---|---|
+| `title`, `description`, `event_type`, `department` | yes | Text, validated like the single update |
+| `is_public` | yes | Boolean |
+| `local_start_time`, `local_end_time` | no, but together | `HH:mm`, 24-hour wall-clock time in `America/Los_Angeles` |
+
+Any other field (`id`, `host_user_id`, `start_time`, `end_time`, `recurrence_group_id`, ...) is ignored. `is_closure: true` or the event type `Unavailable` is rejected with `400`.
+
+The backend first loads all events in the series and checks permission for every event before changing anything. Faculty users may edit only recurring series they own, while admins may edit any series. The details are applied to every occurrence, past and future.
+
+When the two time fields are sent, each occurrence that has **not started yet** moves to its own Los Angeles date combined with the new times, built so a series spanning a daylight-saving change keeps the same wall-clock time. An occurrence that has already started keeps its stored times (it still gets the new details). Every occurrence whose times actually change must pass the same checks as a single update: the end is after the start, both fall on the same day, the start is before 5:00 PM, the end is no later than 5:00 PM, and the date is bookable. Any failure returns `400` and nothing is written.
+
+**The write is a single Supabase request**, so all occurrences change or none do. With no time change it is one `PATCH` filtered on the group. With a time change it is one bulk upsert (`POST events?on_conflict=id`, `Prefer: resolution=merge-duplicates`) carrying every column of every occurrence. If the new times overlap another reservation, the database refuses the whole request and the series is left as it was.
+
+**Success** — array containing the updated rows.
+
+**Errors**
+
+| Status | Body | Cause |
+|---|---|---|
+| `404` | `{"error":"Recurring reservation series not found."}` | No events were found for the supplied group ID |
+| `403` | `{"error":"Manage unavailable dates in Bookable Dates."}` | The series contains an unavailable date |
+| `403` | `{"error":"You do not have permission to modify this reservation."}` | The caller does not have permission to modify one or more events in the series |
+| `400` | Validation message | A required field is missing, only one time field was sent, a time is not `HH:mm`, the new times break a reservation rule, a date is not bookable, or a time change was sent for a series with two reservations on one day |
+| `409` | `{"error":"This time overlaps an existing reservation. Choose a different time."}` | A new time overlaps another reservation |
 
 ---
 

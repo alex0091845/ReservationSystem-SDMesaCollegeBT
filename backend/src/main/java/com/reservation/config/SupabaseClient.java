@@ -97,6 +97,28 @@ public class SupabaseClient {
         }
     }
 
+    // POST at /rest/v1/{endpoint} that updates rows whose primary key already exists
+    // instead of failing on them. The endpoint names the key column (on_conflict=id).
+    public SupabaseResponse upsertResponse(String endpoint, String json) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(supabaseUrl + "/rest/v1/" + endpoint))
+                .timeout(REQUEST_TIMEOUT)
+                .headers(authHeaders())
+                .header("Content-Type", "application/json")
+                .header("Prefer", "resolution=merge-duplicates,return=representation")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build();
+
+            HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+            return new SupabaseResponse(response.statusCode(), response.body());
+
+        } catch (Exception e) {
+            throw new RuntimeException("Supabase request failed: " + e.getMessage());
+        }
+    }
+
     // PATCH at /rest/v1/{endpoint}
     public String patch(String endpoint, String json) {
         return requireSuccessful(patchResponse(endpoint, json));

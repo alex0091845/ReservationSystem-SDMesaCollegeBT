@@ -240,6 +240,17 @@ by `validateEditedReservations`, which excludes the reservation being edited fro
 (otherwise it would always collide with itself) and then feeds each newly planned block back into
 the list so the new blocks are checked against each other too.
 
+**Saving a whole series.** When the open reservation belongs to a series of 2+ reservations and the
+user may edit every member the page knows about (admins always; faculty only when they own all of
+them), a **Save Whole Series** button appears beside Save Changes. It calls the `updateEventSeries`
+wrapper in `api.js`, which sends a single `PATCH /events/series/{groupId}` with the title,
+description, event type, department and visibility. `prepareSeriesUpdate` in
+`utils/reservationEditing.js` builds that request: it refuses extra time blocks and a changed date
+(those apply to one reservation only) and adds `local_start_time`/`local_end_time` ("HH:mm" in Los
+Angeles time) only when the time of day was changed. After a `window.confirm`, the updated
+reservations replace the ones in the page list by id (`replaceUpdatedReservations`, which keeps
+each entry's host details), and the draft is discarded like a normal save.
+
 **Deleting.** Single delete, or "Delete Recurring Series" when 2+ reservations share a
 `recurrence_group_id`. Deleting a whole series sends a single `DELETE /events/series/{groupId}`; if
 the user can delete only part of the series (faculty), it loops one `DELETE` per reservation,
@@ -332,7 +343,7 @@ Disable–Enable User buttons, and all of their reservations.
   before sending. The plaintext password is also deleted from the in-memory user list after a
   successful save.
 - Reservation editing reuses the identical modal + time-picker + autosave + series-delete logic as
-  `main.js`, against `#adminReservation*` element ids. **This is the largest duplication in the
+  `main.js` (including the Save Whole Series button), against `#adminReservation*` element ids. **This is the largest duplication in the
   codebase** — the two `validateEditedReservations`, `getReservationSeries`, `deleteReservations`,
   `bindBackdropClose` and `removeReservations…State` functions are near-copies. If you refactor
   anything here, that's the highest-value target.

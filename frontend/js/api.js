@@ -377,7 +377,7 @@ function buildRecurringCreateRequest(events) {
     };
 }
 
-function getReservationDateTimeParts(date) {
+export function getReservationDateTimeParts(date) {
     return Object.fromEntries(
         RESERVATION_DATE_TIME_FORMATTER.formatToParts(date)
             .filter(part => part.type !== "literal")
@@ -793,6 +793,31 @@ export async function deleteEventSeries(recurrenceGroupId) {
             getRequestFailureMessage(error, "Could not delete the recurring reservation series.")
         );
     }
+}
+
+export async function updateEventSeries(recurrenceGroupId, seriesData) {
+    let updateResponse;
+
+    try {
+        updateResponse = await request(
+            `/events/series/${encodeURIComponent(recurrenceGroupId)}`,
+            "PATCH",
+            {
+                ...seriesData,
+                event_type: normalizeEventTypeValue(seriesData.event_type)
+            }
+        );
+    } catch (error) {
+        console.error("Could not update reservation series on backend:", error);
+        throw new Error(
+            getRequestFailureMessage(error, "Could not update the recurring reservation series.")
+        );
+    }
+
+    return normalizeCollection(
+        updateResponse,
+        ["events", "data", "items", "records"]
+    ).map(normalizeEvent).filter(Boolean);
 }
 
 export async function getReservationDraft({

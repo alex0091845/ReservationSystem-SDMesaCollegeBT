@@ -779,6 +779,12 @@
     transition: background-color 0.18s ease, transform 0.18s ease;
 }
 
+.reservation-primary-btn[hidden],
+.reservation-secondary-btn[hidden],
+.reservation-danger-btn[hidden] {
+    display: none;
+}
+
 .reservation-primary-btn {
     background: var(--mesa-blue);
     color: white;
