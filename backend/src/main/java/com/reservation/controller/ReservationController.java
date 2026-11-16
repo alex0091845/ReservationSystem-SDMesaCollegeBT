@@ -440,15 +440,15 @@ public class ReservationController {
                         row.put("start_time", ZonedDateTime.of(date, localStart, RESERVATION_TIME_ZONE).toInstant().toString());
                         row.put("end_time", ZonedDateTime.of(date, localEnd, RESERVATION_TIME_ZONE).toInstant().toString());
 
-                        // Two occurrences on one day would land on the same time and overlap.
-                        if (!movedDates.add(date)) {
-                            throw new IllegalArgumentException(
-                                "This series has more than one reservation on " + date +
-                                    ", so its time cannot be changed for the whole series."
-                            );
-                        }
-
                         if (reservationTimesChanged(existingEvent, row)) {
+                            // Two occurrences on one day would land on the same time and overlap.
+                            if (!movedDates.add(date)) {
+                                throw new IllegalArgumentException(
+                                    "This series has more than one reservation on " + date +
+                                        ", so its time cannot be changed for the whole series."
+                                );
+                            }
+
                             validateReservationTimeWindow(row);
                             changedDates.add(date);
                         }
