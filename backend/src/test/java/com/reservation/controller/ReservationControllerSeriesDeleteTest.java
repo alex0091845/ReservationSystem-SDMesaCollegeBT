@@ -18,6 +18,8 @@ class ReservationControllerSeriesDeleteTest {
     private static final String SERIES_LOOKUP =
         "events?recurrence_group_id=eq.group-1&select=id,host_user_id,recurrence_group_id";
 
+    private static final String CHECK_IN_LOOKUP = "attendees?event_id=in.(7,8)&select=id,event_id";
+
     private final SupabaseClient supabase = mock(SupabaseClient.class);
     private final AuthService authService = mock(AuthService.class);
     private final ReservationController controller = new ReservationController(
@@ -60,6 +62,7 @@ class ReservationControllerSeriesDeleteTest {
         when(supabase.get(SERIES_LOOKUP)).thenReturn(
             "[{\"id\":7,\"host_user_id\":42},{\"id\":8,\"host_user_id\":42}]"
         );
+        when(supabase.get(CHECK_IN_LOOKUP)).thenReturn("[{\"id\":100,\"event_id\":7}]");
         when(supabase.patchResponse(anyString(), anyString()))
             .thenReturn(new SupabaseClient.SupabaseResponse(200, "[]"));
         when(supabase.delete(anyString()))
@@ -74,6 +77,30 @@ class ReservationControllerSeriesDeleteTest {
         );
         order.verify(supabase).delete("events?id=in.(7,8)");
         verify(supabase, never()).delete(startsWith("attendees"));
+        verify(supabase, times(1)).patchResponse(anyString(), anyString());
+    }
+
+    @Test
+    void failedEventDeleteRestoresCheckInsToTheirEvents() throws Exception {
+        var admin = new ObjectMapper().readTree("{\"id\":5,\"role_name\":\"admin\"}");
+        HttpServletRequest request = requestFor(admin);
+        when(authService.isAdmin(admin)).thenReturn(true);
+        when(supabase.get(SERIES_LOOKUP)).thenReturn(
+            "[{\"id\":7,\"host_user_id\":42},{\"id\":8,\"host_user_id\":42}]"
+        );
+        when(supabase.get(CHECK_IN_LOOKUP)).thenReturn(
+            "[{\"id\":100,\"event_id\":7},{\"id\":101,\"event_id\":8},{\"id\":102,\"event_id\":7}]"
+        );
+        when(supabase.patchResponse(anyString(), anyString()))
+            .thenReturn(new SupabaseClient.SupabaseResponse(200, "[]"));
+        when(supabase.delete(anyString()))
+            .thenReturn(new SupabaseClient.SupabaseResponse(500, "{}"));
+
+        ResponseEntity<?> response = controller.deleteSeries("group-1", request);
+
+        assertEquals(HttpStatus.BAD_GATEWAY, response.getStatusCode());
+        verify(supabase).patchResponse("attendees?id=in.(100,102)", "{\"event_id\":7}");
+        verify(supabase).patchResponse("attendees?id=in.(101)", "{\"event_id\":8}");
     }
 
     @Test
@@ -82,6 +109,7 @@ class ReservationControllerSeriesDeleteTest {
         HttpServletRequest request = requestFor(admin);
         when(authService.isAdmin(admin)).thenReturn(true);
         when(supabase.get(SERIES_LOOKUP)).thenReturn("[{\"id\":7,\"host_user_id\":42}]");
+        when(supabase.get("attendees?event_id=in.(7)&select=id,event_id")).thenReturn("[]");
         when(supabase.patchResponse(anyString(), anyString()))
             .thenReturn(new SupabaseClient.SupabaseResponse(500, "{}"));
 

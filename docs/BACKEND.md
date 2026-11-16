@@ -264,7 +264,7 @@ Only then does it delete the event, via `DeleteOutcome`.
 
 The controller first loads all events with the requested `recurrence_group_id`. If no matching events are found, it returns `404`. Before deleting anything, it checks that the current user has permission to modify every event in the series. Faculty users may delete only their own recurring series, while admins may delete any series.
 
-After authorization succeeds, the controller collects the event IDs and detaches the related check-in records in one bulk request, setting their `event_id` to `null` so the rows are kept for later analysis. It then deletes all events in the series in a second bulk request. If the detach fails it returns 502 and leaves the series alone. Successful deletion returns `204 No Content`.
+After authorization succeeds, the controller collects the event IDs and detaches the related check-in records in one bulk request, setting their `event_id` to `null` so the rows are kept for later analysis. It then deletes all events in the series in a second bulk request. If the detach fails it returns 502 and leaves the series alone. If the event deletion fails after the detach, it points the check-ins back at their events before returning the error. Successful deletion returns `204 No Content`.
 
 The detach happens first because `attendees.event_id` does not have an `ON DELETE` rule, so PostgreSQL would reject deleting events that still have attendee records. `attendees.event_id` is nullable, so clearing it keeps the check-ins.
 

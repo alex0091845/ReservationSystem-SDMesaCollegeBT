@@ -20,7 +20,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 @RestController
@@ -317,6 +319,8 @@ public class ReservationController {
         // event while check-ins still point at it. Unlike a single delete, a series delete
         // keeps the check-in rows for later analysis: clear their event_id instead of
         // deleting them, then remove the events.
+        JsonNode checkIns = getSeriesCheckIns(eventIds.toString());
+
         SupabaseClient.SupabaseResponse checkInDetach = supabase.patchResponse(
             "attendees?event_id=in.(" + eventIds + ")",
             "{\"event_id\":null}"
@@ -330,8 +334,17 @@ public class ReservationController {
             );
         }
 
+        SupabaseClient.SupabaseResponse eventDelete =
+            supabase.delete("events?id=in.(" + eventIds + ")");
+
+        // The detach and the delete are separate requests. If the delete fails, the series
+        // still exists, so point its check-ins back at their events.
+        if (!eventDelete.isSuccessful()) {
+            restoreCheckIns(checkIns);
+        }
+
         return DeleteOutcome.toResponse(
-            supabase.delete("events?id=in.(" + eventIds + ")"),
+            eventDelete,
             "This recurring series is still referenced by other records, so it cannot be deleted."
         );
     }
@@ -464,6 +477,40 @@ public class ReservationController {
             return objectMapper.readTree(response);
         } catch (Exception error) {
             throw new RuntimeException("Could not read recurring reservation series.");
+        }
+    }
+
+    private JsonNode getSeriesCheckIns(String eventIds) {
+        try {
+            String response = supabase.get(
+                "attendees?event_id=in.(" + eventIds + ")&select=id,event_id"
+            );
+
+            return objectMapper.readTree(response);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not read recurring reservation series check-ins.");
+        }
+    }
+
+    private void restoreCheckIns(JsonNode checkIns) {
+        Map<Integer, StringBuilder> checkInIdsByEvent = new LinkedHashMap<>();
+
+        for (JsonNode checkIn : checkIns) {
+            StringBuilder checkInIds = checkInIdsByEvent.computeIfAbsent(
+                checkIn.path("event_id").asInt(), eventId -> new StringBuilder()
+            );
+
+            if (checkInIds.length() > 0) {
+                checkInIds.append(',');
+            }
+            checkInIds.append(checkIn.path("id").asLong());
+        }
+
+        for (Map.Entry<Integer, StringBuilder> entry : checkInIdsByEvent.entrySet()) {
+            supabase.patchResponse(
+                "attendees?id=in.(" + entry.getValue() + ")",
+                "{\"event_id\":" + entry.getKey() + "}"
+            );
         }
     }
 

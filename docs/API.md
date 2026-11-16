@@ -571,7 +571,9 @@ Deletes all events that share the requested `recurrence_group_id`.
 
 The backend first loads all events in the recurring series and checks permission for every event before deleting anything. Faculty users may delete only recurring series they own, while admins may delete any series.
 
-After authorization succeeds, the backend collects the event IDs and **detaches** the related check-in records in one bulk request: their `event_id` is set to `null` and the rows are kept for later analysis. It then deletes all events in the recurring series in a second bulk request. If the detach fails, the series is left untouched.
+After authorization succeeds, the backend collects the event IDs and **detaches** the related check-in records in one bulk request: their `event_id` is set to `null` and the rows are kept for later analysis. It then deletes all events in the recurring series in a second bulk request. If the detach fails, the series is left untouched. If the event deletion fails after the detach, the backend points the check-ins back at their events.
+
+A detached check-in keeps the person and the check-in time but no longer records which event it was for.
 
 **Success — `204 No Content`**, empty body.
 
@@ -994,7 +996,7 @@ Only `PATCH` and `DELETE` on `/events/{id}` return a real `404`. Every other by-
 
 ### 8. Recurring series deletion is not fully atomic
 
-`DELETE /api/events/series/{groupId}` reduces browser-to-backend deletion to one request. However, the backend still performs the check-in detach and event deletion as two separate Supabase requests, so the operation is not a single PostgreSQL transaction.
+`DELETE /api/events/series/{groupId}` deletes a series in one request, but the frontend does not call it yet: it still deletes a series one event at a time through `DELETE /api/events/{id}`, which also deletes the check-ins. The backend performs the check-in detach and event deletion as two separate Supabase requests, so the operation is not a single PostgreSQL transaction.
 
 ### 9. The 8 AM start of the day is not enforced
 
