@@ -1,4 +1,5 @@
-import { createEventCard } from "./eventCards.js";
+import { formatEventTime } from "./eventCards.js";
+import { getEventColorClass } from "../utils/dateUtils.js";
 
 // How often the widget re-checks the clock. It only compares "now" with the
 // events that are already loaded, so it makes no network calls.
@@ -19,7 +20,7 @@ let clockTimer = null;
 export function renderCheckInEvents(options) {
     latestOptions = options;
 
-    drawWidget(findEventInProgress(options.reservedEvents, new Date()), new Date());
+    drawWidget(findEventInProgress(options.reservedEvents, new Date()));
 
     if (clockTimer === null) {
         clockTimer = setInterval(checkClock, CLOCK_CHECK_MS);
@@ -35,23 +36,19 @@ function checkClock() {
         return;
     }
 
-    const now = new Date();
-    const eventInProgress = findEventInProgress(reservedEvents, now);
+    const eventInProgress = findEventInProgress(reservedEvents, new Date());
 
     // Redraw only when the event changed. Rebuilding the card every minute
-    // would move keyboard focus off it.
+    // would move keyboard focus off its Check In button.
     if (eventInProgress !== shownEvent) {
-        drawWidget(eventInProgress, now);
-    } else {
-        showDate(now);
+        drawWidget(eventInProgress);
     }
 }
 
-function drawWidget(eventInProgress, now) {
+function drawWidget(eventInProgress) {
     const { container, openEventModal } = latestOptions;
 
     shownEvent = eventInProgress;
-    showDate(now);
     container.innerHTML = "";
 
     if (!eventInProgress) {
@@ -64,32 +61,50 @@ function drawWidget(eventInProgress, now) {
         return;
     }
 
-    const card = createEventCard({
-        event: eventInProgress,
-        classNames: ["check-in-widget-card"],
-        onClick: openEventModal
-    });
-
-    // The card is already a <button>, and a button can't go inside another
-    // button (invalid HTML that confuses screen readers). So the card and the
-    // Check In button sit side by side in one wrapper, and the CSS places the
-    // Check In button on top of the card's right end.
-    const item = document.createElement("div");
-
-    item.className = "check-in-widget-item";
-    item.appendChild(card);
-
-    // A private event can't be opened, so it gets no Check In button.
-    if (!card.classList.contains("private-event-card")) {
-        item.classList.add("with-check-in-button");
-        item.appendChild(createCheckInButton(eventInProgress, openEventModal));
-    }
-
-    container.appendChild(item);
+    container.appendChild(createHappeningNowCard(eventInProgress, openEventModal));
 }
 
-// The Check In button opens the same event window as the card does, then
-// puts the cursor in the check-in form's First Name field, so a visitor can
+// The card is a plain box, not a button. The Check In button on it is the one
+// thing to press, and it opens the event window with all the details.
+function createHappeningNowCard(event, openEventModal) {
+    const card = document.createElement("div");
+    const details = document.createElement("div");
+    const isPrivate = event.is_public === false;
+
+    card.className = [
+        "upcoming-event-card",
+        "check-in-widget-card",
+        isPrivate ? "private-event-card" : getEventColorClass(event.event_type)
+    ].join(" ");
+    details.className = "check-in-widget-details";
+    card.appendChild(details);
+
+    // A private event can't be opened, so it shows no details and no button.
+    if (isPrivate) {
+        details.appendChild(createText("upcoming-event-title", "Private event"));
+        return card;
+    }
+
+    details.append(
+        createText("upcoming-event-title", event.title || "Untitled event"),
+        createText("upcoming-event-time", formatEventTime(event))
+    );
+    card.appendChild(createCheckInButton(event, openEventModal));
+
+    return card;
+}
+
+function createText(className, text) {
+    const element = document.createElement("div");
+
+    element.className = className;
+    element.textContent = text;
+
+    return element;
+}
+
+// The Check In button opens the event window (the details and the check-in
+// form) and puts the cursor in the form's First Name field, so a visitor can
 // start typing right away.
 function createCheckInButton(event, openEventModal) {
     const checkInButton = document.createElement("button");
@@ -118,20 +133,6 @@ function focusCheckInFirstName() {
     // open, or the check-in form is hidden).
     if (firstNameField && firstNameField.getClientRects().length > 0) {
         firstNameField.focus();
-    }
-}
-
-function showDate(now) {
-    const { dateLabel, formatDate } = latestOptions;
-
-    if (!dateLabel) {
-        return;
-    }
-
-    const text = formatDate(now);
-
-    if (dateLabel.textContent !== text) {
-        dateLabel.textContent = text;
     }
 }
 
