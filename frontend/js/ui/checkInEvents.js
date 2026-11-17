@@ -4,6 +4,9 @@ import { createEventCard } from "./eventCards.js";
 // events that are already loaded, so it makes no network calls.
 const CLOCK_CHECK_MS = 60 * 1000;
 
+// The First Name field of the check-in form in the event window (index.html).
+const CHECK_IN_FIRST_NAME_ID = "checkInFirstName";
+
 // The options from the newest draw in main.js. The timer reads them, so it
 // always works with the same events and elements as the page.
 let latestOptions = null;
@@ -50,7 +53,6 @@ function drawWidget(eventInProgress, now) {
     shownEvent = eventInProgress;
     showDate(now);
     container.innerHTML = "";
-    removeCheckInButton();
 
     if (!eventInProgress) {
         const emptyState = document.createElement("div");
@@ -68,51 +70,55 @@ function drawWidget(eventInProgress, now) {
         onClick: openEventModal
     });
 
-    container.appendChild(card);
+    // The card is already a <button>, and a button can't go inside another
+    // button (invalid HTML that confuses screen readers). So the card and the
+    // Check In button sit side by side in one wrapper, and the CSS places the
+    // Check In button on top of the card's right end.
+    const item = document.createElement("div");
+
+    item.className = "check-in-widget-item";
+    item.appendChild(card);
 
     // A private event can't be opened, so it gets no Check In button.
     if (!card.classList.contains("private-event-card")) {
-        addCheckInButton(eventInProgress, openEventModal);
+        item.classList.add("with-check-in-button");
+        item.appendChild(createCheckInButton(eventInProgress, openEventModal));
     }
+
+    container.appendChild(item);
 }
 
-// The Check In button sits at the right end of the widget heading, next to
-// the title and date. It opens the same event window as the card does.
-function addCheckInButton(event, openEventModal) {
-    const header = findHeader();
-
-    if (!header) {
-        return;
-    }
-
+// The Check In button opens the same event window as the card does, then
+// puts the cursor in the check-in form's First Name field, so a visitor can
+// start typing right away.
+function createCheckInButton(event, openEventModal) {
     const checkInButton = document.createElement("button");
 
     checkInButton.type = "button";
-    checkInButton.className = "reservation-primary-btn check-in-widget-button";
+    checkInButton.className = "check-in-widget-button";
     checkInButton.textContent = "Check In";
     checkInButton.setAttribute(
         "aria-label",
         `Check In to ${event.title || "Untitled event"}`
     );
-    checkInButton.addEventListener("click", () => openEventModal(event));
+    checkInButton.addEventListener("click", async () => {
+        // openEventModal waits for the host's name before it shows the
+        // window, so wait for it; a field can't take focus while hidden.
+        await openEventModal(event);
+        focusCheckInFirstName();
+    });
 
-    header.appendChild(checkInButton);
+    return checkInButton;
 }
 
-function removeCheckInButton() {
-    const header = findHeader();
+function focusCheckInFirstName() {
+    const firstNameField = document.getElementById(CHECK_IN_FIRST_NAME_ID);
 
-    if (header) {
-        header.querySelectorAll(".check-in-widget-button").forEach(button => {
-            button.remove();
-        });
+    // Skip it if the field isn't on screen (for example, the window didn't
+    // open, or the check-in form is hidden).
+    if (firstNameField && firstNameField.getClientRects().length > 0) {
+        firstNameField.focus();
     }
-}
-
-function findHeader() {
-    const widget = latestOptions.container.closest(".check-in-widget");
-
-    return widget ? widget.querySelector(".check-in-widget-header") : null;
 }
 
 function showDate(now) {
