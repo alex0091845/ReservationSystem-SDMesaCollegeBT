@@ -25,28 +25,43 @@
     min-width: 0;
 }
 
+/* The Back pill names the level above, e.g. "‹ November". Same look on desktop and phone
+   (shared header rules: Mesa Blue text on the #eef2f7 pill, 44px tall). Text: 6.6:1. */
 .zoom-back-btn {
+    display: inline-flex;
     flex-shrink: 0;
-    min-height: 36px;
-    padding: 0 12px;
-    border: 1px solid var(--mesa-blue);
-    border-radius: var(--radius-card);
-    background: #fff;
+    align-items: center;
+    gap: 2px;
+    min-height: 44px;
+    padding: 0 16px 0 10px;
+    border: 1px solid #d5dde8;
+    border-radius: 22px;
+    background: #eef2f7;
+    box-shadow: 0 1px 2px rgba(14, 34, 63, 0.1);
     color: var(--mesa-blue);
     font-family: inherit;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.zoom-back-btn:hover:not(:disabled) {
-    background: #eef2f7;
+.zoom-back-btn:hover {
+    background: #e3eaf3;
 }
 
-.zoom-back-btn:disabled {
-    border-color: #c5ccd6;
-    color: #8a94a3;
-    cursor: default;
+/* At Year there is no level above, so the pill is hidden. */
+.zoom-back-btn[hidden] {
+    display: none;
+}
+
+.zoom-back-icon {
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .zoom-breadcrumb {
@@ -587,6 +602,11 @@
 
     .zoom-back-btn {
         min-height: 44px;
+    }
+
+    /* On a phone the Back pill already names the level above, so the breadcrumb steps aside. */
+    .zoom-breadcrumb {
+        display: none;
     }
 
     .zoom-crumb,

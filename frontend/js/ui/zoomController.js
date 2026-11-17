@@ -22,6 +22,15 @@ let lastZoomLevel = null;
 let lastPointer = null;
 let isPointerBound = false;
 
+// Phones skip the Week level (the week strip in the Day view covers it), so on a
+// phone Back from Day goes straight to Month. Same breakpoint as the phone layout.
+const phoneQuery = window.matchMedia("(max-width: 720px)");
+
+// The last nav draw, kept so the Back pill can be redrawn when the screen crosses
+// the phone breakpoint (its label depends on it).
+let lastNavDraw = null;
+let isPhoneQueryBound = false;
+
 // Draws the Back button, the breadcrumb and the zoom buttons, and shows the panel
 // for the current zoom level. State lives in main.js; this module only renders.
 export function renderZoomStage({
@@ -53,10 +62,17 @@ export function renderZoomStage({
 
     // CSS in zoom-calendar.css hides the week header and grid while another level is showing.
     weekView.dataset.zoomLevel = zoomLevel;
-    renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel });
+    const navLostFocus = renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel });
     renderTodayButton(todaySlot, { zoomLevel, year, selectedDate, onSelectDate });
     renderToolbar(toolbar, zoomLevel, onSetZoomLevel);
     bindEscapeOnce();
+    bindPhoneQueryOnce();
+
+    // The Back pill hides at Year. If it had keyboard focus, hand focus to the
+    // pressed zoom button instead of letting it drop to the top of the page.
+    if (navLostFocus) {
+        toolbar.querySelector('[aria-pressed="true"]')?.focus();
+    }
 
     yearStage.hidden = zoomLevel !== "year";
     monthStage.hidden = zoomLevel !== "month";
@@ -142,14 +158,17 @@ function formatShortDate(dateObj) {
     return `${monthNames[dateObj.getMonth()].slice(0, 3)} ${dateObj.getDate()}`;
 }
 
-// Back button plus breadcrumb. The breadcrumb lists every level from Year down to
-// the one showing; the levels above the current one are buttons that zoom out to them.
+// The Back pill plus the breadcrumb. The pill names the level above, e.g. "‹ November",
+// and zooms out to it. The breadcrumb lists every level from Year down to the one
+// showing; the levels above the current one are buttons that zoom out to them.
+// Returns true when the pill had keyboard focus and is now hidden (at Year).
 function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
     const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
-    const parentLevel = ZOOM_LEVELS[currentIndex - 1] || null;
+    const parentLevel = getParentLevel(zoomLevel);
     const labelContext = { zoomLevel, year, selectedDate };
     const hadFocus = nav.contains(document.activeElement);
 
+    lastNavDraw = { nav, args: { zoomLevel, year, selectedDate, onSetZoomLevel } };
     zoomOut = parentLevel ? () => onSetZoomLevel(parentLevel.id) : null;
     nav.innerHTML = "";
 
@@ -157,15 +176,14 @@ function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
 
     backButton.type = "button";
     backButton.classList.add("zoom-back-btn");
-    backButton.textContent = "← Back";
-    backButton.disabled = !parentLevel;
+    backButton.hidden = !parentLevel;
 
     if (parentLevel) {
+        const parentLabel = getCrumbLabel(parentLevel.id, labelContext);
+
         backButton.title = "Back (Esc)";
-        backButton.setAttribute(
-            "aria-label",
-            `Back to ${getCrumbLabel(parentLevel.id, labelContext)}`
-        );
+        backButton.setAttribute("aria-label", `Back to ${parentLabel}`);
+        backButton.append(createBackChevron(), parentLabel);
         backButton.addEventListener("click", zoomOut);
     }
 
@@ -212,6 +230,54 @@ function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
     if (hadFocus && parentLevel) {
         backButton.focus();
     }
+
+    return hadFocus && !parentLevel;
+}
+
+// The level Back goes up to, or null at Year. On a phone, Day goes up to Month.
+function getParentLevel(zoomLevel) {
+    if (zoomLevel === "day" && phoneQuery.matches) {
+        return ZOOM_LEVELS.find(level => level.id === "month");
+    }
+
+    const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
+
+    return ZOOM_LEVELS[currentIndex - 1] || null;
+}
+
+// A "‹" chevron drawn as an icon, so it lines up with the text. Screen readers skip it;
+// they hear the pill's full name ("Back to November") instead.
+function createBackChevron() {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const icon = document.createElementNS(svgNS, "svg");
+    const path = document.createElementNS(svgNS, "path");
+
+    icon.classList.add("zoom-back-icon");
+    icon.setAttribute("width", "20");
+    icon.setAttribute("height", "20");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("focusable", "false");
+    path.setAttribute("d", "M15 5l-7 7 7 7");
+    icon.appendChild(path);
+
+    return icon;
+}
+
+// Redraws the Back pill when the screen crosses the phone breakpoint, so its label
+// and target follow (e.g. Day goes up to Week on a laptop, to Month on a phone).
+function bindPhoneQueryOnce() {
+    if (isPhoneQueryBound) {
+        return;
+    }
+
+    isPhoneQueryBound = true;
+
+    phoneQuery.addEventListener("change", () => {
+        if (lastNavDraw && lastNavDraw.nav.isConnected) {
+            renderNav(lastNavDraw.nav, lastNavDraw.args);
+        }
+    });
 }
 
 // Esc zooms out one level. Bound once; it always uses the latest zoomOut action.
