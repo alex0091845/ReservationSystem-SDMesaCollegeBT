@@ -1,5 +1,6 @@
 import { deleteEvent } from "../api.js";
 import { validateReservationData } from "./reservationValidation.js";
+import { getAttendeesForEvent } from "../ui/attendees.js";
 
 export function validateEditedReservations({
     reservationsToSave,
@@ -92,22 +93,56 @@ export function getDeleteMenuLabel(isBusy, mode = "cancel") {
         return "Cancel or Delete";
     }
 
-    return mode === "series" ? "Deleting Series..." : "Cancelling...";
+    if (mode === "series") {
+        return "Deleting Series...";
+    }
+
+    return mode === "delete" ? "Deleting..." : "Cancelling...";
 }
 
-// The server removes a reservation that never happened and keeps anything else, so the
-// prompt covers both outcomes
-export function getCancelConfirmMessage(reservationTitle) {
-    return `Cancel "${reservationTitle}"? Its time slot will open up for others. ` +
-        "If it hasn't started and nobody has checked in, it is removed for good. " +
-        "Otherwise it is kept with its check-ins.";
+// The server deletes a reservation that hasn't started and has no check-ins, and cancels
+// anything else, so the menu and prompt say which one is going to happen
+export function willCancelDelete(reservation, attendees) {
+    return new Date(reservation.start_time) > new Date() &&
+        getAttendeesForEvent(reservation, attendees).length === 0;
 }
 
-// Shown once the cancel goes through, since the reservation leaves the calendar
-export function getCancelDoneMessage(reservationTitle, outcome) {
-    return outcome === "deleted"
-        ? `"${reservationTitle}" was cancelled and removed.`
-        : `"${reservationTitle}" was cancelled.`;
+export function getCancelOptionLabel(reservation, attendees) {
+    return willCancelDelete(reservation, attendees) ? "Delete Reservation" : "Cancel Reservation";
+}
+
+export function getCancelConfirmMessage(reservationTitle, willDelete) {
+    return willDelete
+        ? `Delete "${reservationTitle}"? This can't be undone.`
+        : `Cancel "${reservationTitle}"? Its time slot will open up for others.`;
+}
+
+// Pops up once the server answers, since the reservation leaves the calendar
+export function openCancelResultModal(overlay, reservationTitle, outcome) {
+    const wasDeleted = outcome === "deleted";
+
+    overlay.querySelector(".modal-event-title").textContent =
+        wasDeleted ? "Reservation Deleted" : "Reservation Cancelled";
+    overlay.querySelector(".modal-value").textContent =
+        `"${reservationTitle}" was ${wasDeleted ? "deleted" : "cancelled"}.`;
+    overlay.classList.add("active");
+    overlay.setAttribute("aria-hidden", "false");
+    overlay.querySelector(".modal-close-btn").focus();
+}
+
+export function bindCancelResultModal(overlay) {
+    const close = () => {
+        overlay.classList.remove("active");
+        overlay.setAttribute("aria-hidden", "true");
+    };
+
+    overlay.querySelector(".modal-close-btn").addEventListener("click", close);
+    bindBackdropClose(overlay, close);
+    document.addEventListener("keydown", event => {
+        if (event.key === "Escape" && overlay.classList.contains("active")) {
+            close();
+        }
+    });
 }
 
 // A cancelled reservation opens read-only: its details and check-ins stay visible, but

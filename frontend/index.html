@@ -68,7 +68,6 @@
                     </div>
                 </div>
                 <div class="selected-user-reservation-list my-events-list" id="myEventsList"></div>
-                <p class="reservation-status success" id="myEventsStatus" role="status" aria-live="polite"></p>
             </section>
 
             <section class="check-in-widget" id="checkInWidget" hidden>
@@ -257,6 +256,24 @@
                     <div class="modal-label">Reason</div>
                     <div class="modal-value" id="unavailableModalReason">—</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Shown after a reservation is cancelled or deleted -->
+    <div class="modal-overlay" id="cancelResultModalOverlay" aria-hidden="true">
+        <div class="modal cancel-result-modal" role="dialog" aria-modal="true"
+            aria-labelledby="cancelResultModalTitle" aria-describedby="cancelResultModalMessage">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="cancelResultModalTitle">Reservation Cancelled</h2>
+                </div>
+
+                <button type="button" class="modal-close-btn" aria-label="Close">&times;</button>
+            </div>
+
+            <div class="modal-content">
+                <p class="modal-value" id="cancelResultModalMessage"></p>
             </div>
         </div>
     </div>

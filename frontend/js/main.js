@@ -30,7 +30,10 @@ import {
     setReservationModalReadOnly,
     getDeleteMenuLabel,
     getCancelConfirmMessage,
-    getCancelDoneMessage
+    willCancelDelete,
+    getCancelOptionLabel,
+    openCancelResultModal,
+    bindCancelResultModal
 } from "./utils/reservationEditing.js";
 
 
@@ -46,7 +49,7 @@ const elements = {
     myEventsWidget: document.getElementById("myEventsWidget"),
     myEventsList: document.getElementById("myEventsList"),
     myEventsToggle: document.getElementById("myEventsToggle"),
-    myEventsStatus: document.getElementById("myEventsStatus"),
+    cancelResultModalOverlay: document.getElementById("cancelResultModalOverlay"),
     checkInWidget: document.getElementById("checkInWidget"),
     checkInWidgetDate: document.getElementById("checkInWidgetDate"),
     checkInWidgetList: document.getElementById("checkInWidgetList"),
@@ -659,11 +662,6 @@ function renderFacultyMyEvents() {
         return false;
     }
 
-    // A cancel message only lasts until My Events is next redrawn
-    if (elements.myEventsStatus) {
-        elements.myEventsStatus.textContent = "";
-    }
-
     renderMyEvents({
         container: elements.myEventsList,
         currentUser,
@@ -805,6 +803,10 @@ async function openFacultyReservationEditModal(reservation) {
 
     renderFacultyReservationAttendees(reservation);
     updateFacultyReservationSeriesDeleteButton(reservation);
+
+    if (elements.facultyReservationCancelReservationBtn) {
+        elements.facultyReservationCancelReservationBtn.textContent = getCancelOptionLabel(reservation, attendees);
+    }
 
     const isCancelled = Boolean(reservation.cancelled_at);
 
@@ -1173,14 +1175,15 @@ async function handleFacultyReservationCancel() {
     }
 
     const reservationTitle = selectedFacultyReservation.title || "this reservation";
-    const shouldCancel = window.confirm(getCancelConfirmMessage(reservationTitle));
+    const willDelete = willCancelDelete(selectedFacultyReservation, attendees);
+    const shouldCancel = window.confirm(getCancelConfirmMessage(reservationTitle, willDelete));
 
     if (!shouldCancel) {
         return;
     }
 
     setFacultyReservationStatus("");
-    setFacultyReservationDeleting(true, "cancel");
+    setFacultyReservationDeleting(true, willDelete ? "delete" : "cancel");
 
     try {
         const result = await cancelEvent(selectedFacultyReservation);
@@ -1201,11 +1204,7 @@ async function handleFacultyReservationCancel() {
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
-
-        // The reservation leaves the calendar, so say what happened to it
-        if (elements.myEventsStatus) {
-            elements.myEventsStatus.textContent = getCancelDoneMessage(reservationTitle, result?.outcome);
-        }
+        openCancelResultModal(elements.cancelResultModalOverlay, reservationTitle, result?.outcome);
     } catch (error) {
         console.error("Could not cancel reservation:", error);
         setFacultyReservationStatus(
@@ -1504,6 +1503,7 @@ function bindEvents() {
     // Allows event modal to be closed by clicking background
     bindBackdropClose(elements.eventModalOverlay, closeEventModal);
     bindBackdropClose(elements.unavailableModalOverlay, closeUnavailableModal);
+    bindCancelResultModal(elements.cancelResultModalOverlay);
     bindBackdropClose(
         elements.facultyReservationModalOverlay,
         requestCloseFacultyReservationEditModal
