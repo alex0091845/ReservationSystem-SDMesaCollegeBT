@@ -191,7 +191,7 @@
 @media (max-width: 720px) {
     .wrapper {
         display: flex;
-        flex-direction: column;
+        flex-direction: column-reverse;
         gap: 18px;
         padding: 16px;
     }
