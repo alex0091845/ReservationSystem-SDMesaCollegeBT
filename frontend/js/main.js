@@ -24,6 +24,7 @@ import {
     getReservationSeries,
     deleteReservationSeries,
     canSaveWholeSeries,
+    chooseSeriesSaveScope,
     prepareSeriesUpdate,
     replaceUpdatedReservations,
     bindBackdropClose,
@@ -58,7 +59,6 @@ const elements = {
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
-    facultyReservationSaveSeriesBtn: document.getElementById("facultyReservationSaveSeriesBtn"),
     facultyReservationDeleteMenuBtn: document.getElementById("facultyReservationDeleteMenuBtn"),
     facultyReservationDeleteOptions: document.getElementById("facultyReservationDeleteOptions"),
     facultyReservationSaveDraftBtn: document.getElementById("facultyReservationSaveDraftBtn"),
@@ -817,15 +817,6 @@ function updateFacultyReservationSeriesDeleteButton(reservation) {
 
     elements.facultyReservationDeleteSeriesBtn.hidden =
         seriesReservations.length < 2;
-
-    if (elements.facultyReservationSaveSeriesBtn) {
-        const allSeriesReservations = getReservationSeries(reservation, reservedEvents);
-
-        elements.facultyReservationSaveSeriesBtn.hidden = !canSaveWholeSeries(
-            allSeriesReservations,
-            canCurrentUserEditReservation
-        );
-    }
 }
 
 function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
@@ -1003,10 +994,6 @@ function setFacultyReservationSubmitting(isSubmitting) {
         elements.facultyReservationDeleteSeriesBtn.disabled = isSubmitting;
     }
 
-    if (elements.facultyReservationSaveSeriesBtn) {
-        elements.facultyReservationSaveSeriesBtn.disabled = isSubmitting;
-    }
-
     if (elements.facultyReservationDeleteMenuBtn) {
         elements.facultyReservationDeleteMenuBtn.disabled = isSubmitting;
     }
@@ -1044,10 +1031,6 @@ function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
         elements.facultyReservationSubmitBtn.disabled = isDeleting;
     }
 
-    if (elements.facultyReservationSaveSeriesBtn) {
-        elements.facultyReservationSaveSeriesBtn.disabled = isDeleting;
-    }
-
     if (elements.facultyReservationCancelBtn) {
         elements.facultyReservationCancelBtn.disabled = isDeleting;
     }
@@ -1070,6 +1053,28 @@ async function handleFacultyReservationSubmit(event) {
     if (selectedTimeRanges.length === 0) {
         setFacultyReservationStatus("Select at least one reservation time block.", "error");
         return;
+    }
+
+    const seriesReservations = getReservationSeries(
+        selectedFacultyReservation,
+        reservedEvents
+    );
+
+    if (canSaveWholeSeries(seriesReservations, canCurrentUserEditReservation)) {
+        const saveScope = await chooseSeriesSaveScope({
+            seriesSize: seriesReservations.length,
+            title: selectedFacultyReservation.title,
+            returnFocusElement: elements.facultyReservationSubmitBtn
+        });
+
+        if (saveScope === null) {
+            return;
+        }
+
+        if (saveScope === "series") {
+            await saveFacultyReservationSeries(formData, selectedTimeRanges);
+            return;
+        }
     }
 
     const primaryRange = selectedTimeRanges[0];
@@ -1160,35 +1165,9 @@ async function handleFacultyReservationSubmit(event) {
     }
 }
 
-async function handleFacultyReservationSaveSeries() {
-    if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
-        return;
-    }
-
-    if (!elements.facultyReservationForm.reportValidity()) {
-        return;
-    }
-
-    const seriesReservations = getReservationSeries(
-        selectedFacultyReservation,
-        reservedEvents
-    );
-
-    if (!canSaveWholeSeries(seriesReservations, canCurrentUserEditReservation)) {
-        return;
-    }
-
-    const formData = new FormData(elements.facultyReservationForm);
-    const selectedTimeRanges = facultyReservationTimePicker.getRanges();
-
-    if (selectedTimeRanges.length === 0) {
-        setFacultyReservationStatus("Select at least one reservation time block.", "error");
-        return;
-    }
-
+async function saveFacultyReservationSeries(formData, selectedTimeRanges) {
     const seriesUpdate = prepareSeriesUpdate({
         selectedReservation: selectedFacultyReservation,
-        seriesSize: seriesReservations.length,
         timeRanges: selectedTimeRanges,
         details: {
             title: formData.get("title"),
@@ -1201,10 +1180,6 @@ async function handleFacultyReservationSaveSeries() {
 
     if (seriesUpdate.errorMessage) {
         setFacultyReservationStatus(seriesUpdate.errorMessage, "error");
-        return;
-    }
-
-    if (!window.confirm(seriesUpdate.confirmMessage)) {
         return;
     }
 
@@ -1520,13 +1495,6 @@ function bindEvents() {
         elements.facultyReservationDeleteSeriesBtn.addEventListener(
             "click",
             handleFacultyReservationDeleteSeries
-        );
-    }
-
-    if (elements.facultyReservationSaveSeriesBtn) {
-        elements.facultyReservationSaveSeriesBtn.addEventListener(
-            "click",
-            handleFacultyReservationSaveSeries
         );
     }
 

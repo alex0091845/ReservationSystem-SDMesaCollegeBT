@@ -1235,6 +1235,11 @@
     line-height: 1.45;
 }
 
+.draft-exit-card .draft-exit-hint {
+    color: #6b7280;
+    font-size: 13px;
+}
+
 .draft-exit-actions {
     display: flex;
     flex-wrap: nowrap;

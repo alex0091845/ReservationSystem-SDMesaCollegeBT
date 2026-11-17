@@ -242,12 +242,16 @@ the list so the new blocks are checked against each other too.
 
 **Saving a whole series.** When the open reservation belongs to a series of 2+ reservations and the
 user may edit every member the page knows about (admins always; faculty only when they own all of
-them), a **Save Series** button appears beside Save Changes. It calls the `updateEventSeries`
-wrapper in `api.js`, which sends a single `PATCH /events/series/{groupId}` with the title,
-description, event type, department and visibility. `prepareSeriesUpdate` in
-`utils/reservationEditing.js` builds that request: it refuses extra time blocks and a changed date
-(those apply to one reservation only) and adds `local_start_time`/`local_end_time` ("HH:mm" in Los
-Angeles time) only when the time of day was changed. After a `window.confirm`, the updated
+them), Save Changes first asks which reservations the save applies to, in a small dialog built by
+`chooseSeriesSaveScope` in `utils/reservationEditing.js` ("Only this reservation", "All
+reservations in the series" or "Cancel"; Escape and a click on the backdrop also cancel and leave
+the edit form untouched). "Only this reservation" runs the normal save described above. "All
+reservations in the series" calls the `updateEventSeries` wrapper in `api.js`, which sends a single
+`PATCH /events/series/{groupId}` with the title, description, event type, department and
+visibility. `prepareSeriesUpdate` in `utils/reservationEditing.js` builds that request: it refuses
+extra time blocks and a changed date (those apply to one reservation only) and adds
+`local_start_time`/`local_end_time` ("HH:mm" in Los Angeles time) only when the time of day was
+changed. The dialog is the confirmation, so there is no `window.confirm` on this path. The updated
 reservations replace the ones in the page list by id (`replaceUpdatedReservations`, which keeps
 each entry's host details), and the draft is discarded like a normal save.
 
@@ -343,8 +347,8 @@ Disable–Enable User buttons, and all of their reservations.
   before sending. The plaintext password is also deleted from the in-memory user list after a
   successful save.
 - Reservation editing reuses the identical modal + time-picker + autosave + series-delete logic as
-  `main.js` (including the Save Series button), against `#adminReservation*` element ids. **This is the largest duplication in the
-  codebase** — the two `validateEditedReservations`, `getReservationSeries`, `deleteReservations`,
+  `main.js` (including the series choice on Save Changes), against `#adminReservation*` element ids.
+  **This is the largest duplication in the codebase** — the two `validateEditedReservations`, `getReservationSeries`, `deleteReservations`,
   `bindBackdropClose` and `removeReservations…State` functions are near-copies. If you refactor
   anything here, that's the highest-value target.
 

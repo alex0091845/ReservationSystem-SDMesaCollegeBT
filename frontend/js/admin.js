@@ -33,6 +33,7 @@ import {
     getReservationSeries,
     deleteReservationSeries,
     canSaveWholeSeries,
+    chooseSeriesSaveScope,
     prepareSeriesUpdate,
     replaceUpdatedReservations,
     bindBackdropClose,
@@ -83,7 +84,6 @@ const adminReservationClearBtn = document.getElementById("adminReservationClearB
 const adminReservationDraftBadge = document.getElementById("adminReservationDraftBadge");
 const adminReservationForm = document.getElementById("adminReservationForm");
 const adminReservationSubmitBtn = document.getElementById("adminReservationSubmitBtn");
-const adminReservationSaveSeriesBtn = document.getElementById("adminReservationSaveSeriesBtn");
 const adminReservationStatus = document.getElementById("adminReservationStatus");
 const adminReservationAttendeesList = document.getElementById("adminReservationAttendeesList");
 const adminReservationAttendeesCount = document.getElementById("adminReservationAttendeesCount");
@@ -656,13 +656,6 @@ function updateAdminReservationSeriesDeleteButton(reservation) {
 
     adminReservationDeleteSeriesBtn.hidden =
         getReservationSeries(reservation, reservations).length < 2;
-
-    if (adminReservationSaveSeriesBtn) {
-        adminReservationSaveSeriesBtn.hidden = !canSaveWholeSeries(
-            getReservationSeries(reservation, reservations),
-            () => true
-        );
-    }
 }
 
 function closeReservationEditModal({ flushDraft = true } = {}) {
@@ -798,10 +791,6 @@ function setAdminReservationSubmitting(isSubmitting) {
         adminReservationDeleteSeriesBtn.disabled = isSubmitting;
     }
 
-    if (adminReservationSaveSeriesBtn) {
-        adminReservationSaveSeriesBtn.disabled = isSubmitting;
-    }
-
     if (adminReservationDeleteMenuBtn) {
         adminReservationDeleteMenuBtn.disabled = isSubmitting;
     }
@@ -837,10 +826,6 @@ function setAdminReservationDeleting(isDeleting, deleteMode = "reservation") {
 
     if (adminReservationSubmitBtn) {
         adminReservationSubmitBtn.disabled = isDeleting;
-    }
-
-    if (adminReservationSaveSeriesBtn) {
-        adminReservationSaveSeriesBtn.disabled = isDeleting;
     }
 
     if (adminReservationCancelBtn) {
@@ -968,6 +953,25 @@ adminReservationForm.addEventListener("submit", async event => {
         return;
     }
 
+    const seriesReservations = getReservationSeries(selectedReservation, reservations);
+
+    if (canSaveWholeSeries(seriesReservations, () => true)) {
+        const saveScope = await chooseSeriesSaveScope({
+            seriesSize: seriesReservations.length,
+            title: selectedReservation.title,
+            returnFocusElement: adminReservationSubmitBtn
+        });
+
+        if (saveScope === null) {
+            return;
+        }
+
+        if (saveScope === "series") {
+            await saveAdminReservationSeries(formData, selectedTimeRanges);
+            return;
+        }
+    }
+
     const primaryRange = selectedTimeRanges[0];
     const recurrenceGroupId =
         selectedReservation.recurrence_group_id || null;
@@ -1050,32 +1054,9 @@ adminReservationForm.addEventListener("submit", async event => {
     }
 });
 
-async function handleAdminReservationSaveSeries() {
-    if (!selectedReservation) {
-        return;
-    }
-
-    if (!adminReservationForm.reportValidity()) {
-        return;
-    }
-
-    const seriesReservations = getReservationSeries(selectedReservation, reservations);
-
-    if (seriesReservations.length < 2) {
-        return;
-    }
-
-    const formData = new FormData(adminReservationForm);
-    const selectedTimeRanges = adminReservationTimePicker.getRanges();
-
-    if (selectedTimeRanges.length === 0) {
-        setAdminReservationStatus("Select at least one reservation time block.", "error");
-        return;
-    }
-
+async function saveAdminReservationSeries(formData, selectedTimeRanges) {
     const seriesUpdate = prepareSeriesUpdate({
         selectedReservation,
-        seriesSize: seriesReservations.length,
         timeRanges: selectedTimeRanges,
         details: {
             title: formData.get("title"),
@@ -1088,10 +1069,6 @@ async function handleAdminReservationSaveSeries() {
 
     if (seriesUpdate.errorMessage) {
         setAdminReservationStatus(seriesUpdate.errorMessage, "error");
-        return;
-    }
-
-    if (!window.confirm(seriesUpdate.confirmMessage)) {
         return;
     }
 
@@ -1274,7 +1251,6 @@ adminReservationCancelBtn.addEventListener("click", requestCloseReservationEditM
 adminReservationClearBtn.addEventListener("click", clearAdminReservationForm);
 adminReservationDeleteBtn.addEventListener("click", handleAdminReservationDelete);
 adminReservationDeleteSeriesBtn.addEventListener("click", handleAdminReservationDeleteSeries);
-adminReservationSaveSeriesBtn.addEventListener("click", handleAdminReservationSaveSeries);
 
 bindBackdropClose(userModalOverlay, closeUserModal);
 bindBackdropClose(disableUserModalOverlay, closeDisableUserModal);
