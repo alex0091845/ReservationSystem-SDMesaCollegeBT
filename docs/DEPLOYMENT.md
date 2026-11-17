@@ -32,8 +32,13 @@ No further action is required at this point, as CloudFront will automatically se
 
 #### Update Backend
 
-Updating the backend is more complex than updating the frontend. The Spring Boot server is running in a Docker instance, which requires rebuilding and restarting to enable.
+Updating the backend is more complex than updating the frontend. The Spring Boot server is running in a Docker instance, which requires rebuilding and restarting to enable. As such, confirmation of successful build is necessary. 
 
-docker build -t reservation-backend backend/.
-docker stop <container-name> && docker rm <container-name>
-docker run -d -p 8080:8080 --env-file /etc/reservation-backend.env reservation-backend
+**Switching to Docker Compose or an image repository will affect this workflow.**
+
+1. Ensure that active working directory is the repository root. 
+2. Rebuild/recompile new backend image with `docker build -t reservation-backend backend/.`
+3. Confirm the name of the currently running Docker container with `docker ps -a`. Docker container names are structured as <adjective_mathmetician>. 
+4. Stop currently running Docker container with  `docker stop <container-name> && docker rm <container-name>`. This frees up Port 8080 for the new image. 
+5. Initiate new container with `docker run -d -p 8080:8080 --env-file /etc/reservation-backend.env reservation-backend`. A successful initiation results in a checksum to STDOUT. 
+6. Confirm that the container was successfully launched with `docker ps -a`. 
