@@ -242,7 +242,7 @@ the list so the new blocks are checked against each other too.
 
 **Saving a whole series.** When the open reservation belongs to a series of 2+ reservations and the
 user may edit every member the page knows about (admins always; faculty only when they own all of
-them), a **Save Whole Series** button appears beside Save Changes. It calls the `updateEventSeries`
+them), a **Save Series** button appears beside Save Changes. It calls the `updateEventSeries`
 wrapper in `api.js`, which sends a single `PATCH /events/series/{groupId}` with the title,
 description, event type, department and visibility. `prepareSeriesUpdate` in
 `utils/reservationEditing.js` builds that request: it refuses extra time blocks and a changed date
@@ -343,7 +343,7 @@ Disable–Enable User buttons, and all of their reservations.
   before sending. The plaintext password is also deleted from the in-memory user list after a
   successful save.
 - Reservation editing reuses the identical modal + time-picker + autosave + series-delete logic as
-  `main.js` (including the Save Whole Series button), against `#adminReservation*` element ids. **This is the largest duplication in the
+  `main.js` (including the Save Series button), against `#adminReservation*` element ids. **This is the largest duplication in the
   codebase** — the two `validateEditedReservations`, `getReservationSeries`, `deleteReservations`,
   `bindBackdropClose` and `removeReservations…State` functions are near-copies. If you refactor
   anything here, that's the highest-value target.
