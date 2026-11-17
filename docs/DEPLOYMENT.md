@@ -4,6 +4,8 @@
 
 This document describes the current deployment workflow on the AWS stack, with CloudFront, S3, and EC2. Currently, there is no GitHub Actions pipeline running, but expect that to change soon. When it does, this document will be updated. 
 
+These steps are only relevant to a configured and running stack, and are not first time setup instructions. 
+
 **The architecture is not finalized yet. Expect that this document may go out of date with Terraform deployments or GitHub Actions pipelines.**
 
 ## Deployment Architecture
@@ -40,5 +42,6 @@ Updating the backend is more complex than updating the frontend. The Spring Boot
 2. Rebuild/recompile new backend image with `docker build -t reservation-backend backend/.`
 3. Confirm the name of the currently running Docker container with `docker ps -a`. Docker container names are structured as <adjective_mathmetician>. 
 4. Stop currently running Docker container with  `docker stop <container-name> && docker rm <container-name>`. This frees up Port 8080 for the new image. 
-5. Initiate new container with `docker run -d -p 8080:8080 --env-file /etc/reservation-backend.env reservation-backend`. A successful initiation results in a checksum to STDOUT. 
+5. Initiate new container with `docker run -d -p 8080:8080 --env-file /etc/reservation-backend.env reservation-backend`. A successful initiation results in a checksum to STDOUT. This uses the environment variables/secrets stored at `/etc/reservation-backend.env`, and will still build successfully if these are not properly configured. 
 6. Confirm that the container was successfully launched with `docker ps -a`. 
+7. Confirm that backend is configured and executing properly by running `curl <cloudfront-domain>/api/health`on another machine. If the backend is properly configured, this will return HTTP 200.
