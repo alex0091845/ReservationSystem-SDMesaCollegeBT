@@ -1,4 +1,4 @@
-import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
+import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent, updateEventSeries } from "./api.js";
 import { sortReservedEvents } from "./utils/dateUtils.js";
 import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
@@ -22,7 +22,11 @@ import {
 import {
     validateEditedReservations,
     getReservationSeries,
-    deleteReservations,
+    deleteReservationSeries,
+    canSaveWholeSeries,
+    chooseSeriesSaveScope,
+    prepareSeriesUpdate,
+    replaceUpdatedReservations,
     bindBackdropClose,
     removeReservations
 } from "./utils/reservationEditing.js";
@@ -1051,6 +1055,28 @@ async function handleFacultyReservationSubmit(event) {
         return;
     }
 
+    const seriesReservations = getReservationSeries(
+        selectedFacultyReservation,
+        reservedEvents
+    );
+
+    if (canSaveWholeSeries(seriesReservations, canCurrentUserEditReservation)) {
+        const saveScope = await chooseSeriesSaveScope({
+            seriesSize: seriesReservations.length,
+            title: selectedFacultyReservation.title,
+            returnFocusElement: elements.facultyReservationSubmitBtn
+        });
+
+        if (saveScope === null) {
+            return;
+        }
+
+        if (saveScope === "series") {
+            await saveFacultyReservationSeries(formData, selectedTimeRanges);
+            return;
+        }
+    }
+
     const primaryRange = selectedTimeRanges[0];
     const recurrenceGroupId =
         selectedFacultyReservation.recurrence_group_id || null;
@@ -1139,6 +1165,50 @@ async function handleFacultyReservationSubmit(event) {
     }
 }
 
+async function saveFacultyReservationSeries(formData, selectedTimeRanges) {
+    const seriesUpdate = prepareSeriesUpdate({
+        selectedReservation: selectedFacultyReservation,
+        timeRanges: selectedTimeRanges,
+        details: {
+            title: formData.get("title"),
+            description: formData.get("description"),
+            event_type: formData.get("type"),
+            department: formData.get("department"),
+            is_public: formData.get("access") === "open"
+        }
+    });
+
+    if (seriesUpdate.errorMessage) {
+        setFacultyReservationStatus(seriesUpdate.errorMessage, "error");
+        return;
+    }
+
+    setFacultyReservationStatus("");
+    setFacultyReservationSubmitting(true);
+
+    try {
+        const updatedReservations = await updateEventSeries(
+            selectedFacultyReservation.recurrence_group_id,
+            seriesUpdate.seriesData
+        );
+
+        reservedEvents = replaceUpdatedReservations(reservedEvents, updatedReservations);
+
+        sortReservedEvents(reservedEvents);
+        renderAll();
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "saved");
+        closeFacultyReservationEditModal({ flushDraft: false });
+    } catch (error) {
+        console.error("Could not update recurring reservation series:", error);
+        setFacultyReservationStatus(
+            error.message || "Could not save recurring reservation series. Please try again.",
+            "error"
+        );
+    } finally {
+        setFacultyReservationSubmitting(false);
+    }
+}
+
 async function handleFacultyReservationDelete() {
     if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
         return;
@@ -1203,7 +1273,7 @@ async function handleFacultyReservationDeleteSeries() {
     setFacultyReservationDeleting(true, "series");
 
     try {
-        await deleteReservations(seriesReservations);
+        await deleteReservationSeries(seriesReservations, reservedEvents);
         await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
         removeReservations(seriesReservations, reservedEvents, attendees);
 

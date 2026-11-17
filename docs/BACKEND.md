@@ -234,7 +234,9 @@ Endpoints:
 | POST | `/api/events/batch` | array of reservations, one insert |
 | POST | `/api/events/recurring` | see below |
 | PATCH | `/api/events/{id}` | |
+| PATCH | `/api/events/series/{groupId}` | see below |
 | DELETE | `/api/events/{id}` | see below |
+| DELETE | `/api/events/series/{groupId}` | see below |
 
 **`POST /api/events/recurring`** is a bandwidth optimisation. Instead of the browser sending 16
 nearly identical reservations, it sends one template plus a compact description of the repeats:
@@ -258,6 +260,22 @@ no `ON DELETE` rule, so Postgres refuses to delete an event that has check-ins. 
 therefore deletes the attendee rows first — deleting a reservation is taken to discard its
 check-in records with it — and if *that* fails it returns 502 and leaves the reservation alone.
 Only then does it delete the event, via `DeleteOutcome`.
+
+**`PATCH /api/events/series/{groupId}`** edits all events that belong to the same recurring reservation series.
+
+The controller loads the series with an explicit column list, returns `404` if it is empty, `403` if any row is an unavailable date, and `403` if the current user cannot modify every event (nothing is written in either case). The title, description, event type, department and visibility are validated like the single update and applied to every occurrence. Dates, weekdays and the host never change.
+
+If `local_start_time` and `local_end_time` (`HH:mm`, Los Angeles wall-clock time) are both sent, each occurrence that has not started yet gets its own local date combined with the new times through `ZonedDateTime`, so a daylight-saving change keeps the wall-clock time. Occurrences that have already started keep their times. Every occurrence whose times change goes through `validateReservationTimeWindow` and the bookable-date check, and any failure is a `400` before anything is written.
+
+The write is one Supabase request so that all occurrences change or none do: a `PATCH` on the group filter when no time changes, otherwise a bulk upsert (`SupabaseClient.upsertResponse`, `on_conflict=id` with `resolution=merge-duplicates`) of every column of every occurrence. A time that overlaps another reservation trips the exclusion constraint, which `fromSupabase` turns into the usual `409`.
+
+**`DELETE /api/events/series/{groupId}`** deletes all events that belong to the same recurring reservation series.
+
+The controller first loads all events with the requested `recurrence_group_id`. If no matching events are found, it returns `404`. Before deleting anything, it checks that the current user has permission to modify every event in the series. Faculty users may delete only their own recurring series, while admins may delete any series.
+
+After authorization succeeds, the controller collects the event IDs and detaches the related check-in records in one bulk request, setting their `event_id` to `null` so the rows are kept for later analysis. It then deletes all events in the series in a second bulk request. If the detach fails it returns 502 and leaves the series alone. If the event deletion fails after the detach, it points the check-ins back at their events before returning the error. Successful deletion returns `204 No Content`.
+
+The detach happens first because `attendees.event_id` does not have an `ON DELETE` rule, so PostgreSQL would reject deleting events that still have attendee records. `attendees.event_id` is nullable, so clearing it keeps the check-ins.
 
 ### `DeleteOutcome` — why deletes are special
 
@@ -351,6 +369,8 @@ checks marked ★ happen inside the controller.
 | POST | `/api/events/recurring` | login ★ | template + week ranges |
 | PATCH | `/api/events/{id}` | faculty owner/admin ★ | |
 | DELETE | `/api/events/{id}` | faculty owner/admin ★ | deletes the event's attendees first |
+| PATCH | `/api/events/series/{groupId}` | faculty owner/admin ★ | edits every occurrence of a recurring series in one request |
+| DELETE | `/api/events/series/{groupId}` | faculty owner/admin ★ | bulk deletes a recurring series; detaches its check-ins (`event_id` = null) |
 | GET | `/api/reservation-drafts` | login | always scoped to the caller |
 | POST | `/api/reservation-drafts` | login ★ | upsert |
 | DELETE | `/api/reservation-drafts/{id}` | login | permanently deletes the caller's draft |

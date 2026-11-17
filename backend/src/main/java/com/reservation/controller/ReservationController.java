@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -20,8 +22,11 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +37,11 @@ public class ReservationController {
 
     private static final ZoneId RESERVATION_TIME_ZONE = ZoneId.of("America/Los_Angeles");
     private static final LocalTime RESERVATION_DAY_END = LocalTime.of(17, 0);
+    private static final DateTimeFormatter LOCAL_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final List<String> EVENT_COLUMNS = List.of(
+        "id", "host_user_id", "start_time", "end_time", "event_type", "description",
+        "title", "department", "is_public", "recurrence_group_id", "is_closure"
+    );
 
     private final SupabaseClient supabase;
     private final ObjectMapper objectMapper;
@@ -318,6 +328,162 @@ public class ReservationController {
         );
     }
 
+    @DeleteMapping("/series/{groupId}")
+    public ResponseEntity<?> deleteSeries(@PathVariable String groupId, HttpServletRequest request) {
+        JsonNode seriesEvents = getRecurringSeries(groupId);
+
+        if (!seriesEvents.isArray() || seriesEvents.isEmpty()) {
+            return jsonError(404, "Recurring reservation series not found.");
+        }
+
+        for (JsonNode existingEvent : seriesEvents) {
+            if (existingEvent.path("is_closure").asBoolean(false)) {
+                return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+            }
+
+            if (!canModifyExistingEvent(request, existingEvent)) {
+                return jsonError(403, "You do not have permission to delete this reservation.");
+            }
+        }
+
+        StringBuilder eventIds = new StringBuilder();
+
+        for (JsonNode existingEvent : seriesEvents) {
+            if (eventIds.length() > 0) {
+                eventIds.append(',');
+            }
+            eventIds.append(existingEvent.path("id").asInt());
+        }
+
+        // attendees.event_id carries no ON DELETE rule, so Postgres refuses to remove an
+        // event while check-ins still point at it. Unlike a single delete, a series delete
+        // keeps the check-in rows for later analysis: clear their event_id instead of
+        // deleting them, then remove the events.
+        JsonNode checkIns = getSeriesCheckIns(eventIds.toString());
+
+        SupabaseClient.SupabaseResponse checkInDetach = supabase.patchResponse(
+            "attendees?event_id=in.(" + eventIds + ")",
+            "{\"event_id\":null}"
+        );
+
+        if (!checkInDetach.isSuccessful()) {
+            return jsonError(
+                502,
+                "The check-in records for this recurring reservation series could not be detached, " +
+                    "so the series was left in place."
+            );
+        }
+
+        SupabaseClient.SupabaseResponse eventDelete =
+            supabase.delete("events?id=in.(" + eventIds + ")");
+
+        // The detach and the delete are separate requests. If the delete fails, the series
+        // still exists, so point its check-ins back at their events.
+        if (!eventDelete.isSuccessful()) {
+            restoreCheckIns(checkIns);
+        }
+
+        return DeleteOutcome.toResponse(
+            eventDelete,
+            "This recurring series is still referenced by other records, so it cannot be deleted."
+        );
+    }
+
+    @PatchMapping("/series/{groupId}")
+    public ResponseEntity<String> updateSeries(@PathVariable String groupId, @RequestBody String body,
+                                               HttpServletRequest request) {
+        try {
+            JsonNode seriesEvents = getRecurringSeriesForUpdate(groupId);
+
+            if (!seriesEvents.isArray() || seriesEvents.isEmpty()) {
+                return jsonError(404, "Recurring reservation series not found.");
+            }
+
+            for (JsonNode existingEvent : seriesEvents) {
+                if (existingEvent.path("is_closure").asBoolean(false)) {
+                    return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+                }
+            }
+
+            for (JsonNode existingEvent : seriesEvents) {
+                if (!canModifyExistingEvent(request, existingEvent)) {
+                    return jsonError(403, "You do not have permission to modify this reservation.");
+                }
+            }
+
+            JsonNode input = readSeriesBody(body);
+            ObjectNode details = normalizeSeriesDetails(input);
+            LocalTime localStart = readLocalTime(input, "local_start_time");
+            LocalTime localEnd = readLocalTime(input, "local_end_time");
+
+            if ((localStart == null) != (localEnd == null)) {
+                throw new IllegalArgumentException("local_start_time and local_end_time must be supplied together.");
+            }
+
+            ArrayNode rows = objectMapper.createArrayNode();
+            List<LocalDate> changedDates = new ArrayList<>();
+            Set<LocalDate> movedDates = new LinkedHashSet<>();
+            LocalDate sharedDate = null;
+            ZonedDateTime now = ZonedDateTime.now(RESERVATION_TIME_ZONE);
+
+            for (JsonNode existingEvent : seriesEvents) {
+                ObjectNode row = seriesRow(existingEvent, details);
+
+                if (localStart != null) {
+                    ZonedDateTime existingStart = parseReservationDateTime(
+                        existingEvent.path("start_time").asText(),
+                        "start_time"
+                    );
+
+                    // An occurrence that has already started keeps its time.
+                    if (existingStart.isAfter(now)) {
+                        LocalDate date = existingStart.toLocalDate();
+                        row.put("start_time", ZonedDateTime.of(date, localStart, RESERVATION_TIME_ZONE).toInstant().toString());
+                        row.put("end_time", ZonedDateTime.of(date, localEnd, RESERVATION_TIME_ZONE).toInstant().toString());
+
+                        if (!movedDates.add(date) && sharedDate == null) {
+                            sharedDate = date;
+                        }
+
+                        if (reservationTimesChanged(existingEvent, row)) {
+                            validateReservationTimeWindow(row);
+                            changedDates.add(date);
+                        }
+                    }
+                }
+
+                rows.add(row);
+            }
+
+            if (changedDates.isEmpty()) {
+                return fromSupabase(supabase.patchResponse(
+                    "events?recurrence_group_id=eq." + encode(groupId),
+                    objectMapper.writeValueAsString(details)
+                ));
+            }
+
+            // Two occurrences on one day would land on the same time and overlap.
+            if (sharedDate != null) {
+                throw new IllegalArgumentException(
+                    "This series has more than one reservation on " + sharedDate +
+                        ", so its time cannot be changed for the whole series."
+                );
+            }
+
+            availability.validateDates(changedDates);
+
+            // One request, so every occurrence changes or none does. Separate writes could leave
+            // the series half moved if a later one hit an overlap.
+            return fromSupabase(supabase.upsertResponse("events?on_conflict=id", objectMapper.writeValueAsString(rows)));
+        } catch (ResponseStatusException error) {
+            return jsonError(error.getStatusCode().value(), error.getReason());
+        } catch (IllegalArgumentException error) {
+            return jsonError(400, error.getMessage());
+        } catch (Exception error) {
+            throw new RuntimeException(error);
+        }
+    }
+
     // An unavailable date's reason is its event description. Admins can change that one field
     // here; everything else about a closure stays with the Bookable Dates save.
     private ResponseEntity<String> updateClosureDescription(int id, String body, HttpServletRequest request) {
@@ -385,6 +551,83 @@ public class ReservationController {
         validateStartsInFuture(event);
 
         return event;
+    }
+
+    private JsonNode readSeriesBody(String body) {
+        try {
+            JsonNode input = objectMapper.readTree(body);
+
+            if (input == null || !input.isObject()) {
+                throw new IllegalArgumentException("Event body must be a JSON object.");
+            }
+
+            return input;
+        } catch (IllegalArgumentException error) {
+            throw error;
+        } catch (Exception error) {
+            throw new IllegalArgumentException("Event body could not be parsed.");
+        }
+    }
+
+    // The details a series edit applies to every occurrence. Host, dates and everything else
+    // in the body are ignored.
+    private ObjectNode normalizeSeriesDetails(JsonNode input) {
+        if (input.path("is_closure").asBoolean(false)
+            || "Unavailable".equalsIgnoreCase(input.path("event_type").asText())) {
+            throw new IllegalArgumentException("Manage unavailable dates in Bookable Dates.");
+        }
+
+        ObjectNode details = objectMapper.createObjectNode();
+
+        copyField(input, details, "event_type", "event_type");
+        copyField(input, details, "description", "description");
+        copyField(input, details, "title", "title");
+        copyField(input, details, "department", "department");
+        copyBooleanField(input, details, "is_public", "is_public");
+
+        requireField(details, "event_type");
+        requireField(details, "description");
+        requireField(details, "title");
+        requireField(details, "department");
+        requireField(details, "is_public");
+
+        return details;
+    }
+
+    private LocalTime readLocalTime(JsonNode input, String fieldName) {
+        JsonNode value = input.get(fieldName);
+
+        if (value == null || value.isNull()) {
+            return null;
+        }
+
+        if (!value.isTextual()) {
+            throw new IllegalArgumentException(fieldName + " must be a 24-hour time such as 09:30.");
+        }
+
+        try {
+            return LocalTime.parse(value.asText(), LOCAL_TIME_FORMAT);
+        } catch (DateTimeParseException error) {
+            throw new IllegalArgumentException(fieldName + " must be a 24-hour time such as 09:30.");
+        }
+    }
+
+    // Every column of the stored row with the new details laid over it, so the row can be
+    // written back whole.
+    private ObjectNode seriesRow(JsonNode existingEvent, ObjectNode details) {
+        ObjectNode row = objectMapper.createObjectNode();
+
+        for (String column : EVENT_COLUMNS) {
+            JsonNode value = details.has(column) ? details.get(column) : existingEvent.get(column);
+
+            if (value == null || value.isNull()) {
+                row.putNull(column);
+            } else {
+                row.set(column, value);
+            }
+        }
+
+        return row;
     }
 
     private ObjectNode normalizeEventInput(JsonNode input) {
@@ -478,6 +721,70 @@ public class ReservationController {
         } catch (Exception error) {
             throw new RuntimeException("Could not verify reservation ownership.");
         }
+    }
+
+    private JsonNode getRecurringSeries(String groupId) {
+        try {
+            String response = supabase.get(
+                "events?recurrence_group_id=eq." + encode(groupId) +
+                    "&select=id,host_user_id,recurrence_group_id,is_closure"
+            );
+
+            return objectMapper.readTree(response);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not read recurring reservation series.");
+        }
+    }
+
+    private JsonNode getRecurringSeriesForUpdate(String groupId) {
+        try {
+            String response = supabase.get(
+                "events?recurrence_group_id=eq." + encode(groupId) +
+                    "&select=" + String.join(",", EVENT_COLUMNS)
+            );
+
+            return objectMapper.readTree(response);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not read recurring reservation series.");
+        }
+    }
+
+    private JsonNode getSeriesCheckIns(String eventIds) {
+        try {
+            String response = supabase.get(
+                "attendees?event_id=in.(" + eventIds + ")&select=id,event_id"
+            );
+
+            return objectMapper.readTree(response);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not read recurring reservation series check-ins.");
+        }
+    }
+
+    private void restoreCheckIns(JsonNode checkIns) {
+        Map<Integer, StringBuilder> checkInIdsByEvent = new LinkedHashMap<>();
+
+        for (JsonNode checkIn : checkIns) {
+            StringBuilder checkInIds = checkInIdsByEvent.computeIfAbsent(
+                checkIn.path("event_id").asInt(), eventId -> new StringBuilder()
+            );
+
+            if (checkInIds.length() > 0) {
+                checkInIds.append(',');
+            }
+            checkInIds.append(checkIn.path("id").asLong());
+        }
+
+        for (Map.Entry<Integer, StringBuilder> entry : checkInIdsByEvent.entrySet()) {
+            supabase.patchResponse(
+                "attendees?id=in.(" + entry.getValue() + ")",
+                "{\"event_id\":" + entry.getKey() + "}"
+            );
+        }
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private boolean canModifyExistingEvent(HttpServletRequest request, JsonNode existingEvent) {

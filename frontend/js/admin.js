@@ -7,6 +7,7 @@ import {
     createUser,
     updateUser,
     updateEvent,
+    updateEventSeries,
     deleteEvent,
     disableUser,
     enableUser,
@@ -30,7 +31,11 @@ import {
 import {
     validateEditedReservations,
     getReservationSeries,
-    deleteReservations,
+    deleteReservationSeries,
+    canSaveWholeSeries,
+    chooseSeriesSaveScope,
+    prepareSeriesUpdate,
+    replaceUpdatedReservations,
     bindBackdropClose,
     removeReservations
 } from "./utils/reservationEditing.js";
@@ -948,6 +953,25 @@ adminReservationForm.addEventListener("submit", async event => {
         return;
     }
 
+    const seriesReservations = getReservationSeries(selectedReservation, reservations);
+
+    if (canSaveWholeSeries(seriesReservations, () => true)) {
+        const saveScope = await chooseSeriesSaveScope({
+            seriesSize: seriesReservations.length,
+            title: selectedReservation.title,
+            returnFocusElement: adminReservationSubmitBtn
+        });
+
+        if (saveScope === null) {
+            return;
+        }
+
+        if (saveScope === "series") {
+            await saveAdminReservationSeries(formData, selectedTimeRanges);
+            return;
+        }
+    }
+
     const primaryRange = selectedTimeRanges[0];
     const recurrenceGroupId =
         selectedReservation.recurrence_group_id || null;
@@ -1030,6 +1054,49 @@ adminReservationForm.addEventListener("submit", async event => {
     }
 });
 
+async function saveAdminReservationSeries(formData, selectedTimeRanges) {
+    const seriesUpdate = prepareSeriesUpdate({
+        selectedReservation,
+        timeRanges: selectedTimeRanges,
+        details: {
+            title: formData.get("title"),
+            description: formData.get("description"),
+            event_type: formData.get("type"),
+            department: formData.get("department"),
+            is_public: formData.get("access") === "open"
+        }
+    });
+
+    if (seriesUpdate.errorMessage) {
+        setAdminReservationStatus(seriesUpdate.errorMessage, "error");
+        return;
+    }
+
+    setAdminReservationStatus("");
+    setAdminReservationSubmitting(true);
+
+    try {
+        const updatedReservations = await updateEventSeries(
+            selectedReservation.recurrence_group_id,
+            seriesUpdate.seriesData
+        );
+
+        reservations = replaceUpdatedReservations(reservations, updatedReservations);
+
+        renderUserDetails();
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "saved");
+        closeReservationEditModal({ flushDraft: false });
+    } catch (error) {
+        console.error("Could not update recurring reservation series:", error);
+        setAdminReservationStatus(
+            error.message || "Could not save recurring reservation series. Please try again.",
+            "error"
+        );
+    } finally {
+        setAdminReservationSubmitting(false);
+    }
+}
+
 async function handleAdminReservationDelete() {
     if (!selectedReservation) {
         return;
@@ -1089,7 +1156,7 @@ async function handleAdminReservationDeleteSeries() {
     setAdminReservationDeleting(true, "series");
 
     try {
-        await deleteReservations(seriesReservations);
+        await deleteReservationSeries(seriesReservations, reservations);
         await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
         removeReservations(seriesReservations, reservations, attendees);
 

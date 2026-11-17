@@ -128,10 +128,10 @@ One private `request(endpoint, method, data)` helper does all fetching:
   on `error.status === 401 / 403`
 
 Everything else in the file is an exported wrapper: `getEvents`, `createEvent`, `createEvents`,
-`updateEvent`, `deleteEvent`, `getEventTypes`, `getUsers`, `createUser`, `updateUser`,
-`disableUser`, `enableUser`, `loginUser`, `logoutUser`, `getCurrentSession`, `getAttendees`,
-`createAttendee`, `getReservationDraft`, `saveReservationDraft`, `deleteReservationDraft`,
-`isUserDisabled`.
+`updateEvent`, `deleteEvent`, `deleteEventSeries`, `getEventTypes`, `getUsers`, `createUser`,
+`updateUser`, `disableUser`, `enableUser`, `loginUser`, `logoutUser`, `getCurrentSession`,
+`getAttendees`, `createAttendee`, `getReservationDraft`, `saveReservationDraft`,
+`deleteReservationDraft`, `isUserDisabled`.
 
 ### The normalizers (why they exist)
 
@@ -240,9 +240,25 @@ by `validateEditedReservations`, which excludes the reservation being edited fro
 (otherwise it would always collide with itself) and then feeds each newly planned block back into
 the list so the new blocks are checked against each other too.
 
+**Saving a whole series.** When the open reservation belongs to a series of 2+ reservations and the
+user may edit every member the page knows about (admins always; faculty only when they own all of
+them), Save Changes first asks which reservations the save applies to, in a small dialog built by
+`chooseSeriesSaveScope` in `utils/reservationEditing.js` ("Only This Reservation", "All
+Reservations in the Series" or "Cancel"; Escape and a click on the backdrop also cancel and leave
+the edit form untouched). "Only This Reservation" runs the normal save described above. "All
+Reservations in the Series" calls the `updateEventSeries` wrapper in `api.js`, which sends a single
+`PATCH /events/series/{groupId}` with the title, description, event type, department and
+visibility. `prepareSeriesUpdate` in `utils/reservationEditing.js` builds that request: it refuses
+extra time blocks and a changed date (those apply to one reservation only) and adds
+`local_start_time`/`local_end_time` ("HH:mm" in Los Angeles time) only when the time of day was
+changed. The dialog is the confirmation, so there is no `window.confirm` on this path. The updated
+reservations replace the ones in the page list by id (`replaceUpdatedReservations`, which keeps
+each entry's host details), and the draft is discarded like a normal save.
+
 **Deleting.** Single delete, or "Delete Recurring Series" when 2+ reservations share a
-`recurrence_group_id`. Series delete loops one `DELETE` per reservation, sequentially. Both use
-`window.confirm`.
+`recurrence_group_id`. Deleting a whole series sends a single `DELETE /events/series/{groupId}`; if
+the user can delete only part of the series (faculty), it loops one `DELETE` per reservation,
+sequentially. Both use `window.confirm`.
 
 ---
 
@@ -331,8 +347,8 @@ Disable–Enable User buttons, and all of their reservations.
   before sending. The plaintext password is also deleted from the in-memory user list after a
   successful save.
 - Reservation editing reuses the identical modal + time-picker + autosave + series-delete logic as
-  `main.js`, against `#adminReservation*` element ids. **This is the largest duplication in the
-  codebase** — the two `validateEditedReservations`, `getReservationSeries`, `deleteReservations`,
+  `main.js` (including the series choice on Save Changes), against `#adminReservation*` element ids.
+  **This is the largest duplication in the codebase** — the two `validateEditedReservations`, `getReservationSeries`, `deleteReservations`,
   `bindBackdropClose` and `removeReservations…State` functions are near-copies. If you refactor
   anything here, that's the highest-value target.
 
@@ -408,8 +424,9 @@ see unexpected 401s.
 4. **Separate-origin API deployments need coordinated configuration.** The current CloudFront and
    local setups use a same-origin `/api` path. If a deployment uses a separate API hostname, all
    pages, CORS, and cookie settings need to agree.
-5. **Series delete is sequential and not atomic** — deleting a 16-week series is 16 requests, and a
-   failure part-way leaves the rest deleted.
+5. **Partial series delete is sequential and not atomic** — a whole series is deleted in one
+   request, but when a user can delete only part of a series it is one request per reservation, and
+   a failure part-way leaves the rest deleted.
 6. **`isUserDisabled()` calls `getUsers()`**, which is admin-only, so it 403s for normal faculty.
    The error is caught and it returns `false`, so nothing breaks — but the check is effectively
    admin-only.
