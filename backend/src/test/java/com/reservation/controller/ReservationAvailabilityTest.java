@@ -259,17 +259,6 @@ class ReservationAvailabilityTest {
         verify(supabase, never()).postResponse(anyString(), anyString());
     }
 
-    @Test
-    void existingDeletionFlowRemovesCheckInsBeforeTheReservation() {
-        when(supabase.get(startsWith("events?id=eq.7"))).thenReturn("[{\"id\":7,\"host_user_id\":1}]");
-        when(supabase.delete("attendees?event_id=eq.7")).thenReturn(new SupabaseClient.SupabaseResponse(200, "[]"));
-        when(supabase.delete("events?id=eq.7")).thenReturn(new SupabaseClient.SupabaseResponse(200, "[]"));
-        assertEquals(HttpStatus.NO_CONTENT, events.delete(7, request).getStatusCode());
-        var order = inOrder(supabase);
-        order.verify(supabase).delete("attendees?event_id=eq.7");
-        order.verify(supabase).delete("events?id=eq.7");
-    }
-
     private String event(String start, String end) {
         return """
             {"host_user_id":1,"start_time":"%s","end_time":"%s","event_type":"Meeting",

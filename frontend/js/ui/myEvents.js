@@ -4,12 +4,17 @@ export function renderMyEvents({
     container,
     currentUser,
     reservedEvents,
+    cancelledEvents = [],
     attendees = [],
     onEditEvent
 }) {
     container.innerHTML = "";
 
-    const userEvents = getEventsForUser(currentUser, reservedEvents);
+    // Cancelled reservations follow the active ones, labelled, so their check-ins stay reachable
+    const userEvents = [
+        ...getEventsForUser(currentUser, reservedEvents),
+        ...getEventsForUser(currentUser, cancelledEvents)
+    ];
 
     if (userEvents.length === 0) {
         const emptyState = document.createElement("div");

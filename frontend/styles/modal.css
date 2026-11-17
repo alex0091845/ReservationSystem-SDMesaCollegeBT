@@ -1194,6 +1194,16 @@
     letter-spacing: 0.04em;
 }
 
+/* A cancelled reservation opens read-only: its form is inert and its actions are hidden */
+.reservation-read-only .reservation-actions {
+    display: none;
+}
+
+.reservation-read-only .reservation-grid .reservation-input {
+    background: #f3f4f6;
+    color: #374151;
+}
+
 .draft-exit-prompt {
     position: fixed;
     inset: 0;

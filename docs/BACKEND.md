@@ -253,11 +253,19 @@ offsets, validates every occurrence, and inserts them all in a single Supabase P
 errors name the exact range and week so the user gets a useful message. Excluding *every* week is
 rejected.
 
-**`DELETE /api/events/{id}`** has a wrinkle worth knowing. The `attendees.event_id` foreign key has
-no `ON DELETE` rule, so Postgres refuses to delete an event that has check-ins. The controller
-therefore deletes the attendee rows first — deleting a reservation is taken to discard its
-check-in records with it — and if *that* fails it returns 502 and leaves the reservation alone.
-Only then does it delete the event, via `DeleteOutcome`.
+**Deleting versus cancelling (C1 #71).** `DELETE /api/events/{id}` only removes a reservation that
+hasn't started and has no check-ins; anything else returns `409`, for admins too. Check-ins are never
+deleted with it. The `attendees.event_id` foreign key has no `ON DELETE` rule, so if someone checks in
+between that check and the delete, Postgres refuses the delete and `DeleteOutcome` reports `409`.
+`POST /api/events/{id}/cancel` is what the pages call: it deletes a reservation that never happened
+(same rules as above) and otherwise sets `cancelled_at`, keeping the reservation and its check-ins on
+record while the overlap rule frees its time. A check-in that lands mid-delete makes it cancel
+instead. Saving Bookable Dates always cancels, so hosts can see what happened. Once a reservation has
+started its times can't be changed, and a cancelled reservation can't be edited at all.
+
+**Check-in (`POST /api/attendees`)** is open from 15 minutes before an event starts until 15 minutes
+after it ends, by the server's clock. Each email checks in once per event; a unique index on
+`(event_id, lower(email))` catches two submits arriving together.
 
 ### `DeleteOutcome` — why deletes are special
 
@@ -383,9 +391,9 @@ Schema lives in `erd.sql` at the repo root; apply it in the Supabase SQL editor.
 |---|---|
 | `users` | `id`, `email` (unique), `password_hash`, `role_name` → `user_roles`, `enabled` |
 | `user_roles` | **`name` is the primary key** — there is no `id` column |
-| `events` | `id`, `host_user_id` → `users`, `start_time`, `end_time`, `event_type` → `event_types`, `title`, `description`, `department`, `is_public`, `recurrence_group_id`, `is_closure` |
+| `events` | `id`, `host_user_id` → `users`, `start_time`, `end_time`, `event_type` → `event_types`, `title`, `description`, `department`, `is_public`, `recurrence_group_id`, `is_closure`, `cancelled_at` (null while active) |
 | `event_types` | `event_type` is the primary key |
-| `attendees` | `id`, `event_id` → `events` (**no ON DELETE rule**), `sdccd_id`, name/email, `check_in_time` |
+| `attendees` | `id`, `event_id` → `events` (**no ON DELETE rule**), `sdccd_id`, name/email (unique per event, ignoring case), `check_in_time` |
 | `sessions` | `session_id` (unique SHA-256 token hash), `user_id`, `expires_at`, `invalidated_at`, `last_seen_at` |
 | `reservation_drafts` | `user_id`, `draft_type` (`create`/`edit`), `source_event_id`, `payload` jsonb, `discarded_at` |
 
@@ -507,9 +515,9 @@ The read and save RPCs are backend-only. Saving uses one transaction to check th
 closure events, cancel affected reservations, and update the cutoff. The first save attempt returns
 a list of reservations requiring cancellation review without writing any changes. The admin must
 confirm those IDs before cancellation is applied. Any newly added booking requires another review.
-Confirmed cancellation removes related check-ins, then deletes the reservation, matching the
-existing deletion flow. No cancellation-history fields are added. Reopening a date does not
-recreate deleted reservations. The cleanup and availability changes are atomic.
+Confirmed cancellation sets `cancelled_at` on each affected reservation, so it stays on record with
+its check-ins while its time is freed. Reopening a date does not restore cancelled reservations.
+The cancellations and availability changes are atomic.
 Existing closure IDs and descriptions are preserved when a date stays unavailable.
 Past closures and closures beyond the cutoff are retained. RLS and function
 grants restrict the settings and RPCs to `service_role`; no new keys or environment variables are needed.
