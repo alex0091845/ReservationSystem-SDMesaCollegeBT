@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -21,7 +23,9 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.ArrayList;
 import java.util.List;
@@ -318,6 +322,67 @@ public class ReservationController {
         );
     }
 
+    @DeleteMapping("/series/{groupId}")
+    public ResponseEntity<?> deleteSeries(@PathVariable String groupId, HttpServletRequest request) {
+        JsonNode seriesEvents = getRecurringSeries(groupId);
+
+        if (!seriesEvents.isArray() || seriesEvents.isEmpty()) {
+            return jsonError(404, "Recurring reservation series not found.");
+        }
+
+        for (JsonNode existingEvent : seriesEvents) {
+            if (existingEvent.path("is_closure").asBoolean(false)) {
+                return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+            }
+
+            if (!canModifyExistingEvent(request, existingEvent)) {
+                return jsonError(403, "You do not have permission to delete this reservation.");
+            }
+        }
+
+        StringBuilder eventIds = new StringBuilder();
+
+        for (JsonNode existingEvent : seriesEvents) {
+            if (eventIds.length() > 0) {
+                eventIds.append(',');
+            }
+            eventIds.append(existingEvent.path("id").asInt());
+        }
+
+        // attendees.event_id carries no ON DELETE rule, so Postgres refuses to remove an
+        // event while check-ins still point at it. Unlike a single delete, a series delete
+        // keeps the check-in rows for later analysis: clear their event_id instead of
+        // deleting them, then remove the events.
+        JsonNode checkIns = getSeriesCheckIns(eventIds.toString());
+
+        SupabaseClient.SupabaseResponse checkInDetach = supabase.patchResponse(
+            "attendees?event_id=in.(" + eventIds + ")",
+            "{\"event_id\":null}"
+        );
+
+        if (!checkInDetach.isSuccessful()) {
+            return jsonError(
+                502,
+                "The check-in records for this recurring reservation series could not be detached, " +
+                    "so the series was left in place."
+            );
+        }
+
+        SupabaseClient.SupabaseResponse eventDelete =
+            supabase.delete("events?id=in.(" + eventIds + ")");
+
+        // The detach and the delete are separate requests. If the delete fails, the series
+        // still exists, so point its check-ins back at their events.
+        if (!eventDelete.isSuccessful()) {
+            restoreCheckIns(checkIns);
+        }
+
+        return DeleteOutcome.toResponse(
+            eventDelete,
+            "This recurring series is still referenced by other records, so it cannot be deleted."
+        );
+    }
+
     // An unavailable date's reason is its event description. Admins can change that one field
     // here; everything else about a closure stays with the Bookable Dates save.
     private ResponseEntity<String> updateClosureDescription(int id, String body, HttpServletRequest request) {
@@ -478,6 +543,57 @@ public class ReservationController {
         } catch (Exception error) {
             throw new RuntimeException("Could not verify reservation ownership.");
         }
+    }
+
+    private JsonNode getRecurringSeries(String groupId) {
+        try {
+            String response = supabase.get(
+                "events?recurrence_group_id=eq." + encode(groupId) +
+                    "&select=id,host_user_id,recurrence_group_id,is_closure"
+            );
+
+            return objectMapper.readTree(response);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not read recurring reservation series.");
+        }
+    }
+
+    private JsonNode getSeriesCheckIns(String eventIds) {
+        try {
+            String response = supabase.get(
+                "attendees?event_id=in.(" + eventIds + ")&select=id,event_id"
+            );
+
+            return objectMapper.readTree(response);
+        } catch (Exception error) {
+            throw new RuntimeException("Could not read recurring reservation series check-ins.");
+        }
+    }
+
+    private void restoreCheckIns(JsonNode checkIns) {
+        Map<Integer, StringBuilder> checkInIdsByEvent = new LinkedHashMap<>();
+
+        for (JsonNode checkIn : checkIns) {
+            StringBuilder checkInIds = checkInIdsByEvent.computeIfAbsent(
+                checkIn.path("event_id").asInt(), eventId -> new StringBuilder()
+            );
+
+            if (checkInIds.length() > 0) {
+                checkInIds.append(',');
+            }
+            checkInIds.append(checkIn.path("id").asLong());
+        }
+
+        for (Map.Entry<Integer, StringBuilder> entry : checkInIdsByEvent.entrySet()) {
+            supabase.patchResponse(
+                "attendees?id=in.(" + entry.getValue() + ")",
+                "{\"event_id\":" + entry.getKey() + "}"
+            );
+        }
+    }
+
+    private String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     private boolean canModifyExistingEvent(HttpServletRequest request, JsonNode existingEvent) {

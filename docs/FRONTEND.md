@@ -128,10 +128,10 @@ One private `request(endpoint, method, data)` helper does all fetching:
   on `error.status === 401 / 403`
 
 Everything else in the file is an exported wrapper: `getEvents`, `createEvent`, `createEvents`,
-`updateEvent`, `deleteEvent`, `getEventTypes`, `getUsers`, `createUser`, `updateUser`,
-`disableUser`, `enableUser`, `loginUser`, `logoutUser`, `getCurrentSession`, `getAttendees`,
-`createAttendee`, `getReservationDraft`, `saveReservationDraft`, `deleteReservationDraft`,
-`isUserDisabled`.
+`updateEvent`, `deleteEvent`, `deleteEventSeries`, `getEventTypes`, `getUsers`, `createUser`,
+`updateUser`, `disableUser`, `enableUser`, `loginUser`, `logoutUser`, `getCurrentSession`,
+`getAttendees`, `createAttendee`, `getReservationDraft`, `saveReservationDraft`,
+`deleteReservationDraft`, `isUserDisabled`.
 
 ### The normalizers (why they exist)
 
@@ -241,8 +241,9 @@ by `validateEditedReservations`, which excludes the reservation being edited fro
 the list so the new blocks are checked against each other too.
 
 **Deleting.** Single delete, or "Delete Recurring Series" when 2+ reservations share a
-`recurrence_group_id`. Series delete loops one `DELETE` per reservation, sequentially. Both use
-`window.confirm`.
+`recurrence_group_id`. Deleting a whole series sends a single `DELETE /events/series/{groupId}`; if
+the user can delete only part of the series (faculty), it loops one `DELETE` per reservation,
+sequentially. Both use `window.confirm`.
 
 ---
 
@@ -408,8 +409,9 @@ see unexpected 401s.
 4. **Separate-origin API deployments need coordinated configuration.** The current CloudFront and
    local setups use a same-origin `/api` path. If a deployment uses a separate API hostname, all
    pages, CORS, and cookie settings need to agree.
-5. **Series delete is sequential and not atomic** — deleting a 16-week series is 16 requests, and a
-   failure part-way leaves the rest deleted.
+5. **Partial series delete is sequential and not atomic** — a whole series is deleted in one
+   request, but when a user can delete only part of a series it is one request per reservation, and
+   a failure part-way leaves the rest deleted.
 6. **`isUserDisabled()` calls `getUsers()`**, which is admin-only, so it 403s for normal faculty.
    The error is caught and it returns `false`, so nothing breaks — but the check is effectively
    admin-only.

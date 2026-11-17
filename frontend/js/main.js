@@ -22,7 +22,7 @@ import {
 import {
     validateEditedReservations,
     getReservationSeries,
-    deleteReservations,
+    deleteReservationSeries,
     bindBackdropClose,
     removeReservations
 } from "./utils/reservationEditing.js";
@@ -1203,7 +1203,7 @@ async function handleFacultyReservationDeleteSeries() {
     setFacultyReservationDeleting(true, "series");
 
     try {
-        await deleteReservations(seriesReservations);
+        await deleteReservationSeries(seriesReservations, reservedEvents);
         await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
         removeReservations(seriesReservations, reservedEvents, attendees);
 

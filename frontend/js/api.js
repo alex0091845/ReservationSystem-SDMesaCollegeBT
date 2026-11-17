@@ -781,6 +781,20 @@ export async function deleteEvent(eventData) {
     }
 }
 
+export async function deleteEventSeries(recurrenceGroupId) {
+    try {
+        return await request(
+            `/events/series/${encodeURIComponent(recurrenceGroupId)}`,
+            "DELETE"
+        );
+    } catch (error) {
+        console.error("Could not delete reservation series on backend:", error);
+        throw new Error(
+            getRequestFailureMessage(error, "Could not delete the recurring reservation series.")
+        );
+    }
+}
+
 export async function getReservationDraft({
     draft_type,
     source_event_id = null
