@@ -678,15 +678,21 @@
     }
 }
 
-/* On a phone the page reads top to bottom as Check-In (when it is showing), then the
-   calendar panel, then the event lists. The left column steps out of the way so its
-   widgets can be ordered against the calendar panel. */
+/* On a phone the page reads top to bottom as Happening Now (or My Events for signed-in
+   faculty), then Upcoming Events, then the calendar panel. The left column steps out of
+   the way so its widgets can be ordered against the calendar panel. */
 @media (max-width: 720px) {
     .wrapper > .left-column {
         display: contents;
     }
 
-    .wrapper > .left-column > .check-in-widget {
+    .wrapper > .left-column > .check-in-widget,
+    .wrapper > .left-column > .my-events {
+        order: -3;
+        width: 100%;
+    }
+
+    .wrapper > .left-column > .upcoming-events {
         order: -2;
         width: 100%;
     }
