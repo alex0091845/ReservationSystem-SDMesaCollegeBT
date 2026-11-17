@@ -243,10 +243,10 @@ the list so the new blocks are checked against each other too.
 **Saving a whole series.** When the open reservation belongs to a series of 2+ reservations and the
 user may edit every member the page knows about (admins always; faculty only when they own all of
 them), Save Changes first asks which reservations the save applies to, in a small dialog built by
-`chooseSeriesSaveScope` in `utils/reservationEditing.js` ("Only this reservation", "All
-reservations in the series" or "Cancel"; Escape and a click on the backdrop also cancel and leave
-the edit form untouched). "Only this reservation" runs the normal save described above. "All
-reservations in the series" calls the `updateEventSeries` wrapper in `api.js`, which sends a single
+`chooseSeriesSaveScope` in `utils/reservationEditing.js` ("Only This Reservation", "All
+Reservations in the Series" or "Cancel"; Escape and a click on the backdrop also cancel and leave
+the edit form untouched). "Only This Reservation" runs the normal save described above. "All
+Reservations in the Series" calls the `updateEventSeries` wrapper in `api.js`, which sends a single
 `PATCH /events/series/{groupId}` with the title, description, event type, department and
 visibility. `prepareSeriesUpdate` in `utils/reservationEditing.js` builds that request: it refuses
 extra time blocks and a changed date (those apply to one reservation only) and adds

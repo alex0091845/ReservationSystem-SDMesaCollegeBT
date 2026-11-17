@@ -114,7 +114,7 @@ export function prepareSeriesUpdate({
         getReservationLocalDate(selectedReservation.start_time)
     ) {
         return {
-            errorMessage: "A date change applies to one reservation only. Choose \"Only this reservation\" for that."
+            errorMessage: "A date change applies to one reservation only. Choose \"Only This Reservation\" for that."
         };
     }
 
@@ -164,12 +164,16 @@ export function chooseSeriesSaveScope({ seriesSize, title, returnFocusElement })
         dialog.setAttribute("role", "dialog");
         dialog.setAttribute("aria-modal", "true");
         dialog.setAttribute("aria-labelledby", heading.id);
+        message.id = "seriesSaveScopeMessage";
+        hint.id = "seriesSaveScopeHint";
+        dialog.setAttribute("aria-describedby", `${message.id} ${hint.id}`);
         heading.textContent = "Save Recurring Reservation";
         message.textContent =
             `Apply your changes to only this reservation or to all ${seriesSize} in ` +
             `"${title || "this recurring reservation"}"?`;
         hint.className = "draft-exit-hint";
-        hint.textContent = "Reservations that have already started keep their time.";
+        hint.textContent =
+            "If you change the time, reservations that have already started keep theirs.";
 
         singleButton.id = "seriesSaveScopeSingleBtn";
         seriesButton.id = "seriesSaveScopeSeriesBtn";
@@ -180,8 +184,8 @@ export function chooseSeriesSaveScope({ seriesSize, title, returnFocusElement })
         singleButton.className = "reservation-primary-btn";
         seriesButton.className = "reservation-secondary-btn";
         cancelButton.className = "reservation-secondary-btn";
-        singleButton.textContent = "Only this reservation";
-        seriesButton.textContent = "All reservations in the series";
+        singleButton.textContent = "Only This Reservation";
+        seriesButton.textContent = "All Reservations in the Series";
         cancelButton.textContent = "Cancel";
 
         function handleKeydown(event) {
@@ -222,9 +226,21 @@ export function chooseSeriesSaveScope({ seriesSize, title, returnFocusElement })
             resolve(choice);
         }
 
-        singleButton.addEventListener("click", () => closeChoice("single"));
-        seriesButton.addEventListener("click", () => closeChoice("series"));
-        cancelButton.addEventListener("click", () => closeChoice(null));
+        // A held Enter key or a double tap on Save Changes would otherwise land on a
+        // button the moment the dialog appears, before the user has seen it.
+        const openedAt = Date.now();
+
+        function choose(choice) {
+            if (Date.now() - openedAt < 300) {
+                return;
+            }
+
+            closeChoice(choice);
+        }
+
+        singleButton.addEventListener("click", () => choose("single"));
+        seriesButton.addEventListener("click", () => choose("series"));
+        cancelButton.addEventListener("click", () => choose(null));
         bindBackdropClose(overlay, () => closeChoice(null));
         document.addEventListener("keydown", handleKeydown, true);
 
