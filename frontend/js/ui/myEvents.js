@@ -6,21 +6,26 @@ export function renderMyEvents({
     reservedEvents,
     cancelledEvents = [],
     attendees = [],
+    view = "upcoming",
     onEditEvent
 }) {
     container.innerHTML = "";
 
-    // Cancelled reservations follow the active ones, labelled, so their check-ins stay reachable
-    const userEvents = [
-        ...getEventsForUser(currentUser, reservedEvents),
-        ...getEventsForUser(currentUser, cancelledEvents)
-    ];
+    // A reservation stays in Upcoming until it ends. Cancelled ones sit in time order too,
+    // labelled, so their check-ins stay reachable. Past puts the most recent on top.
+    const now = new Date();
+    const showPast = view === "past";
+    const userEvents = getEventsForUser(currentUser, [...reservedEvents, ...cancelledEvents])
+        .filter(event => (new Date(event.end_time) <= now) === showPast)
+        .sort((a, b) => showPast
+            ? new Date(b.start_time) - new Date(a.start_time)
+            : new Date(a.start_time) - new Date(b.start_time));
 
     if (userEvents.length === 0) {
         const emptyState = document.createElement("div");
 
         emptyState.className = "selected-user-empty-reservations";
-        emptyState.textContent = "No reservations found for this user.";
+        emptyState.textContent = `No ${view} reservations.`;
 
         container.appendChild(emptyState);
         return;

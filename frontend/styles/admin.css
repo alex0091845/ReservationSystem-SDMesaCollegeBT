@@ -21,10 +21,6 @@
     min-height: 520px;
 }
 
-.admin-user-details {
-    height: 100%;
-}
-
 .admin-user-empty-state {
     display: flex;
     align-items: center;

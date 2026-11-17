@@ -29,7 +29,8 @@ import {
     moveReservationToCancelled,
     setReservationModalReadOnly,
     getDeleteMenuLabel,
-    getCancelConfirmMessage
+    getCancelConfirmMessage,
+    getCancelDoneMessage
 } from "./utils/reservationEditing.js";
 
 
@@ -44,6 +45,8 @@ const elements = {
     upcomingEventsList: document.getElementById("upcomingEventsList"),
     myEventsWidget: document.getElementById("myEventsWidget"),
     myEventsList: document.getElementById("myEventsList"),
+    myEventsToggle: document.getElementById("myEventsToggle"),
+    myEventsStatus: document.getElementById("myEventsStatus"),
     checkInWidget: document.getElementById("checkInWidget"),
     checkInWidgetDate: document.getElementById("checkInWidgetDate"),
     checkInWidgetList: document.getElementById("checkInWidgetList"),
@@ -123,6 +126,8 @@ if (elements.openReservationModalBtn) {
 let reservedEvents = [];
 // Only reaches faculty and admins; shown in My Events, never on the calendar
 let cancelledEvents = [];
+// Which My Events list is showing: "upcoming" or "past"
+let myEventsView = "upcoming";
 let attendees = [];
 let eventTypes = [];
 let currentUser = null;
@@ -654,12 +659,18 @@ function renderFacultyMyEvents() {
         return false;
     }
 
+    // A cancel message only lasts until My Events is next redrawn
+    if (elements.myEventsStatus) {
+        elements.myEventsStatus.textContent = "";
+    }
+
     renderMyEvents({
         container: elements.myEventsList,
         currentUser,
         reservedEvents,
         cancelledEvents,
         attendees,
+        view: myEventsView,
         onEditEvent: openFacultyReservationEditModal
     });
 
@@ -1190,6 +1201,11 @@ async function handleFacultyReservationCancel() {
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
+
+        // The reservation leaves the calendar, so say what happened to it
+        if (elements.myEventsStatus) {
+            elements.myEventsStatus.textContent = getCancelDoneMessage(reservationTitle, result?.outcome);
+        }
     } catch (error) {
         console.error("Could not cancel reservation:", error);
         setFacultyReservationStatus(
@@ -1392,6 +1408,22 @@ function bindEvents() {
         "click",
         () => moveSelectedDateByDays(7)
     );
+
+    elements.myEventsToggle?.addEventListener("click", event => {
+        const button = event.target.closest("[data-view]");
+
+        if (!button) {
+            return;
+        }
+
+        myEventsView = button.dataset.view;
+        elements.myEventsToggle.querySelectorAll("[data-view]").forEach(viewButton => {
+            viewButton.setAttribute("aria-pressed", String(viewButton === button));
+        });
+        renderFacultyMyEvents();
+        // A new list starts at its top, not where the other one was scrolled to
+        elements.myEventsList.scrollTop = 0;
+    });
 
     elements.modalCloseBtn.addEventListener(
         "click",

@@ -37,7 +37,8 @@ import {
     moveReservationToCancelled,
     setReservationModalReadOnly,
     getDeleteMenuLabel,
-    getCancelConfirmMessage
+    getCancelConfirmMessage,
+    getCancelDoneMessage
 } from "./utils/reservationEditing.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
@@ -46,6 +47,7 @@ const userSearchInput = document.getElementById("userSearchInput");
 const userRoleFilter = document.getElementById("userRoleFilter");
 const userSortSelect = document.getElementById("userSortSelect");
 const adminUserDetails = document.getElementById("adminUserDetails");
+const adminUserDetailsStatus = document.getElementById("adminUserDetailsStatus");
 const createUserBtn = document.getElementById("createUserBtn");
 const adminSectionLinks = document.querySelectorAll("[data-admin-section]");
 const usersSections = document.querySelectorAll("#adminUsersSection, #adminUserReservationsSection");
@@ -320,6 +322,8 @@ function renderUsers() {
 
 function renderUserDetails() {
     adminUserDetails.innerHTML = "";
+    // A cancel message only lasts until the details are next redrawn
+    adminUserDetailsStatus.textContent = "";
 
     if (!selectedUser) {
         const emptyDetails = document.createElement("div");
@@ -1083,6 +1087,9 @@ async function handleAdminReservationCancel() {
 
         renderUserDetails();
         closeReservationEditModal({ flushDraft: false });
+
+        // The reservation leaves the calendar, so say what happened to it
+        adminUserDetailsStatus.textContent = getCancelDoneMessage(reservationTitle, result?.outcome);
     } catch (error) {
         console.error("Could not cancel reservation:", error);
         setAdminReservationStatus(

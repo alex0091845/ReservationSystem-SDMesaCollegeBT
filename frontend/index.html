@@ -62,8 +62,13 @@
             <section class="my-events" id="myEventsWidget" hidden>
                 <div class="my-events-header">
                     <h3>My Events</h3>
+                    <div class="zoom-toolbar" id="myEventsToggle" role="group" aria-label="Show my reservations">
+                        <button type="button" class="zoom-level-btn" data-view="upcoming" aria-pressed="true">Upcoming</button>
+                        <button type="button" class="zoom-level-btn" data-view="past" aria-pressed="false">Past</button>
+                    </div>
                 </div>
                 <div class="selected-user-reservation-list my-events-list" id="myEventsList"></div>
+                <p class="reservation-status success" id="myEventsStatus" role="status" aria-live="polite"></p>
             </section>
 
             <section class="check-in-widget" id="checkInWidget" hidden>

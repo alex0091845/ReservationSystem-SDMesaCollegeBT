@@ -103,6 +103,13 @@ export function getCancelConfirmMessage(reservationTitle) {
         "Otherwise it is kept with its check-ins.";
 }
 
+// Shown once the cancel goes through, since the reservation leaves the calendar
+export function getCancelDoneMessage(reservationTitle, outcome) {
+    return outcome === "deleted"
+        ? `"${reservationTitle}" was cancelled and removed.`
+        : `"${reservationTitle}" was cancelled.`;
+}
+
 // A cancelled reservation opens read-only: its details and check-ins stay visible, but
 // nothing about it can be changed. Pass null for an editable reservation.
 export function setReservationModalReadOnly(overlay, cancelledAt) {
@@ -120,7 +127,7 @@ export function setReservationModalReadOnly(overlay, cancelledAt) {
     overlay.querySelector(".reservation-grid").inert = isReadOnly;
     title.textContent = isReadOnly ? "Reservation Details" : title.dataset.editText;
     subtitle.textContent = isReadOnly
-        ? `${formatCancelledAt(cancelledAt)}. Kept with its check-ins.`
+        ? `${formatCancelledAt(cancelledAt)}.`
         : subtitle.dataset.editText;
 }
 
