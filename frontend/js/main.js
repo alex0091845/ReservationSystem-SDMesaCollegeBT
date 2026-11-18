@@ -1,5 +1,4 @@
-import { createEvents, deleteEvent, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
-import { sortReservedEvents } from "./utils/dateUtils.js";
+import { cancelEvent, createEvents, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";import { sortReservedEvents } from "./utils/dateUtils.js";
 import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
 import { renderZoomStage } from "./ui/zoomController.js";
@@ -24,7 +23,16 @@ import {
     getReservationSeries,
     deleteReservations,
     bindBackdropClose,
-    removeReservations
+    removeReservations,
+    splitCancelledReservations,
+    moveReservationToCancelled,
+    setReservationModalReadOnly,
+    getDeleteMenuLabel,
+    getCancelConfirmMessage,
+    willCancelDelete,
+    getCancelOptionLabel,
+    openCancelResultModal,
+    bindCancelResultModal
 } from "./utils/reservationEditing.js";
 
 
@@ -39,6 +47,8 @@ const elements = {
     upcomingEventsList: document.getElementById("upcomingEventsList"),
     myEventsWidget: document.getElementById("myEventsWidget"),
     myEventsList: document.getElementById("myEventsList"),
+    myEventsToggle: document.getElementById("myEventsToggle"),
+    cancelResultModalOverlay: document.getElementById("cancelResultModalOverlay"),
     checkInWidget: document.getElementById("checkInWidget"),
     checkInWidgetDate: document.getElementById("checkInWidgetDate"),
     checkInWidgetList: document.getElementById("checkInWidgetList"),
@@ -53,6 +63,7 @@ const elements = {
     shareLinkValue: document.getElementById("shareLinkValue"),
     copyShareLinkBtn: document.getElementById("copyShareLinkBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
+    facultyReservationCancelReservationBtn: document.getElementById("facultyReservationCancelReservationBtn"),
     facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
     facultyReservationDeleteMenuBtn: document.getElementById("facultyReservationDeleteMenuBtn"),
@@ -116,6 +127,10 @@ if (elements.openReservationModalBtn) {
 
 // New event loading system
 let reservedEvents = [];
+// Only reaches faculty and admins; shown in My Events, never on the calendar
+let cancelledEvents = [];
+// Which My Events list is showing: "upcoming" or "past"
+let myEventsView = "upcoming";
 let attendees = [];
 let eventTypes = [];
 let currentUser = null;
@@ -189,9 +204,13 @@ async function loadEventTypes() {
 
 async function loadReservedEvents() {
     try {
-        reservedEvents = await getEvents();
+        const { active, cancelled } = splitCancelledReservations(await getEvents());
+
+        reservedEvents = active;
+        cancelledEvents = cancelled;
 
         sortReservedEvents(reservedEvents);
+        sortReservedEvents(cancelledEvents);
     } catch (error) {
         console.error("Error loading events:", error);
 
@@ -647,7 +666,9 @@ function renderFacultyMyEvents() {
         container: elements.myEventsList,
         currentUser,
         reservedEvents,
+        cancelledEvents,
         attendees,
+        view: myEventsView,
         onEditEvent: openFacultyReservationEditModal
     });
 
@@ -668,11 +689,10 @@ function renderPublicCheckInWidget() {
         return false;
     }
 
-    elements.checkInWidgetDate.textContent = formatSideWidgetDate(today);
-
     renderCheckInEvents({
         container: elements.checkInWidgetList,
-        today,
+        dateLabel: elements.checkInWidgetDate,
+        formatDate: formatSideWidgetDate,
         reservedEvents,
         openEventModal
     });
@@ -714,9 +734,19 @@ function openLinkedEvent() {
     }
 }
 
+// needs fixing
+function basicTrapTabKey(event)
+{
+    if(event.key === "Tab")
+    {
+        event.preventDefault()
+    }
+} 
+
 function openCalendarQRCodeModal() {
     elements.calendarQRCodeModalOverlay.classList.add("active");
     elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
+    elements.calendarQRCodeModalOverlay.addEventListener("keydown", basicTrapTabKey);
     elements.calendarQRCodeModalCloseBtn.focus();
     generateCalendarQR();
     console.log(window.location.origin);
@@ -783,11 +813,22 @@ async function openFacultyReservationEditModal(reservation) {
     renderFacultyReservationAttendees(reservation);
     updateFacultyReservationSeriesDeleteButton(reservation);
 
+    if (elements.facultyReservationCancelReservationBtn) {
+        elements.facultyReservationCancelReservationBtn.textContent = getCancelOptionLabel(reservation, attendees);
+    }
+
+    const isCancelled = Boolean(reservation.cancelled_at);
+
+    setReservationModalReadOnly(elements.facultyReservationModalOverlay, reservation.cancelled_at);
     setFacultyReservationStatus("");
     setFacultyReservationSubmitting(false);
     elements.facultyReservationModalOverlay.classList.add("active");
     elements.facultyReservationModalOverlay.setAttribute("aria-hidden", "false");
-    await facultyReservationDraftAutosave.activate();
+    
+    // A cancelled reservation can't be edited, so there is no draft to keep
+    if (!isCancelled) {
+        await facultyReservationDraftAutosave.activate();
+    }
 }
 
 function renderFacultyReservationAttendees(reservation) {
@@ -830,6 +871,7 @@ function closeFacultyReservationEditModal({ flushDraft = true } = {}) {
     elements.facultyReservationModalOverlay.setAttribute("aria-hidden", "true");
 
     selectedFacultyReservation = null;
+    setReservationModalReadOnly(elements.facultyReservationModalOverlay, null);
     elements.facultyReservationForm.reset();
     facultyReservationTimePicker.clear();
     updateFacultyReservationSeriesDeleteButton(null);
@@ -857,6 +899,7 @@ function openQRCodeModal() {
     elements.qrModalOverlay.classList.add("open");
     elements.qrModalOverlay.setAttribute("aria-hidden", "false");
     elements.qrModalCloseBtn.focus();
+    elements.qrModalOverlay.addEventListener("keydown", basicTrapTabKey);
     generateQR();
 }
 
@@ -869,6 +912,7 @@ function closeQRCodeModal() {
 function openShareLinkModal() {
     elements.shareLinkModalOverlay.classList.add("open");
     elements.shareLinkModalOverlay.setAttribute("aria-hidden", "false");
+    elements.shareLinkModalOverlay.addEventListener("keydown", basicTrapTabKey);
     elements.shareLinkModalCloseBtn.focus();
     elements.shareLinkValue.innerHTML = currentEventLink;
 }
@@ -982,8 +1026,8 @@ function setFacultyReservationSubmitting(isSubmitting) {
         ? "Saving..."
         : "Save Changes";
 
-    if (elements.facultyReservationDeleteBtn) {
-        elements.facultyReservationDeleteBtn.disabled = isSubmitting;
+    if (elements.facultyReservationCancelReservationBtn) {
+        elements.facultyReservationCancelReservationBtn.disabled = isSubmitting;
     }
 
     if (elements.facultyReservationDeleteSeriesBtn) {
@@ -999,13 +1043,12 @@ function setFacultyReservationSubmitting(isSubmitting) {
     }
 }
 
-function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
-    if (!elements.facultyReservationDeleteBtn) {
+function setFacultyReservationDeleting(isDeleting, deleteMode = "cancel") {
+    if (!elements.facultyReservationCancelReservationBtn) {
         return;
     }
 
-    elements.facultyReservationDeleteBtn.disabled = isDeleting;
-    elements.facultyReservationDeleteBtn.textContent = "Delete Reservation";
+    elements.facultyReservationCancelReservationBtn.disabled = isDeleting;
 
     if (elements.facultyReservationDeleteSeriesBtn) {
         elements.facultyReservationDeleteSeriesBtn.disabled = isDeleting;
@@ -1014,9 +1057,7 @@ function setFacultyReservationDeleting(isDeleting, deleteMode = "reservation") {
 
     if (elements.facultyReservationDeleteMenuBtn) {
         elements.facultyReservationDeleteMenuBtn.disabled = isDeleting;
-        elements.facultyReservationDeleteMenuBtn.textContent = isDeleting
-            ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-            : "Delete";
+        elements.facultyReservationDeleteMenuBtn.textContent = getDeleteMenuLabel(isDeleting, deleteMode);
     }
 
     if (isDeleting) {
@@ -1139,34 +1180,46 @@ async function handleFacultyReservationSubmit(event) {
     }
 }
 
-async function handleFacultyReservationDelete() {
+async function handleFacultyReservationCancel() {
     if (!selectedFacultyReservation || !canCurrentUserEditReservation(selectedFacultyReservation)) {
         return;
     }
 
     const reservationTitle = selectedFacultyReservation.title || "this reservation";
-    const shouldDelete = window.confirm(
-        `Delete "${reservationTitle}"? This cannot be undone.`
-    );
+    const willDelete = willCancelDelete(selectedFacultyReservation, attendees);
+    const shouldCancel = window.confirm(getCancelConfirmMessage(reservationTitle, willDelete));
 
-    if (!shouldDelete) {
+    if (!shouldCancel) {
         return;
     }
 
     setFacultyReservationStatus("");
-    setFacultyReservationDeleting(true);
+    setFacultyReservationDeleting(true, willDelete ? "delete" : "cancel");
 
     try {
-        await deleteEvent(selectedFacultyReservation);
-        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "deleted");
-        removeReservations([selectedFacultyReservation], reservedEvents, attendees);
+        const result = await cancelEvent(selectedFacultyReservation);
+
+        await discardDraftAfterReservationAction(facultyReservationDraftAutosave, "cancelled");
+
+        if (result?.outcome === "deleted") {
+            removeReservations([selectedFacultyReservation], reservedEvents, attendees);
+        } else {
+            moveReservationToCancelled(
+                selectedFacultyReservation,
+                result?.cancelled_at ?? new Date().toISOString(),
+                reservedEvents,
+                cancelledEvents
+            );
+            sortReservedEvents(cancelledEvents);
+        }
 
         closeFacultyReservationEditModal({ flushDraft: false });
         renderAll();
+        openCancelResultModal(elements.cancelResultModalOverlay, reservationTitle, result?.outcome);
     } catch (error) {
-        console.error("Could not delete reservation:", error);
+        console.error("Could not cancel reservation:", error);
         setFacultyReservationStatus(
-            error.message || "Could not delete reservation. Please try again.",
+            error.message || "Could not cancel reservation. Please try again.",
             "error"
         );
     } finally {
@@ -1366,6 +1419,22 @@ function bindEvents() {
         () => moveSelectedDateByDays(7)
     );
 
+    elements.myEventsToggle?.addEventListener("click", event => {
+        const button = event.target.closest("[data-view]");
+
+        if (!button) {
+            return;
+        }
+
+        myEventsView = button.dataset.view;
+        elements.myEventsToggle.querySelectorAll("[data-view]").forEach(viewButton => {
+            viewButton.setAttribute("aria-pressed", String(viewButton === button));
+        });
+        renderFacultyMyEvents();
+        // A new list starts at its top, not where the other one was scrolled to
+        elements.myEventsList.scrollTop = 0;
+    });
+
     elements.modalCloseBtn.addEventListener(
         "click",
         closeEventModal
@@ -1416,10 +1485,12 @@ function bindEvents() {
         );
     }
 
-    elements.facultyReservationDeleteBtn.addEventListener(
-        "click",
-        handleFacultyReservationDelete
-    );
+    if (elements.facultyReservationCancelReservationBtn) {
+        elements.facultyReservationCancelReservationBtn.addEventListener(
+            "click",
+            handleFacultyReservationCancel
+        );
+    }
 
     if (elements.facultyReservationDeleteSeriesBtn) {
         elements.facultyReservationDeleteSeriesBtn.addEventListener(
@@ -1443,6 +1514,7 @@ function bindEvents() {
     // Allows event modal to be closed by clicking background
     bindBackdropClose(elements.eventModalOverlay, closeEventModal);
     bindBackdropClose(elements.unavailableModalOverlay, closeUnavailableModal);
+    bindCancelResultModal(elements.cancelResultModalOverlay);
     bindBackdropClose(
         elements.facultyReservationModalOverlay,
         requestCloseFacultyReservationEditModal

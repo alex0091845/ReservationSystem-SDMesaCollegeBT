@@ -75,7 +75,7 @@ Every error the backend generates itself looks like this:
 | `401` | No session, expired session, or invalidated session. |
 | `403` | Logged in, but not allowed (not an admin / not the owner). |
 | `404` | The row does not exist (only on `/events/{id}` PATCH and DELETE). |
-| `409` | A delete was refused because other rows still reference this one. |
+| `409` | The request conflicts with the record's state: a refused delete or cancel, a locked time, or a check-in outside its window or already made. |
 | `502` | The database refused or failed the write for another reason. |
 | `500` | `{"error":"Internal server error"}` — deliberately generic. |
 
@@ -136,7 +136,8 @@ table names, constraint details, and database configuration are not exposed.
 | `POST` | `/api/events/batch` | login ★ | Create many |
 | `POST` | `/api/events/recurring` | login ★ | Create a weekly series compactly |
 | `PATCH` | `/api/events/{id}` | faculty owner/admin ★ | Update one, including its event type |
-| `DELETE` | `/api/events/{id}` | faculty owner/admin ★ | Delete one (+ its check-ins) |
+| `DELETE` | `/api/events/{id}` | faculty owner/admin ★ | Delete one that hasn't started and has no check-ins |
+| `POST` | `/api/events/{id}/cancel` | faculty owner/admin ★ | Cancel one: free its time, removing it if it never happened |
 | `GET` | `/api/reservation-drafts` | login | Your drafts |
 | `POST` | `/api/reservation-drafts` | login ★ | Save/update a draft |
 | `DELETE` | `/api/reservation-drafts/{id}` | login | Discard a draft |
@@ -533,7 +534,14 @@ does a non-admin. Like every closure change, this also advances the availability
 | `404` | `{"error":"Reservation not found."}` |
 | `403` | `{"error":"You do not have permission to modify this reservation."}` |
 | `403` | `{"error":"You do not have permission to save this reservation for that host."}` (you tried to reassign the host to someone else) |
+| `409` | `{"error":"Cancelled reservations can't be edited."}` |
+| `409` | `{"error":"The time of a reservation that has already started can't be changed."}` |
+| `400` | `{"error":"Reservations cannot be scheduled in the past."}` (an upcoming reservation moved to a past time) |
 | `400` | Validation message |
+
+Once a reservation has started, its start and end are part of the record. Its other details stay
+editable, so a past reservation can still be corrected; sending its current times unchanged is fine.
+An upcoming reservation can be moved, but only to another time in the future.
 
 The stored event ownership and the submitted `host_user_id` are both checked. Faculty can update
 their own event, including its event type, but cannot take over another faculty member's event or
@@ -552,10 +560,11 @@ first failing check only.
 
 **Success — `204 No Content`**, empty body.
 
-**What it does:** `attendees.event_id` has no `ON DELETE` rule, so Postgres will refuse to delete an
-event that has check-ins. This endpoint therefore **deletes the event's attendee rows first** —
-deleting a reservation is taken to discard its check-in records with it — and only then deletes the
-event. If the attendee cleanup fails, the reservation is left untouched.
+**What it does:** removes a reservation that never happened. Following C1 (#71), only a reservation
+that **hasn't started and has no check-ins** can be deleted, by its host or an admin alike. Anything
+else stays on record and can at most be cancelled (below). Check-ins are never deleted here.
+`attendees.event_id` has no `ON DELETE` rule, so a check-in that lands between the check and the
+delete makes Postgres refuse the delete, which also comes back as the `409` below.
 
 **Errors**
 
@@ -563,13 +572,54 @@ event. If the attendee cleanup fails, the reservation is left untouched.
 |---|---|
 | `404` | `{"error":"Reservation not found."}` |
 | `403` | `{"error":"You do not have permission to delete this reservation."}` |
-| `502` | `{"error":"The check-in records for this reservation could not be removed, so the reservation was left in place."}` |
-| `409` | `{"error":"This reservation is still referenced by other records, so it cannot be deleted."}` |
+| `409` | `{"error":"Past reservations can't be deleted."}` |
+| `409` | `{"error":"This reservation is in progress, so it can't be deleted. Cancel it instead."}` |
+| `409` | `{"error":"This reservation has check-ins, so it can't be deleted. Cancel it instead."}` |
 | `502` | `{"error":"The delete could not be completed. Please try again."}` |
 
 **There is no "delete series" endpoint.** The frontend deletes a recurring series by looking up
 every event sharing the `recurrence_group_id` and issuing one `DELETE` each, sequentially. That is
-not atomic — a failure part-way leaves the earlier ones deleted.
+not atomic — a failure part-way leaves the earlier ones deleted. Because occurrences that have
+started or have check-ins are now refused, deleting a series that is already under way stops at the
+first such occurrence.
+
+---
+
+### `POST /api/events/{id}/cancel`
+
+**Auth:** login — host or admin. No request body.
+
+**What it does:** frees the reservation's time so the room can be booked again straight away. This
+is the one action the faculty and admin pages use to call a reservation off.
+
+- If it **hasn't started and nobody has checked in**, there is nothing worth keeping, so it is
+  removed entirely (the same rules as `DELETE`).
+- Otherwise (it is in progress, or people checked in early) it sets `cancelled_at`. The reservation
+  stays in the database with its check-ins, but the overlap rule skips it. A cancelled reservation
+  can't be edited, take check-ins, or be un-cancelled.
+- If someone checks in between the check and the delete, the database refuses the delete and the
+  reservation is cancelled instead, so no check-in is lost.
+
+Only an active row is updated, so two cancels at once can't both apply. Saving Bookable Dates is
+different: it always cancels, so the host can still see what happened to their reservation.
+
+**Success — `200`** with `{"outcome":"deleted"}` or `{"outcome":"cancelled","cancelled_at":"…"}`.
+
+**Errors**
+
+| Status | Body |
+|---|---|
+| `404` | `{"error":"Reservation not found."}` |
+| `403` | `{"error":"Manage unavailable dates in Bookable Dates."}` |
+| `403` | `{"error":"You do not have permission to cancel this reservation."}` |
+| `409` | `{"error":"This reservation is already cancelled."}` |
+| `409` | `{"error":"Past reservations can't be cancelled."}` |
+| `502` | `{"error":"The cancellation could not be completed. Please try again."}` |
+
+**Who sees cancelled reservations:** `GET /api/events`, `/api/events/{id}` and
+`/api/events/by-user/{userId}` include them, with `cancelled_at`, for faculty and admins only;
+everyone else never receives them. `/api/events/public` leaves them out. The frontend keeps them off
+the calendar and shows them, labelled, in the host's My Events and the admin's reservation list.
 
 ---
 
@@ -727,7 +777,7 @@ attending an event sign themselves in from the public event modal, without an ac
 | `first_name` | string | ✅ |
 | `last_name` | string | |
 | `sdccd_id` | integer | |
-| `email` | string | |
+| `email` | string | ✅ |
 
 ```json
 { "event_id": 12, "first_name": "Grace", "last_name": "Hopper",
@@ -738,6 +788,12 @@ Because this endpoint is public, the body is **strictly whitelisted** — those 
 nothing else reach the database. `check_in_time` is set by the table default (`now()`) and cannot be
 supplied.
 
+**When check-in is open (C1 #71, C2 #102):** from 15 minutes before the event starts until 15
+minutes after it ends, judged by the server's clock rather than the page. Cancelled events and
+unavailable dates never accept check-ins. Each email can check in to an event once, ignoring
+upper/lower case. A unique index on `(event_id, lower(email))` backs this up when two submits
+arrive at the same moment.
+
 **Success: `201`** with the created row.
 
 **Errors**
@@ -746,19 +802,27 @@ supplied.
 |---|---|
 | `400` | `{"error":"event_id is required"}` |
 | `400` | `{"error":"first_name is required"}` |
+| `400` | `{"error":"email is required"}` |
+| `400` | `{"error":"email must be a valid email address"}` |
 | `400` | `{"error":"Malformed request body"}` |
+| `404` | `{"error":"Event not found."}` |
+| `409` | `{"error":"Check-in opens 15 minutes before the event starts."}` |
+| `409` | `{"error":"Check-in for this event has closed."}` |
+| `409` | `{"error":"This event has been cancelled."}` |
+| `409` | `{"error":"Unavailable dates cannot accept check-ins."}` |
+| `409` | `{"error":"This email is already checked in to this event."}` |
 
-Database rejections return a generic `502` error. PostgREST error details are not sent to the
+Other database rejections return a generic `502` error. PostgREST error details are not sent to the
 caller.
 
 ```bash
 curl -X POST http://localhost:8080/api/attendees \
   -H 'Content-Type: application/json' \
-  -d '{"event_id":12,"first_name":"Grace","last_name":"Hopper"}'
+  -d '{"event_id":12,"first_name":"Grace","last_name":"Hopper","email":"grace@student.sdccd.edu"}'
 ```
 
-**Note:** there is no rate limiting and no duplicate check. The same person can check in repeatedly,
-and anyone who knows an event id can post check-ins to it.
+**Note:** there is no rate limiting, and anyone who knows an event id can post check-ins to it
+while its window is open.
 
 ---
 
@@ -954,10 +1018,10 @@ a stale version returns `409` rather than overwriting another admin's work.
 Single, batch, and recurring creates validate every requested date before writing. Changes to an
 existing reservation's start or end also validate availability. Saving unavailable dates or
 shortening the cutoff cancels affected future or ongoing reservations.
-Confirmed cancellation uses the existing deletion behavior: related check-ins are removed first,
-then the reservation is deleted. Related drafts follow their existing database delete rules.
-There is no cancellation history and no cancellation-status column. Reopening a date does not
-recreate deleted reservations.
+Confirmed cancellation sets `cancelled_at` on each affected reservation, the same as
+`POST /api/events/{id}/cancel`: the reservation and its check-ins stay on record, and its time is
+freed. Already-cancelled reservations are not listed again. Reopening a date does not restore
+cancelled reservations.
 
 Before any cancellation is applied, save returns `409` with `conflicting_reservations` containing
 the affected reservations' IDs, titles, and start/end timestamps. No changes are made. After the

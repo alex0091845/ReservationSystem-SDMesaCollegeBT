@@ -119,6 +119,11 @@ function getOverlappingReservation({
             return false;
         }
 
+        // A cancelled reservation no longer holds its time
+        if (existingReservation.cancelled_at) {
+            return false;
+        }
+
         if (!isSameReservationRoom(reservationData, existingReservation)) {
             return false;
         }

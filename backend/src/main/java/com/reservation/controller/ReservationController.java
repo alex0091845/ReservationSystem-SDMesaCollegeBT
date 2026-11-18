@@ -32,6 +32,8 @@ public class ReservationController {
 
     private static final ZoneId RESERVATION_TIME_ZONE = ZoneId.of("America/Los_Angeles");
     private static final LocalTime RESERVATION_DAY_END = LocalTime.of(17, 0);
+    private static final String HAS_CHECK_INS_MESSAGE =
+        "This reservation has check-ins, so it can't be deleted. Cancel it instead.";
 
     private final SupabaseClient supabase;
     private final ObjectMapper objectMapper;
@@ -67,7 +69,9 @@ public class ReservationController {
 
     @GetMapping("/public")
     public ResponseEntity<String> getPublic() {
-        return ResponseEntity.ok(supabase.get("events?is_public=eq.true&select=*,users(first_name,last_name)"));
+        return ResponseEntity.ok(supabase.get(
+            "events?is_public=eq.true&cancelled_at=is.null&select=*,users(first_name,last_name)"
+        ));
     }
 
     private ResponseEntity<String> visibleEvents(String response, HttpServletRequest request) {
@@ -84,6 +88,11 @@ public class ReservationController {
 
             ArrayNode safeEvents = objectMapper.createArrayNode();
             for (JsonNode event : events) {
+                // Cancelled reservations are only shown to faculty and admins
+                if (isCancelled(event)) {
+                    continue;
+                }
+
                 if (event.path("is_public").asBoolean(false)) {
                     safeEvents.add(event);
                     continue;
@@ -263,6 +272,10 @@ public class ReservationController {
                 return jsonError(403, "You do not have permission to modify this reservation.");
             }
 
+            if (isCancelled(existingEvent)) {
+                return jsonError(409, "Cancelled reservations can't be edited.");
+            }
+
             ObjectNode eventBody = normalizeEventBody(body);
 
             if (!canSaveWithRequestedHost(request, eventBody)) {
@@ -270,6 +283,14 @@ public class ReservationController {
             }
 
             if (reservationTimesChanged(existingEvent, eventBody)) {
+                // Once a reservation has started, its time is part of the record. Moving it
+                // would also let a past reservation be shifted forward and then deleted.
+                if (hasStarted(existingEvent)) {
+                    return jsonError(409, "The time of a reservation that has already started can't be changed.");
+                }
+
+                // An upcoming reservation can be moved, but only to another future time
+                validateStartsInFuture(eventBody);
                 availability.validateDates(List.of(reservationDate(eventBody)));
             }
             return fromSupabase(supabase.patchResponse("events?id=eq." + id, objectMapper.writeValueAsString(eventBody)));
@@ -298,24 +319,140 @@ public class ReservationController {
             return jsonError(403, "You do not have permission to delete this reservation.");
         }
 
-        // attendees.event_id carries no ON DELETE rule, so Postgres refuses to remove an
-        // event while check-ins still point at it. Clear them first: deleting a
-        // reservation is taken to discard its check-in records along with it.
-        SupabaseClient.SupabaseResponse checkInCleanup =
-            supabase.delete("attendees?event_id=eq." + id);
+        String blockedReason = deletionBlockedReason(id, existingEvent);
 
-        if (!checkInCleanup.isSuccessful()) {
-            return jsonError(
-                502,
-                "The check-in records for this reservation could not be removed, " +
-                    "so the reservation was left in place."
-            );
+        if (blockedReason != null) {
+            return jsonError(409, blockedReason);
         }
 
+        // Check-ins are never cleared here. attendees.event_id has no ON DELETE rule, so if
+        // someone checks in after the check above, Postgres refuses the delete instead.
         return DeleteOutcome.toResponse(
             supabase.delete("events?id=eq." + id),
-            "This reservation is still referenced by other records, so it cannot be deleted."
+            HAS_CHECK_INS_MESSAGE
         );
+    }
+
+    // Cancelling gives the reservation's time back so others can book the room (C1 #71, R6 #100).
+    // One that never happened (not started, nobody checked in) is removed entirely; anything
+    // else is kept on record with its check-ins and marked cancelled.
+    @PostMapping("/{id}/cancel")
+    public ResponseEntity<String> cancel(@PathVariable int id, HttpServletRequest request) {
+        JsonNode existingEvent = getExistingEvent(id);
+
+        if (existingEvent == null) {
+            return jsonError(404, "Reservation not found.");
+        }
+
+        if (existingEvent.path("is_closure").asBoolean(false)) {
+            return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+        }
+
+        if (!canModifyExistingEvent(request, existingEvent)) {
+            return jsonError(403, "You do not have permission to cancel this reservation.");
+        }
+
+        if (isCancelled(existingEvent)) {
+            return jsonError(409, "This reservation is already cancelled.");
+        }
+
+        if (hasEnded(existingEvent)) {
+            return jsonError(409, "Past reservations can't be cancelled.");
+        }
+
+        if (deletionBlockedReason(id, existingEvent) == null) {
+            SupabaseClient.SupabaseResponse deleted = supabase.delete("events?id=eq." + id);
+
+            if (deleted.isSuccessful()) {
+                return cancelOutcome("deleted", null);
+            }
+
+            // Anything but a check-in landing after the check above is a real failure.
+            // A new check-in means the reservation must be kept, so cancel it instead.
+            if (!deleted.isForeignKeyViolation()) {
+                return jsonError(502, "The cancellation could not be completed. Please try again.");
+            }
+        }
+
+        ObjectNode cancellation = objectMapper.createObjectNode();
+        cancellation.put("cancelled_at", Instant.now().toString());
+
+        // Only a row that is still active matches, so two cancels at once can't both apply
+        SupabaseClient.SupabaseResponse response = supabase.patchResponse(
+            "events?id=eq." + id + "&cancelled_at=is.null",
+            cancellation.toString()
+        );
+
+        if (!response.isSuccessful()) {
+            return fromSupabase(response);
+        }
+
+        JsonNode cancelledRows = objectMapper.readTree(response.body());
+
+        if (!cancelledRows.isArray() || cancelledRows.isEmpty()) {
+            return jsonError(409, "This reservation is already cancelled.");
+        }
+
+        return cancelOutcome("cancelled", cancelledRows.get(0).path("cancelled_at").asText());
+    }
+
+    // Tells the page whether the reservation is gone or kept as cancelled
+    private ResponseEntity<String> cancelOutcome(String outcome, String cancelledAt) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("outcome", outcome);
+
+        if (cancelledAt != null) {
+            body.put("cancelled_at", cancelledAt);
+        }
+
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body.toString());
+    }
+
+    // C1 (#71): only a reservation that hasn't started and has no check-ins can be deleted.
+    // Anything else stays on record and can at most be cancelled. Returns null when the
+    // delete may go ahead.
+    private String deletionBlockedReason(int id, JsonNode existingEvent) {
+        if (hasEnded(existingEvent)) {
+            return "Past reservations can't be deleted.";
+        }
+
+        if (hasStarted(existingEvent)) {
+            return "This reservation is in progress, so it can't be deleted. Cancel it instead.";
+        }
+
+        if (hasCheckIns(id)) {
+            return HAS_CHECK_INS_MESSAGE;
+        }
+
+        return null;
+    }
+
+    private boolean hasCheckIns(int eventId) {
+        JsonNode checkIns = objectMapper.readTree(
+            supabase.get("attendees?event_id=eq." + eventId + "&select=id&limit=1")
+        );
+
+        if (!checkIns.isArray()) {
+            throw new IllegalStateException("Could not check this reservation's check-ins.");
+        }
+
+        return !checkIns.isEmpty();
+    }
+
+    private boolean hasStarted(JsonNode event) {
+        return !eventInstant(event, "start_time").isAfter(Instant.now());
+    }
+
+    private boolean hasEnded(JsonNode event) {
+        return !eventInstant(event, "end_time").isAfter(Instant.now());
+    }
+
+    private Instant eventInstant(JsonNode event, String fieldName) {
+        return parseReservationDateTime(event.path(fieldName).asText(), fieldName).toInstant();
+    }
+
+    private boolean isCancelled(JsonNode event) {
+        return event.hasNonNull("cancelled_at");
     }
 
     // An unavailable date's reason is its event description. Admins can change that one field
@@ -369,8 +506,9 @@ public class ReservationController {
         }
     }
 
-    // New reservations may not start in the past. Updates deliberately skip this check so
-    // an already-past reservation stays correctable (fixing a title, host, or attendees).
+    // New reservations may not start in the past. Updates only apply this check when they
+    // change the time, so an already-past reservation stays correctable (fixing a title,
+    // host, or attendees).
     private ObjectNode normalizeNewEventBody(String body) {
         ObjectNode event = normalizeEventBody(body);
 
@@ -467,7 +605,9 @@ public class ReservationController {
 
     private JsonNode getExistingEvent(int id) {
         try {
-            String response = supabase.get("events?id=eq." + id + "&select=id,host_user_id,start_time,end_time,is_closure");
+            String response = supabase.get(
+                "events?id=eq." + id + "&select=id,host_user_id,start_time,end_time,is_closure,cancelled_at"
+            );
             JsonNode events = objectMapper.readTree(response);
 
             if (!events.isArray() || events.isEmpty()) {
