@@ -37,7 +37,11 @@ import {
     moveReservationToCancelled,
     setReservationModalReadOnly,
     getDeleteMenuLabel,
-    getCancelConfirmMessage
+    getCancelConfirmMessage,
+    willCancelDelete,
+    getCancelOptionLabel,
+    openCancelResultModal,
+    bindCancelResultModal
 } from "./utils/reservationEditing.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
@@ -46,6 +50,7 @@ const userSearchInput = document.getElementById("userSearchInput");
 const userRoleFilter = document.getElementById("userRoleFilter");
 const userSortSelect = document.getElementById("userSortSelect");
 const adminUserDetails = document.getElementById("adminUserDetails");
+const cancelResultModalOverlay = document.getElementById("cancelResultModalOverlay");
 const createUserBtn = document.getElementById("createUserBtn");
 const adminSectionLinks = document.querySelectorAll("[data-admin-section]");
 const usersSections = document.querySelectorAll("#adminUsersSection, #adminUserReservationsSection");
@@ -643,6 +648,10 @@ async function openReservationEditModal(reservation) {
     renderAdminReservationAttendees(reservation);
     updateAdminReservationSeriesDeleteButton(reservation);
 
+    if (adminReservationCancelReservationBtn) {
+        adminReservationCancelReservationBtn.textContent = getCancelOptionLabel(reservation, attendees);
+    }
+
     const isCancelled = Boolean(reservation.cancelled_at);
 
     setReservationModalReadOnly(adminReservationModalOverlay, reservation.cancelled_at);
@@ -1056,14 +1065,15 @@ async function handleAdminReservationCancel() {
     }
 
     const reservationTitle = selectedReservation.title || "this reservation";
-    const shouldCancel = window.confirm(getCancelConfirmMessage(reservationTitle));
+    const willDelete = willCancelDelete(selectedReservation, attendees);
+    const shouldCancel = window.confirm(getCancelConfirmMessage(reservationTitle, willDelete));
 
     if (!shouldCancel) {
         return;
     }
 
     setAdminReservationStatus("");
-    setAdminReservationDeleting(true, "cancel");
+    setAdminReservationDeleting(true, willDelete ? "delete" : "cancel");
 
     try {
         const result = await cancelEvent(selectedReservation);
@@ -1083,6 +1093,7 @@ async function handleAdminReservationCancel() {
 
         renderUserDetails();
         closeReservationEditModal({ flushDraft: false });
+        openCancelResultModal(cancelResultModalOverlay, reservationTitle, result?.outcome);
     } catch (error) {
         console.error("Could not cancel reservation:", error);
         setAdminReservationStatus(
@@ -1217,6 +1228,7 @@ adminReservationDeleteSeriesBtn.addEventListener("click", handleAdminReservation
 bindBackdropClose(userModalOverlay, closeUserModal);
 bindBackdropClose(disableUserModalOverlay, closeDisableUserModal);
 bindBackdropClose(adminReservationModalOverlay, requestCloseReservationEditModal);
+bindCancelResultModal(cancelResultModalOverlay);
 
 document.addEventListener("keydown", event => {
     if (

@@ -56,6 +56,21 @@
     gap: 12px;
 }
 
+/* The Upcoming/Past toggle sits beside the title and drops below it on the narrowest phones */
+.my-events-header {
+    flex-wrap: wrap;
+}
+
+/* Zoom toolbars go full width on phones; this one only needs its buttons' width */
+.my-events-header .zoom-toolbar {
+    width: fit-content;
+}
+
+/* Smaller screens give the title a bottom margin, which would lift it above the toggle's middle */
+.my-events .my-events-header h3 {
+    margin-bottom: 0;
+}
+
 .my-events-header h3,
 .check-in-widget-header h3 {
     margin: 0;

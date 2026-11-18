@@ -194,7 +194,8 @@
     max-width: 860px;
 }
 
-.unavailable-modal {
+.unavailable-modal,
+.cancel-result-modal {
     max-width: 440px;
 }
 
