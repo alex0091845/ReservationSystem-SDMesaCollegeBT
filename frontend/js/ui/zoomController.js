@@ -23,11 +23,12 @@ let lastPointer = null;
 let isPointerBound = false;
 
 // Phones skip the Week level (the week strip in the Day view covers it), so on a
-// phone Back from Day goes straight to Month. Same breakpoint as the phone layout.
+// phone Back from Day goes straight to Month, and a day tapped in the Month view
+// opens that day. Same breakpoint as the phone layout.
 const phoneQuery = window.matchMedia("(max-width: 720px)");
 
-// The last nav draw, kept so the Back pill can be redrawn when the screen crosses
-// the phone breakpoint (its label depends on it).
+// The last nav draw, kept so the panel can be redrawn when the screen crosses the
+// phone breakpoint (the Back pill's label and what a tapped day opens depend on it).
 let lastNavDraw = null;
 let isPhoneQueryBound = false;
 
@@ -44,6 +45,7 @@ export function renderZoomStage({
     onSelectMonth,
     onChangeMonth,
     onSelectWeek,
+    onOpenDay,
     onSelectDate,
     openEventModal
 }) {
@@ -68,12 +70,6 @@ export function renderZoomStage({
     bindEscapeOnce();
     bindPhoneQueryOnce();
 
-    // The Back pill hides at Year. If it had keyboard focus, hand focus to the
-    // pressed zoom button instead of letting it drop to the top of the page.
-    if (navLostFocus) {
-        toolbar.querySelector('[aria-pressed="true"]')?.focus();
-    }
-
     yearStage.hidden = zoomLevel !== "year";
     monthStage.hidden = zoomLevel !== "month";
     dayStage.hidden = zoomLevel !== "day";
@@ -90,6 +86,13 @@ export function renderZoomStage({
             onShowYear,
             onSelectMonth
         });
+
+        // The Back pill hides at Year. If it had keyboard focus, hand focus to the month
+        // we came from, so focus doesn't drop to the top of the page. (The pill only
+        // shows on phones, where the zoom buttons are hidden, so they can't take it.)
+        if (navLostFocus) {
+            yearStage.querySelectorAll(".year-month")[selectedDate.getMonth()]?.focus();
+        }
     }
 
     if (zoomLevel === "month") {
@@ -99,6 +102,8 @@ export function renderZoomStage({
             reservedEvents,
             onChangeMonth,
             onSelectWeek,
+            // Phones have no Week level, so there a tapped day opens in the Day view.
+            onOpenDay: phoneQuery.matches ? onOpenDay : null,
             openEventModal
         });
     }
@@ -227,8 +232,10 @@ function createBackChevron() {
     return icon;
 }
 
-// Redraws the Back pill when the screen crosses the phone breakpoint, so its label
-// and target follow (e.g. Day goes up to Week on a laptop, to Month on a phone).
+// Redraws the panel at the same zoom level when the screen crosses the phone breakpoint,
+// as a reload would. CSS swaps the Back pill and the zoom buttons on its own, but the
+// pill's label and target (Day goes up to Week on a laptop, to Month on a phone) and
+// what a day tapped in the Month view opens are set when the panel is drawn.
 function bindPhoneQueryOnce() {
     if (isPhoneQueryBound) {
         return;
@@ -238,7 +245,7 @@ function bindPhoneQueryOnce() {
 
     phoneQuery.addEventListener("change", () => {
         if (lastNavDraw && lastNavDraw.nav.isConnected) {
-            renderNav(lastNavDraw.nav, lastNavDraw.args);
+            lastNavDraw.args.onSetZoomLevel(lastNavDraw.args.zoomLevel);
         }
     });
 }

@@ -1,4 +1,4 @@
-/* Zoom Calendar (prototype): Back pill (phones), zoom buttons, and the Year, Month and Day levels */
+/* Zoom Calendar (prototype): Back pill (phones), zoom buttons (wider screens), and the Year, Month and Day levels */
 
 /* Accessible colors (WCAG 2.1 AA). The reasoning and measured contrast ratios are in docs/ACCESSIBILITY_COLORS.md */
 :root {
@@ -8,7 +8,7 @@
     --a11y-text-on-fill: #111827; /* 6.32:1 on Mesa orange, 5.01:1 on Mesa green, needs 4.5:1 */
 }
 
-/* One row above the calendar: the Back pill on the left (phones only), zoom buttons on the right. */
+/* One row above the calendar: the Back pill on phones, the zoom buttons on wider screens. */
 .zoom-bar {
     display: flex;
     flex-wrap: wrap;
@@ -568,7 +568,8 @@
         margin-bottom: 10px;
     }
 
-    /* On a phone the Back pill's row sits above a full-width row of zoom buttons. */
+    /* On a phone the Back pill gets a row of its own. (The My Events Upcoming / Past
+       switch shares the zoom buttons' classes, so it fills its row too.) */
     .zoom-nav,
     .zoom-toolbar {
         width: 100%;
@@ -745,19 +746,12 @@
 }
 
 @media (max-width: 720px) {
-    .zoom-actions {
-        width: 100%;
-    }
-
-    .zoom-actions .zoom-toolbar {
-        flex: 1 1 190px;
-        width: auto;
-        min-width: 0;
-    }
-
-    /* Four zoom buttons plus Today share one row, so each gets less side padding. */
-    .zoom-actions .zoom-level-btn {
-        padding: 0 6px;
+    /* Phones have no zoom buttons (decided Nov 17): tap a month or a day to open it, and
+       the Back pill goes up a level. Scoped to the calendar panel, because the Upcoming /
+       Past switch in My Events uses the same classes. */
+    .zoom-actions,
+    .week-view .zoom-toolbar {
+        display: none;
     }
 
     .zoom-today-btn {
