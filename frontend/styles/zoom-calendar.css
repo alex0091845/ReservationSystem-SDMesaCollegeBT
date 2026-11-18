@@ -1,4 +1,4 @@
-/* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, and the Year, Month and Day levels */
+/* Zoom Calendar (prototype): breadcrumb, zoom buttons, and the Year, Month and Day levels */
 
 /* Accessible colors (WCAG 2.1 AA). The reasoning and measured contrast ratios are in docs/ACCESSIBILITY_COLORS.md */
 :root {
@@ -8,7 +8,7 @@
     --a11y-text-on-fill: #111827; /* 6.32:1 on Mesa orange, 5.01:1 on Mesa green, needs 4.5:1 */
 }
 
-/* One row above the calendar: Back + breadcrumb on the left, zoom buttons on the right. */
+/* One row above the calendar: breadcrumb on the left, zoom buttons on the right. */
 .zoom-bar {
     display: flex;
     flex-wrap: wrap;
@@ -156,6 +156,23 @@
     margin-bottom: 14px;
 }
 
+.year-header,
+.month-header,
+.week-view-header {
+    display: grid;
+    grid-template-columns: 34px auto 34px minmax(0, 1fr) auto;
+    align-items: normal;
+    gap: 17px;
+}
+
+.year-header .zoom-toolbar,
+.month-header .zoom-toolbar,
+.week-view-header .zoom-toolbar {
+    grid-column: 5;
+    justify-self: end;
+    margin-bottom: 17px;
+}
+
 .year-title,
 .month-title,
 .day-title {
@@ -165,6 +182,12 @@
     font-weight: bold;
     line-height: 1.2;
     text-align: center;
+}
+
+.year-header .year-title,
+.month-header .month-title,
+.week-view-header .week-view-title {
+    text-align: left;
 }
 
 /* Month level: one row per week; the whole row is the click target. */
@@ -668,6 +691,20 @@
 
     .year-month-days {
         gap: 2px;
+    }
+
+    .year-header,
+    .month-header,
+    .week-view-header {
+        grid-template-columns: 34px minmax(0, 1fr) 34px;
+    }
+
+    .year-header .zoom-toolbar,
+    .month-header .zoom-toolbar,
+    .week-view-header .zoom-toolbar {
+        grid-column: 1 / -1;
+        justify-self: stretch;
+        margin-bottom: 0;
     }
 }
 

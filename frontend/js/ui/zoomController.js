@@ -1,4 +1,3 @@
-import { monthNames, weekdayNames } from "../utils/dateUtils.js";
 import { renderDayView } from "./dayView.js";
 import { renderMonthStage } from "./monthStage.js";
 import { renderYearView } from "./yearView.js";
@@ -22,7 +21,7 @@ let lastZoomLevel = null;
 let lastPointer = null;
 let isPointerBound = false;
 
-// Draws the Back button, the breadcrumb and the zoom buttons, and shows the panel
+// Draws the zoom buttons and shows the panel
 // for the current zoom level. State lives in main.js; this module only renders.
 export function renderZoomStage({
     weekView,
@@ -43,18 +42,18 @@ export function renderZoomStage({
     }
 
     const bar = getOrCreateChild(weekView, "zoom-bar", "prepend");
-    const nav = getOrCreateChild(bar, "zoom-nav", "append");
-    const actions = getOrCreateChild(bar, "zoom-actions", "append");
-    const todaySlot = getOrCreateChild(actions, "zoom-today", "append");
-    const toolbar = getOrCreateChild(actions, "zoom-toolbar", "append");
+    const toolbar = weekView.querySelector(".zoom-toolbar") ||
+        getOrCreateChild(bar, "zoom-toolbar", "append");
     const yearStage = getOrCreateChild(weekView, "year-stage", "append");
     const monthStage = getOrCreateChild(weekView, "month-stage", "append");
     const dayStage = getOrCreateChild(weekView, "day-stage", "append");
+    let activeHeader = null;
 
     // CSS in zoom-calendar.css hides the week header and grid while another level is showing.
     weekView.dataset.zoomLevel = zoomLevel;
-    renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel });
-    renderTodayButton(todaySlot, { zoomLevel, year, selectedDate, onSelectDate });
+    const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
+    const parentLevel = currentIndex > 0 ? ZOOM_LEVELS[currentIndex - 1] : null;
+    zoomOut = parentLevel ? () => onSetZoomLevel(parentLevel.id) : null;
     renderToolbar(toolbar, zoomLevel, onSetZoomLevel);
     bindEscapeOnce();
 
@@ -74,6 +73,7 @@ export function renderZoomStage({
             onShowYear,
             onSelectMonth
         });
+        activeHeader = yearStage.querySelector(".year-header");
     }
 
     if (zoomLevel === "month") {
@@ -85,6 +85,11 @@ export function renderZoomStage({
             onSelectWeek,
             openEventModal
         });
+        activeHeader = monthStage.querySelector(".month-header");
+    }
+
+    if (zoomLevel === "week") {
+        activeHeader = weekView.querySelector(":scope > .week-view-header");
     }
 
     if (zoomLevel === "day") {
@@ -96,6 +101,11 @@ export function renderZoomStage({
             openEventModal
         });
     }
+
+    if (activeHeader) {
+        activeHeader.appendChild(toolbar);
+    }
+    bar.hidden = true;
 
     bindPointerOnce(weekView);
     playZoomAnimation(weekView, zoomLevel);
@@ -114,104 +124,6 @@ function getOrCreateChild(parent, className, position) {
     parent[position](child);
 
     return child;
-}
-
-// The words shown in the breadcrumb for one level, e.g. "2026", "October", "Week of Oct 4", "Fri, Oct 9".
-function getCrumbLabel(levelId, { zoomLevel, year, selectedDate }) {
-    if (levelId === "year") {
-        // In the Year view the arrows can move to a year other than the selected date's.
-        return String(zoomLevel === "year" ? year : selectedDate.getFullYear());
-    }
-
-    if (levelId === "month") {
-        return monthNames[selectedDate.getMonth()];
-    }
-
-    if (levelId === "week") {
-        const weekStart = new Date(selectedDate);
-
-        weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-
-        return `Week of ${formatShortDate(weekStart)}`;
-    }
-
-    return `${weekdayNames[selectedDate.getDay()]}, ${formatShortDate(selectedDate)}`;
-}
-
-function formatShortDate(dateObj) {
-    return `${monthNames[dateObj.getMonth()].slice(0, 3)} ${dateObj.getDate()}`;
-}
-
-// Back button plus breadcrumb. The breadcrumb lists every level from Year down to
-// the one showing; the levels above the current one are buttons that zoom out to them.
-function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
-    const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
-    const parentLevel = ZOOM_LEVELS[currentIndex - 1] || null;
-    const labelContext = { zoomLevel, year, selectedDate };
-    const hadFocus = nav.contains(document.activeElement);
-
-    zoomOut = parentLevel ? () => onSetZoomLevel(parentLevel.id) : null;
-    nav.innerHTML = "";
-
-    const backButton = document.createElement("button");
-
-    backButton.type = "button";
-    backButton.classList.add("zoom-back-btn");
-    backButton.textContent = "← Back";
-    backButton.disabled = !parentLevel;
-
-    if (parentLevel) {
-        backButton.title = "Back (Esc)";
-        backButton.setAttribute(
-            "aria-label",
-            `Back to ${getCrumbLabel(parentLevel.id, labelContext)}`
-        );
-        backButton.addEventListener("click", zoomOut);
-    }
-
-    const breadcrumb = document.createElement("nav");
-
-    breadcrumb.classList.add("zoom-breadcrumb");
-    breadcrumb.setAttribute("aria-label", "Calendar location");
-
-    ZOOM_LEVELS.slice(0, currentIndex + 1).forEach((level, index) => {
-        if (index > 0) {
-            const separator = document.createElement("span");
-
-            separator.classList.add("zoom-crumb-separator");
-            separator.setAttribute("aria-hidden", "true");
-            separator.textContent = "›";
-            breadcrumb.appendChild(separator);
-        }
-
-        const label = getCrumbLabel(level.id, labelContext);
-
-        if (index === currentIndex) {
-            const current = document.createElement("span");
-
-            current.classList.add("zoom-crumb-current");
-            current.setAttribute("aria-current", "location");
-            current.textContent = label;
-            breadcrumb.appendChild(current);
-
-            return;
-        }
-
-        const crumb = document.createElement("button");
-
-        crumb.type = "button";
-        crumb.classList.add("zoom-crumb");
-        crumb.textContent = label;
-        crumb.addEventListener("click", () => onSetZoomLevel(level.id));
-        breadcrumb.appendChild(crumb);
-    });
-
-    nav.append(backButton, breadcrumb);
-
-    // Redrawing replaces the buttons, so hand keyboard focus back to the new Back button.
-    if (hadFocus && parentLevel) {
-        backButton.focus();
-    }
 }
 
 // Esc zooms out one level. Bound once; it always uses the latest zoomOut action.
@@ -262,8 +174,8 @@ function renderToolbar(toolbar, zoomLevel, onSetZoomLevel) {
     });
 }
 
-// Remembers where the last click inside the panel landed. Clicks on the bar at the top
-// (Back, breadcrumb, zoom buttons) are ignored, so those zoom from the middle instead.
+// Remembers where the last click inside the panel landed. Clicks on the zoom buttons
+// are ignored, so those zoom from the middle instead.
 function bindPointerOnce(weekView) {
     if (isPointerBound) {
         return;
@@ -321,33 +233,4 @@ function playZoomAnimation(weekView, zoomLevel) {
             child.style.transformOrigin = "";
         }, { once: true });
     });
-}
-
-// A "Today" button that jumps back to today without changing the zoom level.
-// It is switched off while today is already on screen.
-function renderTodayButton(slot, { zoomLevel, year, selectedDate, onSelectDate }) {
-    const now = new Date();
-    const hadFocus = slot.contains(document.activeElement);
-    const isShowingToday = zoomLevel === "year"
-        ? year === now.getFullYear()
-        : selectedDate.getFullYear() === now.getFullYear() &&
-            selectedDate.getMonth() === now.getMonth() &&
-            selectedDate.getDate() === now.getDate();
-    const button = document.createElement("button");
-
-    button.type = "button";
-    button.classList.add("zoom-today-btn");
-    button.textContent = "Today";
-    button.disabled = isShowingToday;
-    button.addEventListener("click", () => {
-        onSelectDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
-    });
-
-    slot.innerHTML = "";
-    slot.appendChild(button);
-
-    // Redrawing replaces the button, so hand keyboard focus back to the new one.
-    if (hadFocus && !isShowingToday) {
-        button.focus();
-    }
 }
