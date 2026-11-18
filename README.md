@@ -195,6 +195,8 @@ Apply them to your Supabase/PostgreSQL instance (e.g. via the Supabase SQL edito
 
 There is no CI yet — deploys are manual.
 
+To run both halves (front- and backend) on one DigitalOcean Droplet instead, see [`docs/DEPLOY_DROPLET.md`](docs/DEPLOY_DROPLET.md).
+
 **Frontend → S3**
 
 ```bash

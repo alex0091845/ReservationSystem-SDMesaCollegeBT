@@ -520,6 +520,10 @@ matches their user ID. Admins can update any event.
 > event, not just the changed field. Any field you omit is also cleared from the update payload, so
 > a partial body would blank nothing but fail validation first.
 
+**Unavailable dates** are the one exception. An admin can send only `{"description":"..."}` to set
+the reason on a closure row, and blank text or `null` clears it. Any other field returns `403`, as
+does a non-admin. Like every closure change, this also advances the availability `version`.
+
 **Success** — array containing the updated row.
 
 **Errors**
@@ -964,9 +968,10 @@ another confirmation; a stale availability version still returns a version confl
 Each unavailable day is a public `events` row with `is_closure: true`, `event_type: "Unavailable"`,
 a default title of "Unavailable", and timestamps from 8 AM to 5 PM on that date in Pacific time. Closures
 have no host and cannot accept check-ins. They appear in the normal event feed and existing
-calendar/card/detail renderers. Closures are omitted from Upcoming Events. The regular event create,
-update, and delete routes cannot change closures; use the availability endpoint. The reserved type
-is omitted from reservation form options.
+calendar/card/detail renderers. Closures are omitted from Upcoming Events. The regular event create
+and delete routes cannot change closures, and the update route accepts only an admin's new
+`description`, which is the date's public reason. Use the availability endpoint for everything else.
+The reserved type is omitted from reservation form options.
 
 Saving reconciles future closure dates through the requested cutoff. Existing closure rows keep
 their IDs, titles, and descriptions when still blocked. Past closures and closures beyond the
@@ -1012,6 +1017,7 @@ constraint messages, table details, or Supabase response bodies to the browser.
 ### 5. `PATCH /api/events/{id}` requires the whole object
 
 It re-validates as if it were a create. Send all eight required fields, not just what changed.
+The exception is an unavailable date, which accepts only `description`.
 
 ### 6. Sessions accumulate until cleanup is configured
 

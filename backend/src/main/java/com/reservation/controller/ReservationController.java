@@ -256,7 +256,7 @@ public class ReservationController {
             }
 
             if (existingEvent.path("is_closure").asBoolean(false)) {
-                return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+                return updateClosureDescription(id, body, request);
             }
 
             if (!canModifyExistingEvent(request, existingEvent)) {
@@ -316,6 +316,45 @@ public class ReservationController {
             supabase.delete("events?id=eq." + id),
             "This reservation is still referenced by other records, so it cannot be deleted."
         );
+    }
+
+    // An unavailable date's reason is its event description. Admins can change that one field
+    // here; everything else about a closure stays with the Bookable Dates save.
+    private ResponseEntity<String> updateClosureDescription(int id, String body, HttpServletRequest request) {
+        JsonNode currentUser = getCurrentUser(request);
+
+        if (currentUser == null || !authService.isAdmin(currentUser)) {
+            return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+        }
+
+        JsonNode input;
+
+        try {
+            input = objectMapper.readTree(body);
+        } catch (Exception error) {
+            throw new IllegalArgumentException("Event body could not be parsed.");
+        }
+
+        if (!input.isObject() || input.size() != 1 || !input.has("description")) {
+            return jsonError(403, "Manage unavailable dates in Bookable Dates.");
+        }
+
+        JsonNode description = input.get("description");
+
+        if (!description.isNull() && !description.isTextual()) {
+            throw new IllegalArgumentException("Description must be text.");
+        }
+
+        String reason = description.isNull() ? "" : description.asText().trim();
+        ObjectNode closureBody = objectMapper.createObjectNode();
+
+        if (reason.isEmpty()) {
+            closureBody.putNull("description");
+        } else {
+            closureBody.put("description", reason);
+        }
+
+        return fromSupabase(supabase.patchResponse("events?id=eq." + id, objectMapper.writeValueAsString(closureBody)));
     }
 
     private ObjectNode normalizeEventBody(String body) {

@@ -90,6 +90,10 @@
     color: #1f2937;
 }
 
+#availabilityReasonStatus:empty {
+    display: none;
+}
+
 #availabilitySave {
     min-height: 40px;
 }
@@ -335,6 +339,10 @@
     margin: 0 0 0 auto;
 }
 
+#reservationAvailability .availability-reason-hint {
+    margin: 0;
+}
+
 #reservationAvailability .availability-swatch {
     width: 14px;
     height: 14px;
@@ -417,6 +425,10 @@
 @media (pointer: coarse) {
     #reservationAvailability .year-month-days {
         grid-auto-rows: 44px;
+    }
+
+    #reservationAvailability .availability-reason-hint {
+        display: none;
     }
 
     #reservationAvailability .availability-month-name,
