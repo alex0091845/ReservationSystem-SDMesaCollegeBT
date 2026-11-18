@@ -31,7 +31,7 @@ const phoneQuery = window.matchMedia("(max-width: 720px)");
 let lastNavDraw = null;
 let isPhoneQueryBound = false;
 
-// Draws the Back button, the breadcrumb and the zoom buttons, and shows the panel
+// Draws the Back pill and the zoom buttons, and shows the panel
 // for the current zoom level. State lives in main.js; this module only renders.
 export function renderZoomStage({
     weekView,
@@ -132,8 +132,9 @@ function getOrCreateChild(parent, className, position) {
     return child;
 }
 
-// The words shown in the breadcrumb for one level, e.g. "2026", "October", "Week of Oct 4", "Fri, Oct 9".
-function getCrumbLabel(levelId, { zoomLevel, year, selectedDate }) {
+// The words for one level, e.g. "2026", "October", "Week of Oct 4", "Fri, Oct 9".
+// The Back pill shows the one for the level above.
+function getLevelLabel(levelId, { zoomLevel, year, selectedDate }) {
     if (levelId === "year") {
         // In the Year view the arrows can move to a year other than the selected date's.
         return String(zoomLevel === "year" ? year : selectedDate.getFullYear());
@@ -158,12 +159,11 @@ function formatShortDate(dateObj) {
     return `${monthNames[dateObj.getMonth()].slice(0, 3)} ${dateObj.getDate()}`;
 }
 
-// The Back pill plus the breadcrumb. The pill names the level above, e.g. "‹ November",
-// and zooms out to it. The breadcrumb lists every level from Year down to the one
-// showing; the levels above the current one are buttons that zoom out to them.
+// The Back pill names the level above, e.g. "‹ November", and zooms out to it.
+// It shows on phones only; CSS hides it on wider screens, where the Year / Month /
+// Week / Day buttons do the same job and Esc still zooms out.
 // Returns true when the pill had keyboard focus and is now hidden (at Year).
 function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
-    const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
     const parentLevel = getParentLevel(zoomLevel);
     const labelContext = { zoomLevel, year, selectedDate };
     const hadFocus = nav.contains(document.activeElement);
@@ -179,7 +179,7 @@ function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
     backButton.hidden = !parentLevel;
 
     if (parentLevel) {
-        const parentLabel = getCrumbLabel(parentLevel.id, labelContext);
+        const parentLabel = getLevelLabel(parentLevel.id, labelContext);
 
         backButton.title = "Back (Esc)";
         backButton.setAttribute("aria-label", `Back to ${parentLabel}`);
@@ -187,46 +187,9 @@ function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
         backButton.addEventListener("click", zoomOut);
     }
 
-    const breadcrumb = document.createElement("nav");
+    nav.append(backButton);
 
-    breadcrumb.classList.add("zoom-breadcrumb");
-    breadcrumb.setAttribute("aria-label", "Calendar location");
-
-    ZOOM_LEVELS.slice(0, currentIndex + 1).forEach((level, index) => {
-        if (index > 0) {
-            const separator = document.createElement("span");
-
-            separator.classList.add("zoom-crumb-separator");
-            separator.setAttribute("aria-hidden", "true");
-            separator.textContent = "›";
-            breadcrumb.appendChild(separator);
-        }
-
-        const label = getCrumbLabel(level.id, labelContext);
-
-        if (index === currentIndex) {
-            const current = document.createElement("span");
-
-            current.classList.add("zoom-crumb-current");
-            current.setAttribute("aria-current", "location");
-            current.textContent = label;
-            breadcrumb.appendChild(current);
-
-            return;
-        }
-
-        const crumb = document.createElement("button");
-
-        crumb.type = "button";
-        crumb.classList.add("zoom-crumb");
-        crumb.textContent = label;
-        crumb.addEventListener("click", () => onSetZoomLevel(level.id));
-        breadcrumb.appendChild(crumb);
-    });
-
-    nav.append(backButton, breadcrumb);
-
-    // Redrawing replaces the buttons, so hand keyboard focus back to the new Back button.
+    // Redrawing replaces the button, so hand keyboard focus back to the new Back pill.
     if (hadFocus && parentLevel) {
         backButton.focus();
     }
@@ -329,7 +292,7 @@ function renderToolbar(toolbar, zoomLevel, onSetZoomLevel) {
 }
 
 // Remembers where the last click inside the panel landed. Clicks on the bar at the top
-// (Back, breadcrumb, zoom buttons) are ignored, so those zoom from the middle instead.
+// (Back pill, zoom buttons) are ignored, so those zoom from the middle instead.
 function bindPointerOnce(weekView) {
     if (isPointerBound) {
         return;

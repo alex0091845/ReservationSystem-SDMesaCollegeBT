@@ -1,4 +1,4 @@
-/* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, and the Year, Month and Day levels */
+/* Zoom Calendar (prototype): Back pill (phones), zoom buttons, and the Year, Month and Day levels */
 
 /* Accessible colors (WCAG 2.1 AA). The reasoning and measured contrast ratios are in docs/ACCESSIBILITY_COLORS.md */
 :root {
@@ -8,7 +8,7 @@
     --a11y-text-on-fill: #111827; /* 6.32:1 on Mesa orange, 5.01:1 on Mesa green, needs 4.5:1 */
 }
 
-/* One row above the calendar: Back + breadcrumb on the left, zoom buttons on the right. */
+/* One row above the calendar: the Back pill on the left (phones only), zoom buttons on the right. */
 .zoom-bar {
     display: flex;
     flex-wrap: wrap;
@@ -25,8 +25,8 @@
     min-width: 0;
 }
 
-/* The Back pill names the level above, e.g. "‹ November". Same look on desktop and phone
-   (shared header rules: Mesa Blue text on the #eef2f7 pill, 44px tall). Text: 6.6:1. */
+/* The Back pill names the level above, e.g. "‹ November". Phones only (decided Nov 17):
+   Mesa Blue text on the #eef2f7 pill, 44px tall. Text: 6.6:1. */
 .zoom-back-btn {
     display: inline-flex;
     flex-shrink: 0;
@@ -55,6 +55,14 @@
     display: none;
 }
 
+/* Wider than a phone: no Back pill. The Year / Month / Week / Day buttons do the same
+   job there, and Esc still zooms out. */
+@media (min-width: 721px) {
+    .zoom-back-btn {
+        display: none;
+    }
+}
+
 .zoom-back-icon {
     flex-shrink: 0;
     fill: none;
@@ -62,39 +70,6 @@
     stroke-width: 2.5;
     stroke-linecap: round;
     stroke-linejoin: round;
-}
-
-.zoom-breadcrumb {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 2px 6px;
-    min-width: 0;
-    font-size: 14px;
-}
-
-.zoom-crumb {
-    padding: 4px 2px;
-    border: none;
-    border-radius: var(--radius-control);
-    background: transparent;
-    color: var(--mesa-blue);
-    font-family: inherit;
-    font-size: inherit;
-    font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 3px;
-    cursor: pointer;
-}
-
-.zoom-crumb-current {
-    padding: 4px 2px;
-    color: #1f2937;
-    font-weight: 700;
-}
-
-.zoom-crumb-separator {
-    color: #6b7280;
 }
 
 .zoom-toolbar {
@@ -126,7 +101,6 @@
 
 .zoom-level-btn:focus-visible,
 .zoom-back-btn:focus-visible,
-.zoom-crumb:focus-visible,
 .month-day-number:focus-visible,
 .year-month:focus-visible {
     outline: 3px solid var(--a11y-focus-ring);
@@ -594,7 +568,7 @@
         margin-bottom: 10px;
     }
 
-    /* On a phone the breadcrumb row sits above a full-width row of zoom buttons. */
+    /* On a phone the Back pill's row sits above a full-width row of zoom buttons. */
     .zoom-nav,
     .zoom-toolbar {
         width: 100%;
@@ -602,16 +576,6 @@
 
     .zoom-back-btn {
         min-height: 44px;
-    }
-
-    /* On a phone the Back pill already names the level above, so the breadcrumb steps aside. */
-    .zoom-breadcrumb {
-        display: none;
-    }
-
-    .zoom-crumb,
-    .zoom-crumb-current {
-        padding: 10px 2px;
     }
 
     .zoom-level-btn {
