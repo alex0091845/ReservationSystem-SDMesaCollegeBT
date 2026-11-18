@@ -89,7 +89,8 @@ class ReservationControllerOwnershipTest {
 
     private void stubExistingEvent(long hostUserId) {
         when(supabase.get(contains("select=id,host_user_id"))).thenReturn(
-            "[{\"id\":7,\"host_user_id\":" + hostUserId + "}]"
+            "[{\"id\":7,\"host_user_id\":" + hostUserId +
+                ",\"start_time\":\"2099-07-14T16:00:00Z\",\"end_time\":\"2099-07-14T17:00:00Z\"}]"
         );
     }
 

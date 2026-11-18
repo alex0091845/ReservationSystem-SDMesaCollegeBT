@@ -16,12 +16,15 @@ export function createEventCard({
 }) {
     const card = document.createElement("button");
     const privateEvent = isPrivateEventForCurrentUser(event);
+    const cancelledEvent = Boolean(event.cancelled_at);
 
     card.type = "button";
     card.className = [
         "upcoming-event-card",
         ...normalizeClassNames(classNames),
-        privateEvent ? "private-event-card" : getEventColorClass(event.event_type)
+        privateEvent
+            ? "private-event-card"
+            : (cancelledEvent ? "cancelled-event-card" : getEventColorClass(event.event_type))
     ].join(" ");
 
     if (privateEvent) {
@@ -32,6 +35,10 @@ export function createEventCard({
             createEventCardText("upcoming-event-date", formatEventDate(event)),
             createEventCardText("upcoming-event-time", formatEventTime(event))
         );
+
+        if (cancelledEvent) {
+            card.appendChild(createEventCardText("upcoming-event-time", formatCancelledOn(event)));
+        }
     }
 
     if (showAttendeeCount && !privateEvent && !event.is_closure) {
@@ -120,6 +127,16 @@ export function formatEventTime(event) {
     });
 
     return `${startTime} - ${endTime}`;
+}
+
+function formatCancelledOn(event) {
+    const cancelledAt = new Date(event.cancelled_at);
+
+    if (Number.isNaN(cancelledAt.getTime())) {
+        return "Cancelled";
+    }
+
+    return `Cancelled on ${cancelledAt.toLocaleDateString([], { month: "short", day: "numeric" })}`;
 }
 
 function createEventCardText(className, textContent) {

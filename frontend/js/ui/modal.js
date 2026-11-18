@@ -283,8 +283,13 @@ export function createModalController(elements) {
             );
         } catch (error) {
             console.error("Could not check in attendee:", error);
+            // A 4xx carries the server's reason, e.g. check-in not open yet or already checked in
+            const serverReason = error.status >= 400 && error.status < 500
+                ? error.data?.error
+                : "";
+
             setCheckInStatus(
-                "Could not complete check-in. Please try again.",
+                serverReason || "Could not complete check-in. Please try again.",
                 "error"
             );
         } finally {
@@ -357,10 +362,12 @@ async function openReservationModal() {
     reservationModalOverlay.setAttribute("aria-hidden", "false");
     const existingReservations = await getEvents();
     reservationTimePicker.setUnavailableRanges(
-        existingReservations.map(reservation => ({
-            start: reservation.start_time,
-            end: reservation.end_time
-        }))
+        existingReservations
+            .filter(reservation => !reservation.cancelled_at)
+            .map(reservation => ({
+                start: reservation.start_time,
+                end: reservation.end_time
+            }))
     );
     reservationTimePicker.setWeekFromDate(new Date());
     await reservationDraftAutosave.activate();

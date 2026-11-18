@@ -7,7 +7,7 @@ import {
     createUser,
     updateUser,
     updateEvent,
-    deleteEvent,
+    cancelEvent,
     disableUser,
     enableUser,
     logoutUser,
@@ -32,7 +32,12 @@ import {
     getReservationSeries,
     deleteReservations,
     bindBackdropClose,
-    removeReservations
+    removeReservations,
+    splitCancelledReservations,
+    moveReservationToCancelled,
+    setReservationModalReadOnly,
+    getDeleteMenuLabel,
+    getCancelConfirmMessage
 } from "./utils/reservationEditing.js";
 
 const facultyUserList = document.getElementById("facultyUserList");
@@ -70,7 +75,7 @@ const disableUserWarning = document.getElementById("disableUserWarning");
 const adminReservationModalOverlay = document.getElementById("adminReservationModalOverlay");
 const adminReservationModalCloseBtn = document.getElementById("adminReservationModalCloseBtn");
 const adminReservationCancelBtn = document.getElementById("adminReservationCancelBtn");
-const adminReservationDeleteBtn = document.getElementById("adminReservationDeleteBtn");
+const adminReservationCancelReservationBtn = document.getElementById("adminReservationCancelReservationBtn");
 const adminReservationDeleteSeriesBtn = document.getElementById("adminReservationDeleteSeriesBtn");
 const adminReservationDeleteMenuBtn = document.getElementById("adminReservationDeleteMenuBtn");
 const adminReservationDeleteOptions = document.getElementById("adminReservationDeleteOptions");
@@ -90,6 +95,8 @@ const adminReservationDeleteMenu = createActionMenu({
 
 let users = [];
 let reservations = [];
+// Kept out of `reservations` so they never count as conflicts in Bookable Dates or the time picker
+let cancelledReservations = [];
 let attendees = [];
 let eventTypes = [];
 const reservationAvailability = createReservationAvailability({
@@ -221,10 +228,14 @@ async function loadDashboardData() {
     }
 
     if (reservationsResult.status === "fulfilled") {
-        reservations = reservationsResult.value;
+        const { active, cancelled } = splitCancelledReservations(reservationsResult.value);
+
+        reservations = active;
+        cancelledReservations = cancelled;
     } else {
         console.error("Could not load reservations for admin dashboard:", reservationsResult.reason);
         reservations = [];
+        cancelledReservations = [];
     }
 
     if (attendeesResult.status === "fulfilled") {
@@ -318,7 +329,11 @@ function renderUserDetails() {
         return;
     }
 
-    const selectedUserReservations = getReservationsForUser(selectedUser);
+    // Cancelled reservations follow the active ones, labelled, so their check-ins stay reachable
+    const selectedUserReservations = [
+        ...getReservationsForUser(selectedUser, reservations),
+        ...getReservationsForUser(selectedUser, cancelledReservations)
+    ];
 
     const detailsHeader = document.createElement("div");
     detailsHeader.className = "selected-user-header";
@@ -395,8 +410,8 @@ function createReservationItem(reservation) {
     });
 }
 
-function getReservationsForUser(user) {
-    return reservations.filter(reservation => {
+function getReservationsForUser(user, reservationList) {
+    return reservationList.filter(reservation => {
         const reservationHostId =
             reservation.host_user_id ??
             reservation.host_user?.id;
@@ -628,11 +643,18 @@ async function openReservationEditModal(reservation) {
     renderAdminReservationAttendees(reservation);
     updateAdminReservationSeriesDeleteButton(reservation);
 
+    const isCancelled = Boolean(reservation.cancelled_at);
+
+    setReservationModalReadOnly(adminReservationModalOverlay, reservation.cancelled_at);
     setAdminReservationStatus("");
     setAdminReservationSubmitting(false);
     adminReservationModalOverlay.classList.add("active");
     adminReservationModalOverlay.setAttribute("aria-hidden", "false");
-    await adminReservationDraftAutosave.activate();
+
+    // A cancelled reservation can't be edited, so there is no draft to keep
+    if (!isCancelled) {
+        await adminReservationDraftAutosave.activate();
+    }
 }
 
 function renderAdminReservationAttendees(reservation) {
@@ -666,6 +688,7 @@ function closeReservationEditModal({ flushDraft = true } = {}) {
     adminReservationModalOverlay.setAttribute("aria-hidden", "true");
 
     selectedReservation = null;
+    setReservationModalReadOnly(adminReservationModalOverlay, null);
     adminReservationForm.reset();
     adminReservationTimePicker.clear();
     updateAdminReservationSeriesDeleteButton(null);
@@ -778,8 +801,8 @@ function setAdminReservationSubmitting(isSubmitting) {
         ? "Saving..."
         : "Save Changes";
 
-    if (adminReservationDeleteBtn) {
-        adminReservationDeleteBtn.disabled = isSubmitting;
+    if (adminReservationCancelReservationBtn) {
+        adminReservationCancelReservationBtn.disabled = isSubmitting;
     }
 
     if (adminReservationDeleteSeriesBtn) {
@@ -795,13 +818,12 @@ function setAdminReservationSubmitting(isSubmitting) {
     }
 }
 
-function setAdminReservationDeleting(isDeleting, deleteMode = "reservation") {
-    if (!adminReservationDeleteBtn) {
+function setAdminReservationDeleting(isDeleting, deleteMode = "cancel") {
+    if (!adminReservationCancelReservationBtn) {
         return;
     }
 
-    adminReservationDeleteBtn.disabled = isDeleting;
-    adminReservationDeleteBtn.textContent = "Delete Reservation";
+    adminReservationCancelReservationBtn.disabled = isDeleting;
 
     if (adminReservationDeleteSeriesBtn) {
         adminReservationDeleteSeriesBtn.disabled = isDeleting;
@@ -810,9 +832,7 @@ function setAdminReservationDeleting(isDeleting, deleteMode = "reservation") {
 
     if (adminReservationDeleteMenuBtn) {
         adminReservationDeleteMenuBtn.disabled = isDeleting;
-        adminReservationDeleteMenuBtn.textContent = isDeleting
-            ? (deleteMode === "series" ? "Deleting Series..." : "Deleting...")
-            : "Delete";
+        adminReservationDeleteMenuBtn.textContent = getDeleteMenuLabel(isDeleting, deleteMode);
     }
 
     if (isDeleting) {
@@ -1030,34 +1050,43 @@ adminReservationForm.addEventListener("submit", async event => {
     }
 });
 
-async function handleAdminReservationDelete() {
+async function handleAdminReservationCancel() {
     if (!selectedReservation) {
         return;
     }
 
     const reservationTitle = selectedReservation.title || "this reservation";
-    const shouldDelete = window.confirm(
-        `Delete "${reservationTitle}"? This cannot be undone.`
-    );
+    const shouldCancel = window.confirm(getCancelConfirmMessage(reservationTitle));
 
-    if (!shouldDelete) {
+    if (!shouldCancel) {
         return;
     }
 
     setAdminReservationStatus("");
-    setAdminReservationDeleting(true);
+    setAdminReservationDeleting(true, "cancel");
 
     try {
-        await deleteEvent(selectedReservation);
-        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "deleted");
-        removeReservations([selectedReservation], reservations, attendees);
+        const result = await cancelEvent(selectedReservation);
+
+        await discardDraftAfterReservationAction(adminReservationDraftAutosave, "cancelled");
+
+        if (result?.outcome === "deleted") {
+            removeReservations([selectedReservation], reservations, attendees);
+        } else {
+            moveReservationToCancelled(
+                selectedReservation,
+                result?.cancelled_at ?? new Date().toISOString(),
+                reservations,
+                cancelledReservations
+            );
+        }
 
         renderUserDetails();
         closeReservationEditModal({ flushDraft: false });
     } catch (error) {
-        console.error("Could not delete reservation:", error);
+        console.error("Could not cancel reservation:", error);
         setAdminReservationStatus(
-            error.message || "Could not delete reservation. Please try again.",
+            error.message || "Could not cancel reservation. Please try again.",
             "error"
         );
     } finally {
@@ -1182,7 +1211,7 @@ disableUserConfirmBtn.addEventListener("click", handleConfirmUserStatusChange);
 adminReservationModalCloseBtn.addEventListener("click", requestCloseReservationEditModal);
 adminReservationCancelBtn.addEventListener("click", requestCloseReservationEditModal);
 adminReservationClearBtn.addEventListener("click", clearAdminReservationForm);
-adminReservationDeleteBtn.addEventListener("click", handleAdminReservationDelete);
+adminReservationCancelReservationBtn.addEventListener("click", handleAdminReservationCancel);
 adminReservationDeleteSeriesBtn.addEventListener("click", handleAdminReservationDeleteSeries);
 
 bindBackdropClose(userModalOverlay, closeUserModal);
