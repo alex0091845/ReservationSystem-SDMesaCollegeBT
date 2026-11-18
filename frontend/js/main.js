@@ -668,11 +668,10 @@ function renderPublicCheckInWidget() {
         return false;
     }
 
-    elements.checkInWidgetDate.textContent = formatSideWidgetDate(today);
-
     renderCheckInEvents({
         container: elements.checkInWidgetList,
-        today,
+        dateLabel: elements.checkInWidgetDate,
+        formatDate: formatSideWidgetDate,
         reservedEvents,
         openEventModal
     });
