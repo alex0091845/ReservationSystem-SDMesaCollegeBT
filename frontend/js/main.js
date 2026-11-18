@@ -1,5 +1,4 @@
-import { cancelEvent, createEvents, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";
-import { sortReservedEvents } from "./utils/dateUtils.js";
+import { cancelEvent, createEvents, getAttendees, getCurrentSession, getEventTypes, getEvents, logoutUser, updateEvent } from "./api.js";import { sortReservedEvents } from "./utils/dateUtils.js";
 import { getSampleEvents } from "./dev/sampleEvents.js"; // DEV ONLY
 import { renderWeekView, updateCurrentTimeIndicator } from "./ui/weekView.js";
 import { renderZoomStage } from "./ui/zoomController.js";
@@ -59,6 +58,7 @@ const elements = {
     copyShareLinkBtn: document.getElementById("copyShareLinkBtn"),
     facultyReservationCancelBtn: document.getElementById("facultyReservationCancelBtn"),
     facultyReservationCancelReservationBtn: document.getElementById("facultyReservationCancelReservationBtn"),
+    facultyReservationDeleteBtn: document.getElementById("facultyReservationDeleteBtn"),
     facultyReservationDeleteSeriesBtn: document.getElementById("facultyReservationDeleteSeriesBtn"),
     facultyReservationDeleteMenuBtn: document.getElementById("facultyReservationDeleteMenuBtn"),
     facultyReservationDeleteOptions: document.getElementById("facultyReservationDeleteOptions"),
@@ -680,11 +680,10 @@ function renderPublicCheckInWidget() {
         return false;
     }
 
-    elements.checkInWidgetDate.textContent = formatSideWidgetDate(today);
-
     renderCheckInEvents({
         container: elements.checkInWidgetList,
-        today,
+        dateLabel: elements.checkInWidgetDate,
+        formatDate: formatSideWidgetDate,
         reservedEvents,
         openEventModal
     });
@@ -726,9 +725,19 @@ function openLinkedEvent() {
     }
 }
 
+// needs fixing
+function basicTrapTabKey(event)
+{
+    if(event.key === "Tab")
+    {
+        event.preventDefault()
+    }
+} 
+
 function openCalendarQRCodeModal() {
     elements.calendarQRCodeModalOverlay.classList.add("active");
     elements.calendarQRCodeModalOverlay.setAttribute("aria-hidden", "false");
+    elements.calendarQRCodeModalOverlay.addEventListener("keydown", basicTrapTabKey);
     elements.calendarQRCodeModalCloseBtn.focus();
     generateCalendarQR();
     console.log(window.location.origin);
@@ -802,7 +811,7 @@ async function openFacultyReservationEditModal(reservation) {
     setFacultyReservationSubmitting(false);
     elements.facultyReservationModalOverlay.classList.add("active");
     elements.facultyReservationModalOverlay.setAttribute("aria-hidden", "false");
-
+    
     // A cancelled reservation can't be edited, so there is no draft to keep
     if (!isCancelled) {
         await facultyReservationDraftAutosave.activate();
@@ -877,6 +886,7 @@ function openQRCodeModal() {
     elements.qrModalOverlay.classList.add("open");
     elements.qrModalOverlay.setAttribute("aria-hidden", "false");
     elements.qrModalCloseBtn.focus();
+    elements.qrModalOverlay.addEventListener("keydown", basicTrapTabKey);
     generateQR();
 }
 
@@ -889,6 +899,7 @@ function closeQRCodeModal() {
 function openShareLinkModal() {
     elements.shareLinkModalOverlay.classList.add("open");
     elements.shareLinkModalOverlay.setAttribute("aria-hidden", "false");
+    elements.shareLinkModalOverlay.addEventListener("keydown", basicTrapTabKey);
     elements.shareLinkModalCloseBtn.focus();
     elements.shareLinkValue.innerHTML = currentEventLink;
 }

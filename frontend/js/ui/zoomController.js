@@ -45,11 +45,11 @@ export function renderZoomStage({
     const bar = getOrCreateChild(weekView, "zoom-bar", "prepend");
     const nav = getOrCreateChild(bar, "zoom-nav", "append");
     const actions = getOrCreateChild(bar, "zoom-actions", "append");
-    const todaySlot = getOrCreateChild(actions, "zoom-today", "append");
     const toolbar = getOrCreateChild(actions, "zoom-toolbar", "append");
     const yearStage = getOrCreateChild(weekView, "year-stage", "append");
     const monthStage = getOrCreateChild(weekView, "month-stage", "append");
     const dayStage = getOrCreateChild(weekView, "day-stage", "append");
+    const todaySlot = getOrCreateChild(weekView, "zoom-today", "append");
 
     // CSS in zoom-calendar.css hides the week header and grid while another level is showing.
     weekView.dataset.zoomLevel = zoomLevel;
@@ -337,7 +337,7 @@ function renderTodayButton(slot, { zoomLevel, year, selectedDate, onSelectDate }
 
     button.type = "button";
     button.classList.add("zoom-today-btn");
-    button.textContent = "Today";
+    button.textContent = "Go To Today";
     button.disabled = isShowingToday;
     button.addEventListener("click", () => {
         onSelectDate(new Date(now.getFullYear(), now.getMonth(), now.getDate()));

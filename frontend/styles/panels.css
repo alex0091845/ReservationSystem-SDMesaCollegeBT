@@ -94,9 +94,63 @@
     padding-right: 4px;
 }
 
-.check-in-widget-card {
+/* The heading is the only thing in the Happening Now header, so the header's own
+   margin is the only gap under it. (On smaller screens, responsive.css also puts a
+   margin under these widget headings, which would double the gap here.) */
+.check-in-widget .check-in-widget-header h3 {
+    margin-bottom: 0;
+}
+
+/* The Happening Now card: a plain box (not a button) with the event's name and
+   time on the left and its Check In button on the right. Both class names are used
+   so these win over the shared .upcoming-event-card styles (for example its
+   pointer cursor, which would wrongly suggest the card itself can be clicked). */
+.upcoming-event-card.check-in-widget-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: 100%;
     text-align: left;
+    cursor: default;
+}
+
+/* The card isn't clickable, so it doesn't lift on hover like the Upcoming Events cards. */
+.upcoming-event-card.check-in-widget-card:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.check-in-widget-details {
+    flex: 1;
+    min-width: 0;
+}
+
+/* White with Mesa Blue text, so it stands out on every event color
+   (a blue button would vanish on a blue Meeting card). Text: 7.5:1, 6.8:1 on hover. */
+.check-in-widget-button {
+    flex-shrink: 0;
+    min-height: 40px;
+    border: none;
+    border-radius: var(--radius-control);
+    padding: 8px 16px;
+    background: #fff;
+    color: var(--mesa-blue);
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+
+.check-in-widget-button:hover {
+    background: #eef4fb;
+}
+
+/* A dark ring with a white gap shows on every card color and on the white panel. */
+.check-in-widget-button:focus-visible {
+    outline: 3px solid #111827;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px #fff;
 }
 
 .check-in-widget-empty {
