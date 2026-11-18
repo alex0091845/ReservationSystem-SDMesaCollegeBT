@@ -158,6 +158,7 @@
 
 .year-header,
 .month-header,
+.day-header,
 .week-view-header {
     display: grid;
     grid-template-columns: 34px auto 34px minmax(0, 1fr) auto;
@@ -167,6 +168,7 @@
 
 .year-header .zoom-toolbar,
 .month-header .zoom-toolbar,
+.day-header .zoom-toolbar,
 .week-view-header .zoom-toolbar {
     grid-column: 5;
     justify-self: end;
@@ -186,8 +188,15 @@
 
 .year-header .year-title,
 .month-header .month-title,
+.day-header .day-title,
 .week-view-header .week-view-title {
     text-align: left;
+}
+
+.year-header .circle-NavBtn,
+.month-header .circle-NavBtn,
+.day-header .circle-NavBtn {
+    color: #0054A4;
 }
 
 /* Month level: one row per week; the whole row is the click target. */
@@ -695,12 +704,14 @@
 
     .year-header,
     .month-header,
+    .day-header,
     .week-view-header {
-        grid-template-columns: 34px minmax(0, 1fr) 34px;
-    }
+        grid-template-columns: 34px auto 34px minmax(0, 1fr);
+    } 
 
     .year-header .zoom-toolbar,
     .month-header .zoom-toolbar,
+    .day-header .zoom-toolbar,
     .week-view-header .zoom-toolbar {
         grid-column: 1 / -1;
         justify-self: stretch;

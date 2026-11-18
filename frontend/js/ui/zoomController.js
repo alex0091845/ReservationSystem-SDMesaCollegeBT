@@ -100,6 +100,7 @@ export function renderZoomStage({
             onSelectDate,
             openEventModal
         });
+        activeHeader = dayStage.querySelector(".day-header");
     }
 
     if (activeHeader) {

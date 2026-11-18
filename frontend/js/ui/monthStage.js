@@ -67,7 +67,7 @@ function createMonthNavButton(arrow, label, onClick) {
     const button = document.createElement("button");
 
     button.type = "button";
-    button.classList.add("nav-btn");
+    button.classList.add("circle-NavBtn");
     button.textContent = arrow;
     button.setAttribute("aria-label", label);
     button.addEventListener("click", onClick);

@@ -159,11 +159,37 @@
     transition: background 0.2s ease, transform 0.2s ease;
 }
 
+.circle-NavBtn
+{
+   display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: solid 1.5px #C3CDDB;
+    border-radius: 50%;
+    background-color: #fff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
 .nav-btn:hover {
     background: var(--mesa-blue-dark);
     transform: scale(1.05);
 }
 
+.circle-NavBtn:hover {
+    background-color: #E6EDF6;
+    transform: scale(1.05);
+}
+
 .nav-btn:active {
+    transform: scale(0.96);
+}
+
+.circle-NavBtn:active {
     transform: scale(0.96);
 }
