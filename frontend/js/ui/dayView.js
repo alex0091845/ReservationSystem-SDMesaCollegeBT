@@ -8,6 +8,7 @@ import {
     monthNames
 } from "../utils/dateUtils.js";
 import { createWeekEventCard, formatEventTime } from "./eventCards.js";
+import { renderWeekStrip } from "./weekStrip.js";
 
 const FULL_WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const VISIBLE_HOURS = CALENDAR_END_HOUR - CALENDAR_START_HOUR;
@@ -49,6 +50,8 @@ export function renderDayView({
     );
 
     container.innerHTML = "";
+    // Phones only (see zoom-calendar.css): the days of this week, above the Day header.
+    renderWeekStrip({ container, selectedDate, today: now, onSelectDate });
     container.appendChild(createDayHeader(selectedDate, isToday, onSelectDate));
     container.appendChild(createDaySummary(placedEvents.length, isToday));
 

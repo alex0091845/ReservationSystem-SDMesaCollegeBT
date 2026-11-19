@@ -390,6 +390,86 @@
     font-weight: 700;
 }
 
+/* Week strip (phones only), above the Day header, as on the Nov 17 "no View" board: the
+   seven days of the open week. The open day is filled Mesa Blue and today gets the same
+   ring as in the Month view. Wider screens have the Week view instead. */
+.day-week-strip {
+    display: flex;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e3e8ef;
+}
+
+.day-week-strip-day {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 4px 0;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: #1f2937;
+    font: inherit;
+    cursor: pointer;
+}
+
+.day-week-strip-letter {
+    color: var(--a11y-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+}
+
+.day-week-strip-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    max-width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.day-week-strip-day.is-today .day-week-strip-number {
+    box-shadow: inset 0 0 0 2px var(--a11y-today-ring);
+}
+
+.day-week-strip-day.is-selected .day-week-strip-number {
+    background: var(--mesa-blue);
+    color: #fff;
+    font-weight: 700;
+}
+
+/* Read by screen readers, not shown: the weekday and month before the visible date. */
+.day-week-strip-hidden-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.day-week-strip-day:focus-visible {
+    outline: 3px solid var(--a11y-focus-ring);
+    outline-offset: -3px;
+}
+
+@media (min-width: 721px) {
+    .day-week-strip {
+        display: none;
+    }
+}
+
 .day-timeline {
     --day-hour-height: 68px;
     --day-time-column-width: 70px;

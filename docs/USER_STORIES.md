@@ -51,7 +51,8 @@ As a visitor, I want to see when the room is booked, so that I know what's happe
 
 - [X] The calendar is viewable without logging in.
 - [X] I can zoom between **Year, Month, Week, and Day** views, and go back with the Esc key. On phones,
-  tapping a month or a day opens it, and the Back pill goes up a level. A Today button jumps to the current date.
+  tapping a month or a day opens it, the Back pill goes up a level, and the week strip above the Day view opens
+  another day of that week. A Today button jumps to the current date.
 - [X] Regardless of the device, the calendar shows Day view [#87].
 - [X] Booked times, closed days, and hours outside 8 AM – 5 PM are clearly shown as unavailable.
 - [X] The red "current time" line stays visible on top of events.
