@@ -190,9 +190,16 @@ export function getUnavailableReason(event) {
     return getCustomUnavailableReason(event) || DEFAULT_UNAVAILABLE_REASON;
 }
 
+// Event types come spelled different ways: "study_group" in the demo data, "Study Group"
+// from the backend (api.js renames it) and "Study_Group" in the reservation form. This
+// turns any spelling into one key, "study_group", with the same rule api.js uses.
+export function getEventTypeKey(eventType) {
+    return String(eventType ?? "").trim().toLowerCase().replace(/[-\s]+/g, "_");
+}
+
 // Displays color based on event type (event type is also displayed in text in the modal window), previously color was defined as a data field
 export function getEventColorClass(eventType) {
-    switch (eventType?.toLowerCase()) {
+    switch (getEventTypeKey(eventType)) {
         case "unavailable":
             return "unavailable-event-card";
         case "study_group":
