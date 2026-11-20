@@ -1,4 +1,5 @@
 import { monthNames } from "../utils/dateUtils.js";
+import { addSwipe } from "./swipe.js";
 
 const FULL_WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAY_LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
@@ -33,6 +34,16 @@ export function renderWeekStrip({ container, selectedDate, today, onSelectDate }
             onSelectDate
         }));
     }
+
+    // Swiping the strip sideways shows the week before or after, on the same weekday.
+    addSwipe(strip, {
+        name: "week-strip",
+        onSwipe: step => onSelectDate(new Date(
+            selectedDate.getFullYear(),
+            selectedDate.getMonth(),
+            selectedDate.getDate() + (step * 7)
+        ))
+    });
 
     container.appendChild(strip);
 

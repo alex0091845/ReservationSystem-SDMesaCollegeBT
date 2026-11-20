@@ -470,9 +470,110 @@
     }
 }
 
+/* Swiping (phones; see swipe.js): the schedule changes the day, the week strip the week.
+   pan-y leaves scrolling up and down, and pinch zoom, to the browser, so only sideways
+   moves reach the swipe code. */
+@media (max-width: 720px) {
+    .day-timeline.is-swipeable,
+    .day-week-strip.is-swipeable {
+        touch-action: pan-y pinch-zoom;
+    }
+}
+
+/* While a finger drags, what is inside follows it and the box with its border stays put. */
+.is-swipeable.is-swiping,
+.is-swipeable.is-swipe-settling,
+.is-swipeable.swipe-enter-from-right,
+.is-swipeable.swipe-enter-from-left {
+    overflow: hidden;
+}
+
+.is-swipeable.is-swiping > *,
+.is-swipeable.is-swipe-settling > * {
+    transform: translateX(var(--swipe-offset, 0px));
+}
+
+/* Lifting the finger: slide back, or on off the edge (200ms, the same as in swipe.js). */
+.is-swipeable.is-swipe-settling > * {
+    transition: transform 200ms cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+/* The new day or week slides in from the side the finger moved toward. */
+@keyframes swipe-enter-from-right {
+    from {
+        opacity: 0;
+        transform: translateX(40px);
+    }
+}
+
+@keyframes swipe-enter-from-left {
+    from {
+        opacity: 0;
+        transform: translateX(-40px);
+    }
+}
+
+.is-swipeable.swipe-enter-from-right > * {
+    animation: swipe-enter-from-right 200ms ease-out;
+}
+
+.is-swipeable.swipe-enter-from-left > * {
+    animation: swipe-enter-from-left 200ms ease-out;
+}
+
+/* "Swipe to change day", as on the Nov 17 "no View" board: shown once, near the top of the
+   schedule, and it fades 5 seconds after it is fully on screen (see dayView.js). */
+.day-swipe-hint {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: var(--mesa-blue-dark);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 6px 18px rgba(14, 34, 63, 0.35);
+    transform: translateX(-50%);
+}
+
+@keyframes day-swipe-hint-fade {
+    0%,
+    70% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
+
+.day-swipe-hint.is-fading {
+    animation: day-swipe-hint-fade 5s ease forwards;
+}
+
+.is-swipeable.is-swiping > .day-swipe-hint,
+.is-swipeable.is-swipe-settling > .day-swipe-hint {
+    display: none;
+}
+
+@media (min-width: 721px) {
+    .day-swipe-hint {
+        display: none;
+    }
+}
+
 .day-timeline {
     --day-hour-height: 68px;
     --day-time-column-width: 70px;
+    position: relative;
     display: grid;
     grid-template-columns: var(--day-time-column-width) minmax(0, 1fr);
     padding: 8px 0 10px;
@@ -740,6 +841,11 @@
     .year-month,
     .month-week {
         transition: none;
+    }
+
+    .is-swipeable.swipe-enter-from-right > *,
+    .is-swipeable.swipe-enter-from-left > * {
+        animation: none;
     }
 }
 
