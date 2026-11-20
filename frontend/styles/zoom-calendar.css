@@ -1,4 +1,4 @@
-/* Zoom Calendar (prototype): Back button, breadcrumb, zoom buttons, and the Year, Month and Day levels */
+/* Zoom Calendar (prototype): Back pill (phones), zoom buttons (wider screens), and the Year, Month and Day levels */
 
 /* Accessible colors (WCAG 2.1 AA). The reasoning and measured contrast ratios are in docs/ACCESSIBILITY_COLORS.md */
 :root {
@@ -8,7 +8,7 @@
     --a11y-text-on-fill: #111827; /* 6.32:1 on Mesa orange, 5.01:1 on Mesa green, needs 4.5:1 */
 }
 
-/* One row above the calendar: Back + breadcrumb on the left, zoom buttons on the right. */
+/* One row above the calendar: the Back pill on phones, the zoom buttons on wider screens. */
 .zoom-bar {
     display: flex;
     flex-wrap: wrap;
@@ -25,61 +25,51 @@
     min-width: 0;
 }
 
+/* The Back pill names the level above, e.g. "‹ November". Phones only (decided Nov 17):
+   Mesa Blue text on the #eef2f7 pill, 44px tall. Text: 6.6:1. */
 .zoom-back-btn {
+    display: inline-flex;
     flex-shrink: 0;
-    min-height: 36px;
-    padding: 0 12px;
-    border: 1px solid var(--mesa-blue);
-    border-radius: var(--radius-card);
-    background: #fff;
-    color: var(--mesa-blue);
-    font-family: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.zoom-back-btn:hover:not(:disabled) {
-    background: #eef2f7;
-}
-
-.zoom-back-btn:disabled {
-    border-color: #c5ccd6;
-    color: #8a94a3;
-    cursor: default;
-}
-
-.zoom-breadcrumb {
-    display: flex;
-    flex-wrap: wrap;
     align-items: center;
-    gap: 2px 6px;
-    min-width: 0;
-    font-size: 14px;
-}
-
-.zoom-crumb {
-    padding: 4px 2px;
-    border: none;
-    border-radius: var(--radius-control);
-    background: transparent;
+    gap: 2px;
+    min-height: 44px;
+    padding: 0 16px 0 10px;
+    border: 1px solid #d5dde8;
+    border-radius: 22px;
+    background: #eef2f7;
+    box-shadow: 0 1px 2px rgba(14, 34, 63, 0.1);
     color: var(--mesa-blue);
     font-family: inherit;
-    font-size: inherit;
+    font-size: 16px;
     font-weight: 600;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+    white-space: nowrap;
     cursor: pointer;
 }
 
-.zoom-crumb-current {
-    padding: 4px 2px;
-    color: #1f2937;
-    font-weight: 700;
+.zoom-back-btn:hover {
+    background: #e3eaf3;
 }
 
-.zoom-crumb-separator {
-    color: #6b7280;
+/* At Year there is no level above, so the pill is hidden. */
+.zoom-back-btn[hidden] {
+    display: none;
+}
+
+/* Wider than a phone: no Back pill. The Year / Month / Week / Day buttons do the same
+   job there, and Esc still zooms out. */
+@media (min-width: 721px) {
+    .zoom-back-btn {
+        display: none;
+    }
+}
+
+.zoom-back-icon {
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
 }
 
 .zoom-toolbar {
@@ -111,7 +101,6 @@
 
 .zoom-level-btn:focus-visible,
 .zoom-back-btn:focus-visible,
-.zoom-crumb:focus-visible,
 .month-day-number:focus-visible,
 .year-month:focus-visible {
     outline: 3px solid var(--a11y-focus-ring);
@@ -401,9 +390,190 @@
     font-weight: 700;
 }
 
+/* Week strip (phones only), above the Day header, as on the Nov 17 "no View" board: the
+   seven days of the open week. The open day is filled Mesa Blue and today gets the same
+   ring as in the Month view. Wider screens have the Week view instead. */
+.day-week-strip {
+    display: flex;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e3e8ef;
+}
+
+.day-week-strip-day {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    min-height: 44px;
+    padding: 4px 0;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: #1f2937;
+    font: inherit;
+    cursor: pointer;
+}
+
+.day-week-strip-letter {
+    color: var(--a11y-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 16px;
+}
+
+.day-week-strip-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    max-width: 100%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    font-size: 17px;
+    font-weight: 600;
+}
+
+.day-week-strip-day.is-today .day-week-strip-number {
+    box-shadow: inset 0 0 0 2px var(--a11y-today-ring);
+}
+
+.day-week-strip-day.is-selected .day-week-strip-number {
+    background: var(--mesa-blue);
+    color: #fff;
+    font-weight: 700;
+}
+
+/* Read by screen readers, not shown: the weekday and month before the visible date. */
+.day-week-strip-hidden-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.day-week-strip-day:focus-visible {
+    outline: 3px solid var(--a11y-focus-ring);
+    outline-offset: -3px;
+}
+
+@media (min-width: 721px) {
+    .day-week-strip {
+        display: none;
+    }
+}
+
+/* Swiping (phones; see swipe.js): the schedule changes the day, the week strip the week.
+   pan-y leaves scrolling up and down, and pinch zoom, to the browser, so only sideways
+   moves reach the swipe code. */
+@media (max-width: 720px) {
+    .day-timeline.is-swipeable,
+    .day-week-strip.is-swipeable {
+        touch-action: pan-y pinch-zoom;
+    }
+}
+
+/* While a finger drags, what is inside follows it and the box with its border stays put. */
+.is-swipeable.is-swiping,
+.is-swipeable.is-swipe-settling,
+.is-swipeable.swipe-enter-from-right,
+.is-swipeable.swipe-enter-from-left {
+    overflow: hidden;
+}
+
+.is-swipeable.is-swiping > *,
+.is-swipeable.is-swipe-settling > * {
+    transform: translateX(var(--swipe-offset, 0px));
+}
+
+/* Lifting the finger: slide back, or on off the edge (200ms, the same as in swipe.js). */
+.is-swipeable.is-swipe-settling > * {
+    transition: transform 200ms cubic-bezier(0.22, 0.8, 0.2, 1);
+}
+
+/* The new day or week slides in from the side the finger moved toward. */
+@keyframes swipe-enter-from-right {
+    from {
+        opacity: 0;
+        transform: translateX(40px);
+    }
+}
+
+@keyframes swipe-enter-from-left {
+    from {
+        opacity: 0;
+        transform: translateX(-40px);
+    }
+}
+
+.is-swipeable.swipe-enter-from-right > * {
+    animation: swipe-enter-from-right 200ms ease-out;
+}
+
+.is-swipeable.swipe-enter-from-left > * {
+    animation: swipe-enter-from-left 200ms ease-out;
+}
+
+/* "Swipe to change day", as on the Nov 17 "no View" board: shown once, near the top of the
+   schedule, and it fades 5 seconds after it is fully on screen (see dayView.js). */
+.day-swipe-hint {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: var(--mesa-blue-dark);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 6px 18px rgba(14, 34, 63, 0.35);
+    transform: translateX(-50%);
+}
+
+@keyframes day-swipe-hint-fade {
+    0%,
+    70% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+        visibility: hidden;
+    }
+}
+
+.day-swipe-hint.is-fading {
+    animation: day-swipe-hint-fade 5s ease forwards;
+}
+
+.is-swipeable.is-swiping > .day-swipe-hint,
+.is-swipeable.is-swipe-settling > .day-swipe-hint {
+    display: none;
+}
+
+@media (min-width: 721px) {
+    .day-swipe-hint {
+        display: none;
+    }
+}
+
 .day-timeline {
     --day-hour-height: 68px;
     --day-time-column-width: 70px;
+    position: relative;
     display: grid;
     grid-template-columns: var(--day-time-column-width) minmax(0, 1fr);
     padding: 8px 0 10px;
@@ -579,7 +749,8 @@
         margin-bottom: 10px;
     }
 
-    /* On a phone the breadcrumb row sits above a full-width row of zoom buttons. */
+    /* On a phone the Back pill gets a row of its own. (The My Events Upcoming / Past
+       switch shares the zoom buttons' classes, so it fills its row too.) */
     .zoom-nav,
     .zoom-toolbar {
         width: 100%;
@@ -587,11 +758,6 @@
 
     .zoom-back-btn {
         min-height: 44px;
-    }
-
-    .zoom-crumb,
-    .zoom-crumb-current {
-        padding: 10px 2px;
     }
 
     .zoom-level-btn {
@@ -675,6 +841,11 @@
     .year-month,
     .month-week {
         transition: none;
+    }
+
+    .is-swipeable.swipe-enter-from-right > *,
+    .is-swipeable.swipe-enter-from-left > * {
+        animation: none;
     }
 }
 
@@ -761,19 +932,12 @@
 }
 
 @media (max-width: 720px) {
-    .zoom-actions {
-        width: 100%;
-    }
-
-    .zoom-actions .zoom-toolbar {
-        flex: 1 1 190px;
-        width: auto;
-        min-width: 0;
-    }
-
-    /* Four zoom buttons plus Today share one row, so each gets less side padding. */
-    .zoom-actions .zoom-level-btn {
-        padding: 0 6px;
+    /* Phones have no zoom buttons (decided Nov 17): tap a month or a day to open it, and
+       the Back pill goes up a level. Scoped to the calendar panel, because the Upcoming /
+       Past switch in My Events uses the same classes. */
+    .zoom-actions,
+    .week-view .zoom-toolbar {
+        display: none;
     }
 
     .zoom-today-btn {

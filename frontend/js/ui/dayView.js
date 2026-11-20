@@ -8,6 +8,8 @@ import {
     monthNames
 } from "../utils/dateUtils.js";
 import { createWeekEventCard, formatEventTime } from "./eventCards.js";
+import { addSwipe, isPhoneWidth } from "./swipe.js";
+import { renderWeekStrip } from "./weekStrip.js";
 
 const FULL_WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const VISIBLE_HOURS = CALENDAR_END_HOUR - CALENDAR_START_HOUR;
@@ -22,6 +24,17 @@ const EVENT_TYPE_LABELS = {
     social: "Social",
     other: "Other"
 };
+// The "Swipe to change day" hint fades over this long (see zoom-calendar.css), starting once it
+// has been fully on screen for a second. While the page loads, the lists above the calendar fill
+// in and push it down, so a hint that is on screen for a moment at the start doesn't count.
+const SWIPE_HINT_MS = 5000;
+const SWIPE_HINT_SETTLE_MS = 1000;
+const CHEVRON_PATHS = { left: "M15 5l-7 7 7 7", right: "M9 5l7 7-7 7" };
+
+// The hint shows on phones the first time the Day view appears and stays until it has faded or
+// the day changes. The page redraws the same day more than once (for example when the events
+// arrive), so this remembers the day it was shown for and when its fade started.
+const swipeHint = { dateKey: null, fadeStartedAt: null, isDone: false };
 
 // Renders the Day zoom level: one day as a timeline, with events that overlap placed side by side.
 export function renderDayView({
@@ -49,6 +62,8 @@ export function renderDayView({
     );
 
     container.innerHTML = "";
+    // Phones only (see zoom-calendar.css): the days of this week, above the Day header.
+    renderWeekStrip({ container, selectedDate, today: now, onSelectDate });
     container.appendChild(createDayHeader(selectedDate, isToday, onSelectDate));
     container.appendChild(createDaySummary(placedEvents.length, isToday));
 
@@ -82,7 +97,124 @@ export function renderDayView({
     }
 
     timeline.appendChild(column);
+
+    // Phones: swiping the schedule sideways opens the next or previous day.
+    addSwipe(timeline, {
+        name: "day-schedule",
+        onSwipe: step => onSelectDate(addDays(selectedDate, step))
+    });
+
+    const hint = createSwipeHint(selectedDate);
+
+    if (hint) {
+        timeline.appendChild(hint);
+    }
+
     container.appendChild(timeline);
+}
+
+// Returns the hint for this draw, or null once it is done. Screen readers skip it: they move
+// by the arrows and the strip, which do the same as a swipe.
+function createSwipeHint(selectedDate) {
+    const dateKey = selectedDate.toDateString();
+
+    if (swipeHint.isDone || !isPhoneWidth()) {
+        return null;
+    }
+
+    if (swipeHint.dateKey === null) {
+        swipeHint.dateKey = dateKey;
+    } else if (swipeHint.dateKey !== dateKey) {
+        swipeHint.isDone = true;
+        return null;
+    }
+
+    const elapsed = swipeHint.fadeStartedAt === null ? 0 : performance.now() - swipeHint.fadeStartedAt;
+
+    if (elapsed >= SWIPE_HINT_MS) {
+        swipeHint.isDone = true;
+        return null;
+    }
+
+    const hint = document.createElement("div");
+
+    hint.classList.add("day-swipe-hint");
+    hint.setAttribute("aria-hidden", "true");
+    hint.append(createChevron("left"), "Swipe to change day", createChevron("right"));
+    hint.addEventListener("animationend", () => {
+        swipeHint.isDone = true;
+        hint.remove();
+    });
+
+    if (swipeHint.fadeStartedAt !== null) {
+        // A redraw: carry on the fade from where the last hint was.
+        hint.style.animationDelay = `-${Math.round(elapsed)}ms`;
+        hint.classList.add("is-fading");
+    } else {
+        // Wait until it can be seen, so it isn't over before anyone scrolls down to the calendar.
+        startFadeWhenVisible(hint);
+    }
+
+    return hint;
+}
+
+function startFadeWhenVisible(hint) {
+    let timer = null;
+    const startFade = () => {
+        if (swipeHint.fadeStartedAt === null) {
+            swipeHint.fadeStartedAt = performance.now();
+        }
+
+        hint.classList.add("is-fading");
+    };
+
+    if (!("IntersectionObserver" in window)) {
+        startFade();
+        return;
+    }
+
+    const observer = new IntersectionObserver(entries => {
+        const latest = entries[entries.length - 1];
+
+        window.clearTimeout(timer);
+
+        // A redraw replaced this hint; the new one has its own observer.
+        if (!hint.isConnected) {
+            observer.disconnect();
+            return;
+        }
+
+        if (latest.isIntersecting && latest.intersectionRatio >= 0.99) {
+            timer = window.setTimeout(() => {
+                observer.disconnect();
+
+                if (hint.isConnected) {
+                    startFade();
+                }
+            }, SWIPE_HINT_SETTLE_MS);
+        }
+    }, { threshold: [0, 1] });
+
+    observer.observe(hint);
+}
+
+function createChevron(direction) {
+    const svgNamespace = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(svgNamespace, "svg");
+    const path = document.createElementNS(svgNamespace, "path");
+
+    svg.setAttribute("width", "14");
+    svg.setAttribute("height", "14");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("stroke", "currentColor");
+    svg.setAttribute("stroke-width", "3");
+    svg.setAttribute("stroke-linecap", "round");
+    svg.setAttribute("stroke-linejoin", "round");
+    path.setAttribute("d", CHEVRON_PATHS[direction]);
+    svg.appendChild(path);
+
+    return svg;
 }
 
 function createDayHeader(selectedDate, isToday, onSelectDate) {
