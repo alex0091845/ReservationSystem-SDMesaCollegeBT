@@ -1,4 +1,3 @@
-import { monthNames, weekdayNames } from "../utils/dateUtils.js";
 import { renderDayView } from "./dayView.js";
 import { renderMonthStage } from "./monthStage.js";
 import { renderYearView } from "./yearView.js";
@@ -42,10 +41,13 @@ export function renderZoomStage({
         return;
     }
 
+    
     const bar = getOrCreateChild(weekView, "zoom-bar", "prepend");
     const nav = getOrCreateChild(bar, "zoom-nav", "append");
     const actions = getOrCreateChild(bar, "zoom-actions", "append");
-    const toolbar = getOrCreateChild(actions, "zoom-toolbar", "append");
+    const toolbar = weekView.querySelector(".zoom-toolbar") ||
+        getOrCreateChild(bar, "zoom-toolbar", "append");
+    //const toolbar = getOrCreateChild(actions, "zoom-toolbar", "append");
     const yearStage = getOrCreateChild(weekView, "year-stage", "append");
     const monthStage = getOrCreateChild(weekView, "month-stage", "append");
     const dayStage = getOrCreateChild(weekView, "day-stage", "append");
@@ -57,8 +59,6 @@ export function renderZoomStage({
     const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
     const parentLevel = currentIndex > 0 ? ZOOM_LEVELS[currentIndex - 1] : null;
     zoomOut = parentLevel ? () => onSetZoomLevel(parentLevel.id) : null;
-    renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel });
-    renderTodayButton(todaySlot, { zoomLevel, year, selectedDate, onSelectDate });
     renderToolbar(toolbar, zoomLevel, onSetZoomLevel);
     bindEscapeOnce();
 
@@ -130,98 +130,6 @@ function getOrCreateChild(parent, className, position) {
     parent[position](child);
 
     return child;
-}
-
-function getCrumbLabel(levelId, { zoomLevel, year, selectedDate }) {
-    if (levelId === "year") {
-        return String(zoomLevel === "year" ? year : selectedDate.getFullYear());
-    }
-
-    if (levelId === "month") {
-        return monthNames[selectedDate.getMonth()];
-    }
-
-    if (levelId === "week") {
-        const weekStart = new Date(selectedDate);
-
-        weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-
-        return `Week of ${formatShortDate(weekStart)}`;
-    }
-
-    return `${weekdayNames[selectedDate.getDay()]}, ${formatShortDate(selectedDate)}`;
-}
-
-function formatShortDate(dateObj) {
-    return `${monthNames[dateObj.getMonth()].slice(0, 3)} ${dateObj.getDate()}`;
-}
-
-function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
-    const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
-    const parentLevel = ZOOM_LEVELS[currentIndex - 1] || null;
-    const labelContext = { zoomLevel, year, selectedDate };
-    const hadFocus = nav.contains(document.activeElement);
-
-    zoomOut = parentLevel ? () => onSetZoomLevel(parentLevel.id) : null;
-    nav.innerHTML = "";
-
-    const backButton = document.createElement("button");
-
-    backButton.type = "button";
-    backButton.classList.add("zoom-back-btn");
-    backButton.textContent = "← Back";
-    backButton.disabled = !parentLevel;
-
-    if (parentLevel) {
-        backButton.title = "Back (Esc)";
-        backButton.setAttribute(
-            "aria-label",
-            `Back to ${getCrumbLabel(parentLevel.id, labelContext)}`
-        );
-        backButton.addEventListener("click", zoomOut);
-    }
-
-    const breadcrumb = document.createElement("nav");
-
-    breadcrumb.classList.add("zoom-breadcrumb");
-    breadcrumb.setAttribute("aria-label", "Calendar location");
-
-    ZOOM_LEVELS.slice(0, currentIndex + 1).forEach((level, index) => {
-        if (index > 0) {
-            const separator = document.createElement("span");
-
-            separator.classList.add("zoom-crumb-separator");
-            separator.setAttribute("aria-hidden", "true");
-            separator.textContent = "›";
-            breadcrumb.appendChild(separator);
-        }
-
-        const label = getCrumbLabel(level.id, labelContext);
-
-        if (index === currentIndex) {
-            const current = document.createElement("span");
-
-            current.classList.add("zoom-crumb-current");
-            current.setAttribute("aria-current", "location");
-            current.textContent = label;
-            breadcrumb.appendChild(current);
-
-            return;
-        }
-
-        const crumb = document.createElement("button");
-
-        crumb.classList.add("zoom-crumb");
-        crumb.textContent = label;
-        crumb.addEventListener("click", () => onSetZoomLevel(level.id));
-        breadcrumb.appendChild(crumb);
-    });
-
-    nav.append(backButton, breadcrumb);
-
-    if (hadFocus && parentLevel) {
-        backButton.focus();
-    }
 }
 
 // Esc zooms out one level. Bound once; it always uses the latest zoomOut action.
