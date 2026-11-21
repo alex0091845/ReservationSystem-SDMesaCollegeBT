@@ -781,6 +781,19 @@ export async function deleteEvent(eventData) {
     }
 }
 
+// Frees the reservation's time slot. The result's `outcome` says whether it was removed
+// entirely ("deleted") or kept with its check-ins ("cancelled", with `cancelled_at`).
+export async function cancelEvent(eventData) {
+    try {
+        return await request(`/events/${eventData.id}/cancel`, "POST");
+    } catch (error) {
+        console.error("Could not cancel reservation on backend:", error);
+        throw new Error(
+            getRequestFailureMessage(error, "Could not cancel the reservation.")
+        );
+    }
+}
+
 export async function getReservationDraft({
     draft_type,
     source_event_id = null

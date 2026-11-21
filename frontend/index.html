@@ -62,6 +62,10 @@
             <section class="my-events" id="myEventsWidget" hidden>
                 <div class="my-events-header">
                     <h3>My Events</h3>
+                    <div class="zoom-toolbar" id="myEventsToggle" role="group" aria-label="Show my reservations">
+                        <button type="button" class="zoom-level-btn" data-view="upcoming" aria-pressed="true">Upcoming</button>
+                        <button type="button" class="zoom-level-btn" data-view="past" aria-pressed="false">Past</button>
+                    </div>
                 </div>
                 <div class="selected-user-reservation-list my-events-list" id="myEventsList"></div>
             </section>
@@ -69,8 +73,7 @@
             <section class="check-in-widget" id="checkInWidget" hidden>
                 <div class="check-in-widget-header">
                     <div>
-                        <h3>Check-In</h3>
-                        <p id="checkInWidgetDate"></p>
+                        <h3>Happening Now</h3>
                     </div>
                 </div>
                 <div class="check-in-widget-list" id="checkInWidgetList"></div>
@@ -256,6 +259,24 @@
         </div>
     </div>
 
+    <!-- Shown after a reservation is cancelled or deleted -->
+    <div class="modal-overlay" id="cancelResultModalOverlay" aria-hidden="true">
+        <div class="modal cancel-result-modal" role="dialog" aria-modal="true"
+            aria-labelledby="cancelResultModalTitle" aria-describedby="cancelResultModalMessage">
+            <div class="modal-topbar">
+                <div class="modal-title-group">
+                    <h2 class="modal-event-title" id="cancelResultModalTitle">Reservation Cancelled</h2>
+                </div>
+
+                <button type="button" class="modal-close-btn" aria-label="Close">&times;</button>
+            </div>
+
+            <div class="modal-content">
+                <p class="modal-value" id="cancelResultModalMessage"></p>
+            </div>
+        </div>
+    </div>
+
     <!-- Backend API origin. Leave empty to call /api on the same origin as this page;
          set to the backend's origin when the frontend is hosted separately (e.g. S3 -> EC2). -->
     <script>window.RESERVATION_API_ORIGIN = "";</script>
@@ -377,13 +398,13 @@
                             <button type="button" class="reservation-danger-btn" id="facultyReservationDeleteMenuBtn"
                                 aria-haspopup="menu" aria-expanded="false"
                                 aria-controls="facultyReservationDeleteOptions">
-                                Delete
+                                Cancel or Delete
                             </button>
                             <div class="reservation-delete-options" id="facultyReservationDeleteOptions" role="menu"
                                 aria-labelledby="facultyReservationDeleteMenuBtn" hidden>
                                 <button type="button" class="reservation-delete-option" role="menuitem"
-                                    id="facultyReservationDeleteBtn">
-                                    Delete Reservation
+                                    id="facultyReservationCancelReservationBtn">
+                                    Cancel Reservation
                                 </button>
                                 <button type="button" class="reservation-delete-option" role="menuitem"
                                     id="facultyReservationDeleteSeriesBtn" hidden>

@@ -93,11 +93,12 @@
     line-height: 1.5;
 }
 
-/* Unavailable dates read as a quiet striped backdrop rather than an event,
+/* Unavailable dates and cancelled reservations read as a quiet striped backdrop rather than an event,
    but stay buttons so the closure details are still one click away.
    The transparent border cannot be seen here; Windows High Contrast mode drops
    the stripes and turns it into the block's visible edge. */
 .upcoming-event-card.unavailable-event-card,
+.upcoming-event-card.cancelled-event-card,
 .week-event.unavailable-event-card {
     border: 1px solid transparent;
     background: var(--unavailable-stripes);
@@ -107,6 +108,7 @@
 
 /* No lift on hover; slightly darker stripes show it is clickable */
 .upcoming-event-card.unavailable-event-card:hover,
+.upcoming-event-card.cancelled-event-card:hover,
 .week-event.unavailable-event-card:hover {
     transform: none;
     background: var(--unavailable-stripes-hover);
@@ -115,6 +117,15 @@
 
 .unavailable-event-card .upcoming-event-title,
 .unavailable-event-card .upcoming-event-date,
-.unavailable-event-card .upcoming-event-time {
+.unavailable-event-card .upcoming-event-time,
+.cancelled-event-card .upcoming-event-title,
+.cancelled-event-card .upcoming-event-date,
+.cancelled-event-card .upcoming-event-time {
+    color: var(--a11y-text-muted);
+}
+
+.cancelled-event-card .event-card-attendee-count {
+    border: 1px solid #cbd5e1;
+    background: #fff;
     color: var(--a11y-text-muted);
 }

@@ -27,10 +27,11 @@ CREATE TABLE public.events (
   is_public boolean,
   recurrence_group_id text,
   is_closure boolean NOT NULL DEFAULT false,
+  cancelled_at timestamp with time zone,
   CONSTRAINT events_pkey PRIMARY KEY (id),
   CONSTRAINT events_positive_duration CHECK (end_time > start_time),
   CONSTRAINT events_no_reservation_overlap EXCLUDE USING gist
-    (tstzrange(start_time, end_time, '[)') WITH &&) WHERE (NOT is_closure),
+    (tstzrange(start_time, end_time, '[)') WITH &&) WHERE (NOT is_closure AND cancelled_at IS NULL),
   CONSTRAINT events_reservation_host_required CHECK (is_closure OR host_user_id IS NOT NULL),
   CONSTRAINT reservations_user_id_fkey FOREIGN KEY (host_user_id) REFERENCES public.users(id),
   CONSTRAINT events_event_type_fkey FOREIGN KEY (event_type) REFERENCES public.event_types(event_type)
@@ -51,6 +52,7 @@ CREATE TABLE public.attendees (
   CONSTRAINT attendees_pkey PRIMARY KEY (id),
   CONSTRAINT attendee_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
 );
+CREATE UNIQUE INDEX attendees_event_email_unique ON public.attendees (event_id, lower(email));
 CREATE TABLE public.sessions (
   id bigint NOT NULL DEFAULT nextval('sessions_id_seq'::regclass),
   session_id text NOT NULL UNIQUE,

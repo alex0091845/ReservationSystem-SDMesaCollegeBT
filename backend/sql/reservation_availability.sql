@@ -14,6 +14,8 @@ GRANT SELECT, UPDATE ON public.reservation_availability TO service_role;
 
 DROP TRIGGER IF EXISTS events_reservation_availability ON public.events;
 ALTER TABLE public.events ADD COLUMN IF NOT EXISTS is_closure boolean NOT NULL DEFAULT false;
+-- A cancelled reservation stays on record (with its check-ins) but no longer holds the room
+ALTER TABLE public.events ADD COLUMN IF NOT EXISTS cancelled_at timestamp with time zone;
 ALTER TABLE public.events ALTER COLUMN host_user_id DROP NOT NULL;
 
 DO $$
@@ -30,19 +32,24 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.events'::regclass AND conname = 'events_positive_duration') THEN
     ALTER TABLE public.events ADD CONSTRAINT events_positive_duration CHECK (end_time > start_time);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.events'::regclass AND conname = 'events_no_reservation_overlap') THEN
+  -- Also rebuilds an older version of the rule that still counted cancelled reservations
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.events'::regclass AND conname = 'events_no_reservation_overlap'
+                 AND pg_get_constraintdef(oid) LIKE '%cancelled_at%') THEN
     SELECT ARRAY[a.id, b.id] INTO overlap_ids
     FROM public.events a JOIN public.events b ON a.id < b.id
       AND a.start_time < b.end_time AND a.end_time > b.start_time
-    WHERE NOT a.is_closure AND NOT b.is_closure ORDER BY a.id, b.id LIMIT 1;
+    WHERE NOT a.is_closure AND NOT b.is_closure AND a.cancelled_at IS NULL AND b.cancelled_at IS NULL
+    ORDER BY a.id, b.id LIMIT 1;
     IF FOUND THEN
       RAISE EXCEPTION USING ERRCODE = '23P01',
         MESSAGE = format('Reservations %s and %s overlap.', overlap_ids[1], overlap_ids[2]),
         HINT = 'Resolve the existing overlap before rerunning this migration. No records have been deleted.';
     END IF;
-    -- Half-open ranges allow adjacent bookings and reject simultaneous conflicting writes
+    -- Half-open ranges allow adjacent bookings and reject simultaneous conflicting writes.
+    -- Cancelled reservations give their time back, so they are left out.
+    ALTER TABLE public.events DROP CONSTRAINT IF EXISTS events_no_reservation_overlap;
     ALTER TABLE public.events ADD CONSTRAINT events_no_reservation_overlap
-      EXCLUDE USING gist (tstzrange(start_time, end_time, '[)') WITH &&) WHERE (NOT is_closure);
+      EXCLUDE USING gist (tstzrange(start_time, end_time, '[)') WITH &&) WHERE (NOT is_closure AND cancelled_at IS NULL);
   END IF;
 END;
 $$;
@@ -176,7 +183,7 @@ BEGIN
   SELECT COALESCE(jsonb_agg(jsonb_build_object('id', e.id, 'title', e.title,
     'start_time', e.start_time, 'end_time', e.end_time) ORDER BY e.start_time, e.id), '[]'::jsonb)
   INTO cancellations FROM public.events e
-  WHERE NOT e.is_closure AND e.end_time > now()
+  WHERE NOT e.is_closure AND e.cancelled_at IS NULL AND e.end_time > now()
     AND ((e.start_time AT TIME ZONE 'America/Los_Angeles')::date > p_last_bookable_date
       OR (e.start_time AT TIME ZONE 'America/Los_Angeles')::date = ANY(p_invalid_dates));
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(cancellations) AS planned(event)
@@ -186,9 +193,8 @@ BEGIN
 
   INSERT INTO public.event_types (event_type, description) VALUES ('Unavailable', 'Room closure')
     ON CONFLICT (event_type) DO NOTHING;
-  DELETE FROM public.attendees
-  WHERE event_id IN (SELECT (event->>'id')::integer FROM jsonb_array_elements(cancellations) AS planned(event));
-  DELETE FROM public.events
+  -- Cancel rather than delete, so these reservations and their check-ins stay on record
+  UPDATE public.events SET cancelled_at = now()
   WHERE id IN (SELECT (event->>'id')::integer FROM jsonb_array_elements(cancellations) AS planned(event));
 
   -- Only reconcile editable dates; keep past records and closures beyond the cutoff
@@ -215,12 +221,33 @@ BEGIN
   IF EXISTS (SELECT 1 FROM public.events WHERE id = NEW.event_id AND is_closure) THEN
     RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Unavailable dates cannot accept check-ins.';
   END IF;
+  IF EXISTS (SELECT 1 FROM public.events WHERE id = NEW.event_id AND cancelled_at IS NOT NULL) THEN
+    RAISE EXCEPTION USING ERRCODE = '23514', MESSAGE = 'Cancelled reservations cannot accept check-ins.';
+  END IF;
   RETURN NEW;
 END;
 $$;
 DROP TRIGGER IF EXISTS attendees_no_closure_check_in ON public.attendees;
 CREATE TRIGGER attendees_no_closure_check_in BEFORE INSERT OR UPDATE OF event_id ON public.attendees
 FOR EACH ROW EXECUTE FUNCTION public.prevent_closure_check_in();
+
+-- One check-in per email per event. Enforced here so two submits arriving together cannot both land.
+DO $$
+DECLARE
+  duplicate_event_id integer;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND indexname = 'attendees_event_email_unique') THEN
+    SELECT event_id INTO duplicate_event_id FROM public.attendees
+    WHERE email IS NOT NULL GROUP BY event_id, lower(email) HAVING count(*) > 1 ORDER BY event_id LIMIT 1;
+    IF FOUND THEN
+      RAISE EXCEPTION USING ERRCODE = '23505',
+        MESSAGE = format('Event %s has more than one check-in with the same email.', duplicate_event_id),
+        HINT = 'Remove the duplicate check-ins before rerunning this migration. No records have been deleted.';
+    END IF;
+  END IF;
+END;
+$$;
+CREATE UNIQUE INDEX IF NOT EXISTS attendees_event_email_unique ON public.attendees (event_id, lower(email));
 
 REVOKE ALL ON FUNCTION public.get_reservation_availability(),
   public.save_reservation_availability(date, date[], bigint, integer[]), public.enforce_reservation_availability(),
