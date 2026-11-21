@@ -3,6 +3,7 @@ import {
     CALENDAR_END_LABEL,
     CALENDAR_START_HOUR,
     getEventsForDay,
+    getEventTypeKey,
     getVisibleEventSectionForDay,
     hourNames,
     monthNames
@@ -246,7 +247,7 @@ function createDayEventCard({ event, section, column, columnCount }, now, openEv
     time.textContent = formatEventTime(event);
     details.classList.add("day-event-details");
     details.textContent = [
-        EVENT_TYPE_LABELS[event.event_type?.toLowerCase()] || "",
+        EVENT_TYPE_LABELS[getEventTypeKey(event.event_type)] || "",
         event.department || ""
     ].filter(Boolean).join(" · ");
 
