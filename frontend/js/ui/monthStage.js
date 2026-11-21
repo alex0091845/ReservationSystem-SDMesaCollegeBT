@@ -5,13 +5,15 @@ const FULL_WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursda
 const MAX_EVENTS_PER_DAY = 2; // the rest are summed up as "+N more"
 
 // Renders the Month zoom level: one big month, a row per week.
-// Clicking anywhere in a week row zooms in to that week.
+// Clicking anywhere in a week row zooms in to that week. When onOpenDay is given
+// (on a phone), clicking a day opens that day instead.
 export function renderMonthStage({
     container,
     selectedDate,
     reservedEvents,
     onChangeMonth,
     onSelectWeek,
+    onOpenDay,
     openEventModal
 }) {
     const year = selectedDate.getFullYear();
@@ -41,6 +43,7 @@ export function renderMonthStage({
             selectedDate,
             reservedEvents,
             onSelectWeek,
+            onOpenDay,
             openEventModal
         }));
     }
@@ -99,13 +102,15 @@ function createWeekRow({
     selectedDate,
     reservedEvents,
     onSelectWeek,
+    onOpenDay,
     openEventModal
 }) {
     const row = document.createElement("div");
     const today = new Date();
 
     // A day of this row that belongs to the month on screen. Clicking a greyed-out
-    // day from the month before or after selects this one, so the breadcrumb stays put.
+    // day from the month before or after selects this one, so zooming back out
+    // returns to this month. (On a phone the tapped day itself opens.)
     const anchorDay = Math.min(Math.max(sundayDay, 1), daysInMonth);
 
     row.classList.add("month-week");
@@ -127,9 +132,9 @@ function createWeekRow({
         cell.classList.toggle("is-outside", isOutside);
         cell.classList.toggle("is-today", isSameDay(dateObj, today));
         cell.classList.toggle("is-selected", isSameDay(dateObj, selectedDate));
-        cell.appendChild(createDayNumber(dateObj, isOutside, dayEvents.length));
+        cell.appendChild(createDayNumber(dateObj, isOutside, dayEvents.length, Boolean(onOpenDay)));
         cell.appendChild(createDayEvents(dayEvents, openEventModal));
-        cell.addEventListener("click", () => onSelectWeek(targetDate));
+        cell.addEventListener("click", () => (onOpenDay ? onOpenDay(dateObj) : onSelectWeek(targetDate)));
 
         row.appendChild(cell);
     }
@@ -139,7 +144,7 @@ function createWeekRow({
 
 // The date number. Inside the month it is a real button, so the keyboard can reach it;
 // its click bubbles up to the day cell, which does the zooming.
-function createDayNumber(dateObj, isOutside, eventCount) {
+function createDayNumber(dateObj, isOutside, eventCount, opensDay) {
     const number = document.createElement(isOutside ? "span" : "button");
 
     number.classList.add("month-day-number");
@@ -149,7 +154,7 @@ function createDayNumber(dateObj, isOutside, eventCount) {
         number.type = "button";
         number.setAttribute(
             "aria-label",
-            `${FULL_WEEKDAY_NAMES[dateObj.getDay()]}, ${monthNames[dateObj.getMonth()]} ${dateObj.getDate()}, ${describeEvents(eventCount)}. Zoom in to this week.`
+            `${FULL_WEEKDAY_NAMES[dateObj.getDay()]}, ${monthNames[dateObj.getMonth()]} ${dateObj.getDate()}, ${describeEvents(eventCount)}. ${opensDay ? "Open this day." : "Zoom in to this week."}`
         );
     }
 

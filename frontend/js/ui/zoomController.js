@@ -1,3 +1,4 @@
+import { monthNames, weekdayNames } from "../utils/dateUtils.js";
 import { renderDayView } from "./dayView.js";
 import { renderMonthStage } from "./monthStage.js";
 import { renderYearView } from "./yearView.js";
@@ -21,7 +22,17 @@ let lastZoomLevel = null;
 let lastPointer = null;
 let isPointerBound = false;
 
-// Draws the zoom buttons and shows the panel
+// Phones skip the Week level (the week strip in the Day view covers it), so on a
+// phone Back from Day goes straight to Month, and a day tapped in the Month view
+// opens that day. Same breakpoint as the phone layout.
+const phoneQuery = window.matchMedia("(max-width: 720px)");
+
+// The last nav draw, kept so the panel can be redrawn when the screen crosses the
+// phone breakpoint (the Back pill's label and what a tapped day opens depend on it).
+let lastNavDraw = null;
+let isPhoneQueryBound = false;
+
+// Draws the phone Back pill and desktop zoom buttons, then shows the panel
 // for the current zoom level. State lives in main.js; this module only renders.
 export function renderZoomStage({
     weekView,
@@ -34,6 +45,7 @@ export function renderZoomStage({
     onSelectMonth,
     onChangeMonth,
     onSelectWeek,
+    onOpenDay,
     onSelectDate,
     openEventModal
 }) {
@@ -41,7 +53,6 @@ export function renderZoomStage({
         return;
     }
 
-    
     const bar = getOrCreateChild(weekView, "zoom-bar", "prepend");
     const nav = getOrCreateChild(bar, "zoom-nav", "append");
     const actions = getOrCreateChild(bar, "zoom-actions", "append");
@@ -56,11 +67,11 @@ export function renderZoomStage({
 
     // CSS in zoom-calendar.css hides the week header and grid while another level is showing.
     weekView.dataset.zoomLevel = zoomLevel;
-    const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
-    const parentLevel = currentIndex > 0 ? ZOOM_LEVELS[currentIndex - 1] : null;
-    zoomOut = parentLevel ? () => onSetZoomLevel(parentLevel.id) : null;
+    const navLostFocus = renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel });
+    renderTodayButton(todaySlot, { zoomLevel, year, selectedDate, onSelectDate });
     renderToolbar(toolbar, zoomLevel, onSetZoomLevel);
     bindEscapeOnce();
+    bindPhoneQueryOnce();
 
     yearStage.hidden = zoomLevel !== "year";
     monthStage.hidden = zoomLevel !== "month";
@@ -79,6 +90,13 @@ export function renderZoomStage({
             onSelectMonth
         });
         activeHeader = yearStage.querySelector(".year-header");
+
+        // The Back pill hides at Year. If it had keyboard focus, hand focus to the month
+        // we came from, so focus doesn't drop to the top of the page. (The pill only
+        // shows on phones, where the zoom buttons are hidden, so they can't take it.)
+        if (navLostFocus) {
+            yearStage.querySelectorAll(".year-month")[selectedDate.getMonth()]?.focus();
+        }
     }
 
     if (zoomLevel === "month") {
@@ -88,6 +106,8 @@ export function renderZoomStage({
             reservedEvents,
             onChangeMonth,
             onSelectWeek,
+            // Phones have no Week level, so there a tapped day opens in the Day view.
+            onOpenDay: phoneQuery.matches ? onOpenDay : null,
             openEventModal
         });
         activeHeader = monthStage.querySelector(".month-header");
@@ -130,6 +150,119 @@ function getOrCreateChild(parent, className, position) {
     parent[position](child);
 
     return child;
+}
+
+// The words for one level, e.g. "2026", "October", "Week of Oct 4", "Fri, Oct 9".
+// The Back pill shows the one for the level above.
+function getLevelLabel(levelId, { zoomLevel, year, selectedDate }) {
+    if (levelId === "year") {
+        // In the Year view the arrows can move to a year other than the selected date's.
+        return String(zoomLevel === "year" ? year : selectedDate.getFullYear());
+    }
+
+    if (levelId === "month") {
+        return monthNames[selectedDate.getMonth()];
+    }
+
+    if (levelId === "week") {
+        const weekStart = new Date(selectedDate);
+
+        weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+
+        return `Week of ${formatShortDate(weekStart)}`;
+    }
+
+    return `${weekdayNames[selectedDate.getDay()]}, ${formatShortDate(selectedDate)}`;
+}
+
+function formatShortDate(dateObj) {
+    return `${monthNames[dateObj.getMonth()].slice(0, 3)} ${dateObj.getDate()}`;
+}
+
+// The Back pill names the level above, e.g. "‹ November", and zooms out to it.
+// It shows on phones only; CSS hides it on wider screens, where the Year / Month /
+// Week / Day buttons do the same job and Esc still zooms out.
+// Returns true when the pill had keyboard focus and is now hidden (at Year).
+function renderNav(nav, { zoomLevel, year, selectedDate, onSetZoomLevel }) {
+    const parentLevel = getParentLevel(zoomLevel);
+    const labelContext = { zoomLevel, year, selectedDate };
+    const hadFocus = nav.contains(document.activeElement);
+
+    lastNavDraw = { nav, args: { zoomLevel, year, selectedDate, onSetZoomLevel } };
+    zoomOut = parentLevel ? () => onSetZoomLevel(parentLevel.id) : null;
+    nav.innerHTML = "";
+
+    const backButton = document.createElement("button");
+
+    backButton.type = "button";
+    backButton.classList.add("zoom-back-btn");
+    backButton.hidden = !parentLevel;
+
+    if (parentLevel) {
+        const parentLabel = getLevelLabel(parentLevel.id, labelContext);
+
+        backButton.title = "Back (Esc)";
+        backButton.setAttribute("aria-label", `Back to ${parentLabel}`);
+        backButton.append(createBackChevron(), parentLabel);
+        backButton.addEventListener("click", zoomOut);
+    }
+
+    nav.append(backButton);
+
+    // Redrawing replaces the button, so hand keyboard focus back to the new Back pill.
+    if (hadFocus && parentLevel) {
+        backButton.focus();
+    }
+
+    return hadFocus && !parentLevel;
+}
+
+// The level Back goes up to, or null at Year. On a phone, Day goes up to Month.
+function getParentLevel(zoomLevel) {
+    if (zoomLevel === "day" && phoneQuery.matches) {
+        return ZOOM_LEVELS.find(level => level.id === "month");
+    }
+
+    const currentIndex = ZOOM_LEVELS.findIndex(level => level.id === zoomLevel);
+
+    return ZOOM_LEVELS[currentIndex - 1] || null;
+}
+
+// A "‹" chevron drawn as an icon, so it lines up with the text. Screen readers skip it;
+// they hear the pill's full name ("Back to November") instead.
+function createBackChevron() {
+    const svgNS = "http://www.w3.org/2000/svg";
+    const icon = document.createElementNS(svgNS, "svg");
+    const path = document.createElementNS(svgNS, "path");
+
+    icon.classList.add("zoom-back-icon");
+    icon.setAttribute("width", "20");
+    icon.setAttribute("height", "20");
+    icon.setAttribute("viewBox", "0 0 24 24");
+    icon.setAttribute("aria-hidden", "true");
+    icon.setAttribute("focusable", "false");
+    path.setAttribute("d", "M15 5l-7 7 7 7");
+    icon.appendChild(path);
+
+    return icon;
+}
+
+// Redraws the panel at the same zoom level when the screen crosses the phone breakpoint,
+// as a reload would. CSS swaps the Back pill and the zoom buttons on its own, but the
+// pill's label and target (Day goes up to Week on a laptop, to Month on a phone) and
+// what a day tapped in the Month view opens are set when the panel is drawn.
+function bindPhoneQueryOnce() {
+    if (isPhoneQueryBound) {
+        return;
+    }
+
+    isPhoneQueryBound = true;
+
+    phoneQuery.addEventListener("change", () => {
+        if (lastNavDraw && lastNavDraw.nav.isConnected) {
+            lastNavDraw.args.onSetZoomLevel(lastNavDraw.args.zoomLevel);
+        }
+    });
 }
 
 // Esc zooms out one level. Bound once; it always uses the latest zoomOut action.
@@ -180,8 +313,8 @@ function renderToolbar(toolbar, zoomLevel, onSetZoomLevel) {
     });
 }
 
-// Remembers where the last click inside the panel landed. Clicks on the zoom buttons
-// are ignored, so those zoom from the middle instead.
+// Remembers where the last click inside the panel landed. Clicks on the bar at the top
+// (Back pill, zoom buttons) are ignored, so those zoom from the middle instead.
 function bindPointerOnce(weekView) {
     if (isPointerBound) {
         return;
