@@ -20,9 +20,9 @@ The values live in one place, the `:root` block at the top of `zoom-calendar.css
 
 | Token | Value | Used for | Measured against | Ratio | Needs | Before |
 |---|---|---|---|---|---|---|
-| `--a11y-focus-ring` | `#0054a4` (Mesa Blue, `var(--mesa-blue)`) | Keyboard focus outline on buttons, breadcrumb, day numbers, year cards | the zoom bar, `#eef2f7` | 6.66 : 1 | 3 : 1 | District Cyan `#31a9e0` is 2.37 : 1 (fail) |
-| `--a11y-today-ring` | `#c3540b` | Ring around today in the Month and Year views | white `#ffffff` | 4.57 : 1 | 3 : 1 | Mesa orange `#f37725` was 2.81 : 1 (fail) |
-| `--a11y-text-muted` | `#435660` (Mesa Grey) | Day numbers of days outside the shown month; weekday names in the Week header; the "Unavailable" label on closed dates | the grey cell, `#f3f4f6` | 6.97 : 1 | 4.5 : 1 | `#6b7280` was 4.39 : 1 (fail) |
+| `--a11y-focus-ring` | `#0054a4` (Mesa Blue, `var(--mesa-blue)`) | Keyboard focus outline on buttons, day numbers, year cards | the zoom bar, `#eef2f7` | 6.66 : 1 | 3 : 1 | District Cyan `#31a9e0` is 2.37 : 1 (fail) |
+| `--a11y-today-ring` | `#c3540b` | Ring around today in the Month and Year views and the phone week strip | white `#ffffff` | 4.57 : 1 | 3 : 1 | Mesa orange `#f37725` was 2.81 : 1 (fail) |
+| `--a11y-text-muted` | `#435660` (Mesa Grey) | Day numbers of days outside the shown month; weekday names in the Week header; weekday letters in the phone week strip; the "Unavailable" label on closed dates | the grey cell, `#f3f4f6` | 6.97 : 1 | 4.5 : 1 | `#6b7280` was 4.39 : 1 (fail) |
 | `--a11y-text-on-fill` | `#111827` | Text on Mesa orange and Mesa green event cards | Mesa orange `#f37725` and Mesa green `#699446` | 6.32 : 1 and 5.01 : 1 | 4.5 : 1 | White was 2.81 : 1 and 3.54 : 1 (fail) |
 
 Other measurements: the focus ring is 7.49 : 1 on white; the today ring is 4.15 : 1 on the grey outside-month cell; the muted text is 7.67 : 1 on white and 5.64 : 1 on the highlighted "today" column of the Week header (`#d7dded`, where `#6b7280` was 3.55 : 1).

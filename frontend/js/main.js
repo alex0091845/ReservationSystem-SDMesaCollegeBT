@@ -385,7 +385,8 @@ function zoomIntoWeek(date) {
     setSelectedDate(date);
 }
 
-// Clicking a day header in the Week view zooms in to that day.
+// Clicking a day header in the Week view (or, on a phone, a day in the Month view)
+// zooms in to that day.
 function zoomIntoDay(date) {
     state.zoomLevel = "day";
 
@@ -421,6 +422,7 @@ function renderAll() {
         onSelectMonth: zoomIntoMonth,
         onChangeMonth: changeMonth,
         onSelectWeek: zoomIntoWeek,
+        onOpenDay: zoomIntoDay,
         onSelectDate: setSelectedDate,
         openEventModal: openCalendarEvent
     });
